@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle League - Leaderboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Emoji pattern styles */
+        .score-display {
+            display: flex;
+            align-items: center;
+        }
+        
+        .emoji-pattern {
+            margin-left: 15px;
+            font-size: 0.8rem;
+            line-height: 1.1;
+            display: inline-block;
+            letter-spacing: 0;
+            font-family: monospace;
+            text-align: right;
+        }
+        
+        .emoji-row {
+            white-space: nowrap;
+            height: 1.1em;
+            margin: 0;
+            padding: 0;
+            display: block;
+        }
+        
+        .emoji-container {
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-left: auto;
+        }
+        
+        /* Failed attempts column styling */
+        .failed-attempts {
+            background-color: rgba(128, 58, 58, 0.2);
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        /* When failed attempts is 0, make it less prominent */
+        td.failed-attempts:empty {
+            background-color: transparent;
+            color: #d7dadc;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <header style="padding: 10px 0; margin-bottom: 10px;">
+        <div class="container" style="padding: 10px; text-align: center;">
+            <h1 class="title" style="font-size: 24px; margin-bottom: 0; text-align: center;">Wordle League</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="tab-container">
+            <div class="tab-buttons tabs">
+                <div style="width: 100%; display: flex; justify-content: center;">
+                    <button class="tab-button active" data-tab="latest">Latest Scores</button>
+                    <button class="tab-button" data-tab="weekly">Weekly Totals</button>
+                </div>
+                <div style="width: 100%; display: flex; justify-content: center;">
+                    <button class="tab-button" data-tab="stats">All-Time Stats</button>
+                </div>
+            </div>
+            
+            <div id="latest" class="tab-content active">
+                <h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #6aaa64; text-align: center;">Wordle #{{ latest_wordle }} - {{ today_formatted }}</h2>
+                
+                
+                {% for score in latest_scores %}
+                    <div class="score-card">
+                        <div class="player-info">
+                            <div class="player-name">{{ score.name }}</div>
+                            {% if score.has_score and score.score != 'None' %}
+                            <div class="player-score">
+                                <span class="score-{{ score.score }}">{{ score.score }}/6</span>
+                            </div>
+                            {% else %}
+                            <div class="player-score"><span class="score-none">No Score</span></div>
+                            {% endif %}
+                        </div>
+                        {% if score.has_score and score.score != 'None' %}
+                        <div class="emoji-container">
+                            <div class="emoji-pattern">
+                            {% if score.emoji_pattern %}
+                                {%- set has_valid_emoji = false -%}
+                                {%- for line in score.emoji_pattern.split('
+') -%}
+                                    {%- if line.strip() and not 'Wordle' in line -%}
+                                        {%- if '⬛' in line or '⬜' in line or '🟨' in line or '🟩' in line -%}
+                                            {%- set has_valid_emoji = true -%}
+                                            <div class="emoji-row">{{ line.strip() }}</div>
+                                        {%- elif not 'emoji pattern detected' in line and not 'Score recorded for' in line -%}
+                                            <div class="emoji-row">{{ line.strip() }}</div>
+                                        {%- endif -%}
+                                    {%- endif -%}
+                                {%- endfor -%}
+                                {%- if not has_valid_emoji -%}
+                                    <!-- Removed duplicate score display -->
+                                {%- endif -%}
+                            {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <div id="weekly" class="tab-content">
+                <h2 style="margin-top: 5px; margin-bottom: 10px;">Weekly Totals</h2>
+                <p style="margin-top: 0; margin-bottom: 5px;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
+                <p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Weekly Score</th>
+                                <th>Used Scores</th>
+                                <th>Failed</th>
+                                <th>Thrown Out</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for player in player_stats %}
+                            <tr {% if player.used_scores >= 5 %}class="highlight"{% endif %}>
+                                <td>{{ player.name }}</td>
+                                <td class="weekly-score">{{ player.weekly_score if player.weekly_score is not none else '-' }}</td>
+                                <td class="used-scores">{{ player.used_scores }}</td>
+                                <td class="failed-attempts">{{ player.weekly_failed }}</td>
+                                <td class="thrown-out">{{ player.thrown_out|join(', ') if player.thrown_out else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 0.9em; font-style: italic; text-align: center;">Failed attempts do not count towards your 'Used Scores'</p>
+                </div>
+            </div>
+            
+            <div id="stats" class="tab-content">
+                <h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>
+                <p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em; font-style: italic;">Average includes all games. Failed attempts (X/6) count as 7 in the average calculation.</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Games</th>
+                                <th>Avg</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for player in all_time_stats %}
+                                <tr {% if (player.games_played + player.failed_attempts) >= 5 %}class="highlight"{% endif %}>
+                                    <td>{{ player.name }}</td>
+                                    <td>{{ player.games_played + player.failed_attempts }}</td>
+                                    <td>{{ player.all_time_average if player.all_time_average is not none else '-' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

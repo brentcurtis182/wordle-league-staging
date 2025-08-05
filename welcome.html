@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle League - Welcome</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121213;
+            color: #d7dadc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            color: #ffffff;
+        }
+        
+        .league-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .league-card {
+            background-color: #1a1a1b;
+            border-radius: 10px;
+            padding: 25px;
+            width: 200px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .league-card:hover {
+            transform: translateY(-10px);
+            background-color: #2a2a2b;
+        }
+        
+        .league-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+        
+        .league-description {
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .league-link {
+            display: inline-block;
+            background-color: #538d4e;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        
+        .league-link:hover {
+            background-color: #6aaa64;
+        }
+        
+        .footer {
+            margin-top: auto;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #818384;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Wordle League</h1>
+        
+        <p>Select your league below to view scores and statistics</p>
+        
+        <div class="league-container">
+            <div class="league-card">
+                <h2 class="league-title">Wordle Warriorz</h2>
+                <p class="league-description">The original league featuring Brent, Evan, Joanna, Malia, and Nanna</p>
+                <a href="index.html" class="league-link">View League</a>
+            </div>
+            
+            <div class="league-card">
+                <h2 class="league-title">Wordle Gang</h2>
+                <p class="league-description">League with Brent, Ana, Kaylie, Joanna, Keith, Rochelle, Will, and Mylene</p>
+                <a href="gang/index.html" class="league-link">View League</a>
+            </div>
+            
+            <div class="league-card">
+                <h2 class="league-title">Wordle PAL</h2>
+                <p class="league-description">League featuring Vox, Fuzwuz, Pants, and Starslider</p>
+                <a href="pal/index.html" class="league-link">View League</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>© 2025 Wordle League. All rights reserved.</p>
+    </div>
+</body>
+</html>

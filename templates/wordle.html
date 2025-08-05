@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle #{{ wordle_number }} - Wordle League</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Tab navigation */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        /* Emoji pattern styles */
+        .score-display {
+            display: flex;
+            align-items: center;
+        }
+        
+        .emoji-pattern {
+            margin-left: 15px;
+            font-size: 0.7rem;
+            line-height: 1.2;
+            display: inline-block;
+        }
+        
+        .emoji-row {
+            white-space: nowrap;
+            height: 1.2em;
+        }
+        
+        .emoji-container {
+            height: 7.2em; /* Space for 6 rows */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .tab-button {
+            background-color: #1a1a1b;
+            color: #d7dadc;
+            border: 1px solid #3a3a3c;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .tab-button:hover {
+            background-color: #3a3a3c;
+        }
+        
+        .tab-button.active {
+            background-color: #538d4e;
+            color: white;
+        }
+        
+        /* Tab content */
+        .tab-content {
+            display: none;
+            width: 100%;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Tables */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+        
+        th {
+            background-color: #538d4e;
+            color: white;
+            text-align: left;
+            padding: 12px;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #3a3a3c;
+        }
+        
+        tr:nth-child(even) {
+            background-color: rgba(58, 58, 60, 0.3);
+        }
+        
+        .weekly-score { color: #6aaa64; font-weight: bold; }
+        .used-scores { color: #c9b458; }
+        .thrown-out { color: #86888a; font-style: italic; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 class="title">Wordle League</h1>
+            <p class="subtitle">Daily Wordle Score Tracking</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="wordle-links">
+            <a href="index.html" class="wordle-link">Back to Latest</a>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('latest')">Latest Scores</button>
+            <button class="tab-button" onclick="openTab('weekly')">Weekly Totals</button>
+            <button class="tab-button" onclick="openTab('stats')">Player Stats</button>
+        </div>
+        
+        <div id="latest" class="tab-content active">
+            <h2>Wordle #{{ wordle_number }} - {{ today_date }}</h2>
+            
+            {% for score in scores %}
+                <div class="score-card">
+                    <div class="player-info">
+                        <div class="player-name">{{ score.name }}</div>
+                    </div>
+                    {% if score.has_score %}
+                    <div class="score-{{ score.score }} score-display">
+                        <div>{{ score.score }}/6</div>
+                        {% if score.emoji_pattern %}
+                        <div class="emoji-pattern">
+                            {% for line in score.emoji_pattern.split('
+') %}
+                            {% if line %}
+                            <div class="emoji-row">{{ line }}</div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="score-none score-display">
+                        No Score Posted
+                    </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div id="weekly" class="tab-content">
+            <h2>Weekly Totals</h2>
+            <p>Top 5 scores count toward weekly total (Monday-Sunday). Lower is better!</p>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Weekly Score</th>
+                            <th>Used Scores</th>
+                            <th>Thrown Out</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in player_stats %}
+                        <tr>
+                            <td>{{ player.name }}</td>
+                            <td class="weekly-score">{{ player.weekly_score if player.weekly_score else 'No scores this week' }}</td>
+                            <td class="used-scores">{{ player.used_scores if player.used_scores else 'No scores this week' }}</td>
+                            <td class="thrown-out">{{ player.thrown_out if player.thrown_out else 'None' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="stats" class="tab-content">
+            <h2>Player Statistics</h2>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Games</th>
+                            <th>Avg</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in player_stats %}
+                        <tr>
+                            <td>{{ player.name }}</td>
+                            <td>{{ player.games_played }}</td>
+                            <td>{{ player.average_score }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

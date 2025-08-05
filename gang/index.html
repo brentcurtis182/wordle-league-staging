@@ -1,119 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wordle Gang - Wordle League</title>
     <link rel="stylesheet" href="/wordle-league-staging/styles.css">
-    <style>
-        .highlight {
-            background-color: #e6ffe6;
-        }
-    </style>
+    <script src="/wordle-league-staging/script.js" defer></script>
 </head>
 <body>
     <h1>Wordle Gang</h1>
+    <p class="date-display">Last updated: 2025-08-04</p>
     
-    <h2>Weekly Stats</h2>
-    <table>
-        <tr>
-            <th>Player</th>
-            <th>Weekly Score</th>
-            <th>Used Scores</th>
-        </tr>
-
-        <tr>
-            <td>Brent</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Ana</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Kaylie</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Joanna</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Keith</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Rochelle</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Will</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>Mylene</td>
-            <td>-</td>
-            <td>0</td>
-        </tr>
-    </table>
-    
-    <h2>All-Time Stats</h2>
-    <table>
-        <tr>
-            <th>Player</th>
-            <th>Games Played</th>
-            <th>Average</th>
-        </tr>
-
-        <tr>
-            <td>Brent</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Ana</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Kaylie</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Joanna</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Keith</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Rochelle</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Will</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>Mylene</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-    </table>
-    
-    <div>
-        <p><a href="/wordle-league-staging/index.html">Back to Leagues</a></p>
+    <div class="tabs">
+        <button class="tab-button active" onclick="openTab('latest-scores')">Latest Scores</button>
+        <button class="tab-button" onclick="openTab('weekly-stats')">Weekly Stats</button>
+        <button class="tab-button" onclick="openTab('all-time-stats')">All-Time Stats</button>
     </div>
+    
+    <!-- Latest Scores Tab -->
+    <div id="latest-scores" class="tab-content active">
+        <h2>Latest Scores</h2>
+        <div class="table-container">
+            <table>
+                <tr>
+                    <th>Player</th>
+                    <th>Score</th>
+                    <th>Pattern</th>
+                </tr>
+
+                <tr>
+                    <td>Brent</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Ana</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Kaylie</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Joanna</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Keith</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Rochelle</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Will</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+                <tr>
+                    <td>Mylene</td>
+                    <td>No Score</td>
+                    <td><span class="emoji-pattern">No emoji pattern available</span></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Weekly Stats Tab -->
+    <div id="weekly-stats" class="tab-content">
+        <h2>Weekly Stats</h2>
+        <div class="table-container">
+            <table>
+                <tr>
+                    <th>Player</th>
+                    <th>Weekly Score</th>
+                    <th>Used Scores</th>
+                </tr>
+
+                <tr>
+                    <td>Brent</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Ana</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Kaylie</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Joanna</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Keith</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Rochelle</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Will</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>Mylene</td>
+                    <td>-</td>
+                    <td>0</td>
+                </tr>
+            </table>
+        </div>
+        <p><small>Note: Failed attempts (X/6) are not counted in "Used Scores" total.</small></p>
+    </div>
+    
+    <!-- All-time Stats Tab -->
+    <div id="all-time-stats" class="tab-content">
+        <h2>All-Time Stats</h2>
+        <div class="table-container">
+            <table>
+                <tr>
+                    <th>Player</th>
+                    <th>Games Played</th>
+                    <th>Average</th>
+                </tr>
+
+                <tr>
+                    <td>Brent</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Ana</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Kaylie</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Joanna</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Keith</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Rochelle</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Will</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Mylene</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+            </table>
+        </div>
+        <p><small>Note: Failed attempts (X/6) count as 7 in average calculation.</small></p>
+    </div>
+    
+    <script>
+    function openTab(tabName) {
+        // Hide all tab content
+        var tabContents = document.getElementsByClassName("tab-content");
+        for (var i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+        }
+        
+        // Remove active class from all tab buttons
+        var tabButtons = document.getElementsByClassName("tab-button");
+        for (var i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove("active");
+        }
+        
+        // Show selected tab and mark its button as active
+        document.getElementById(tabName).classList.add("active");
+        
+        // Find the button that opens this tab and mark it as active
+        var buttons = document.querySelectorAll('.tab-button');
+        for (var i = 0; i < buttons.length; i++) {
+            if (buttons[i].getAttribute('onclick').includes(tabName)) {
+                buttons[i].classList.add("active");
+            }
+        }
+    }
+    </script>
 </body>
 </html>
