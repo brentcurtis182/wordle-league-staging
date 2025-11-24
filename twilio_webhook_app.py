@@ -92,12 +92,20 @@ def get_player_from_phone(phone_number, league_id):
     return None
 
 def get_todays_wordle_number():
-    """Calculate today's Wordle number based on reference date"""
+    """Calculate today's Wordle number based on reference date in Pacific Time"""
+    from datetime import timezone, timedelta
+    
     # Wordle #1503 = July 31, 2025
     ref_date = date(2025, 7, 31)
     ref_wordle = 1503
-    today = date.today()
-    days_since_ref = (today - ref_date).days
+    
+    # Get current time in Pacific Time (UTC-8 or UTC-7 depending on DST)
+    # For simplicity, use UTC-8 (PST)
+    pacific_tz = timezone(timedelta(hours=-8))
+    now_pacific = datetime.now(pacific_tz)
+    today_pacific = now_pacific.date()
+    
+    days_since_ref = (today_pacific - ref_date).days
     return ref_wordle + days_since_ref
 
 def extract_wordle_score(message_body):
