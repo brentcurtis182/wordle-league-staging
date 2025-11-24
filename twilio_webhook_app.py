@@ -244,6 +244,13 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
 def webhook():
     """Handle incoming messages from Twilio Conversations - SILENT MODE (no SMS responses)"""
     try:
+        # DEBUG: Log all incoming data
+        logging.info(f"Request content type: {request.content_type}")
+        logging.info(f"Request is_json: {request.is_json}")
+        logging.info(f"Form data keys: {list(request.form.keys())}")
+        if request.is_json:
+            logging.info(f"JSON data keys: {list(request.get_json().keys())}")
+        
         # Twilio Conversations sends JSON payload, not form data
         # Try JSON first (Conversations), fall back to form data (simple SMS)
         if request.is_json:
@@ -255,8 +262,10 @@ def webhook():
             
             logging.info(f"Conversations webhook: {event_type} from {from_number}")
         else:
-            # Simple SMS format (fallback)
-            from_number = request.form.get('From', '')
+            # Simple SMS format (fallback) - try multiple field names
+            from_number = (request.form.get('From') or 
+                          request.form.get('Author') or 
+                          request.form.get('MessagingBinding.Address') or '')
             message_body = request.form.get('Body', '')
             logging.info(f"Simple SMS from {from_number}")
         
