@@ -34,13 +34,30 @@ PHONE_MAPPINGS = {
 def get_db_connection():
     """Get PostgreSQL database connection"""
     try:
-        conn = psycopg2.connect(
-            host=os.environ.get('PGHOST'),
-            database=os.environ.get('PGDATABASE'),
-            user=os.environ.get('PGUSER'),
-            password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT', 5432)
-        )
+        # Try DATABASE_URL first (Railway style), then fall back to individual vars
+        database_url = os.environ.get('DATABASE_URL')
+        
+        if database_url:
+            logging.info(f"Connecting via DATABASE_URL")
+            conn = psycopg2.connect(database_url)
+        else:
+            # Fall back to individual environment variables
+            pghost = os.environ.get('PGHOST')
+            pgdb = os.environ.get('PGDATABASE')
+            pguser = os.environ.get('PGUSER')
+            pgport = os.environ.get('PGPORT', 5432)
+            
+            logging.info(f"Connecting to PostgreSQL: host={pghost}, db={pgdb}, user={pguser}, port={pgport}")
+            
+            conn = psycopg2.connect(
+                host=pghost,
+                database=pgdb,
+                user=pguser,
+                password=os.environ.get('PGPASSWORD'),
+                port=pgport
+            )
+        
+        logging.info("Database connection successful!")
         return conn
     except Exception as e:
         logging.error(f"Database connection error: {e}")
