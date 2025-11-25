@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""
+HTML Generation v2 - Using the proven data adapter
+Generates leaderboard HTML pages using existing Wordle League logic
+"""
+
+import logging
+from datetime import datetime, date, timedelta
+
+def format_wordle_date(wordle_num):
+    """Convert Wordle number to date string"""
+    # First Wordle (Wordle 0) was on June 19, 2021
+    first_wordle_date = date(2021, 6, 19)
+    wordle_date = first_wordle_date + timedelta(days=wordle_num)
+    return wordle_date.strftime("%B %d, %Y")
+
+def get_day_name(wordle_num):
+    """Get day name (Mon, Tue, etc) for a Wordle number"""
+    first_wordle_date = date(2021, 6, 19)
+    wordle_date = first_wordle_date + timedelta(days=wordle_num)
+    return wordle_date.strftime("%a")
+
+def generate_score_card_html(player_name, score_data):
+    """Generate HTML for a single score card in Latest Scores tab"""
+    score = score_data.get('score')
+    emoji_pattern = score_data.get('emoji_pattern')
+    
+    if score is None or score == 0:
+        score_display = '<span>No Score</span>'
+        emoji_html = '<div class="emoji-pattern"></div>'
+    else:
+        # Color code the score
+        if score <= 3:
+            color = '#6aaa64'  # Green
+            bg_color = 'rgba(106, 170, 100, 0.15)'
+        elif score <= 5:
+            color = '#c9b458'  # Yellow
+            bg_color = 'rgba(201, 180, 88, 0.15)'
+        else:
+            color = '#ff5c5c'  # Red
+            bg_color = 'rgba(255, 92, 92, 0.15)'
+        
+        score_text = 'X' if score == 7 else f"{score}"
+        score_display = f'<span style="color: {color}; background-color: {bg_color}; padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">{score_text}/6</span>'
+        
+        # Generate emoji pattern HTML
+        if emoji_pattern:
+            emoji_rows = emoji_pattern.strip().split('\n')
+            emoji_html = '<div class="emoji-pattern">'
+            for row in emoji_rows:
+                emoji_html += f'<div class="emoji-row">{row}</div>'
+            emoji_html += '</div>'
+        else:
+            emoji_html = '<div class="emoji-pattern"></div>'
+    
+    return f'''<div class="score-card">
+    <div class="player-info">
+        <div class="player-name">{player_name}</div>
+        <div class="player-score">{score_display}</div>
+    </div>
+    <div class="emoji-container">{emoji_html}</div>
+</div>'''
+
+def generate_latest_scores_html(league_data):
+    """Generate Latest Scores tab HTML"""
+    today_wordle = league_data['today_wordle']
+    wordle_date = format_wordle_date(today_wordle)
+    
+    html = f'<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #6aaa64; text-align: center;">Wordle #{today_wordle} - {wordle_date}</h2>\n'
+    
+    # Show all players
+    for player_name in sorted(league_data['latest_scores'].keys()):
+        score_data = league_data['latest_scores'][player_name]
+        html += generate_score_card_html(player_name, score_data)
+    
+    return html
+
+def generate_score_cell(score):
+    """Generate HTML for a score cell in the weekly table"""
+    if score is None:
+        return '<td>-</td>'
+    
+    if score == 7:  # Failed attempt
+        return '<td class="failed" style="color: #ff5c5c; font-weight: bold;">X</td>'
+    elif score <= 3:
+        return f'<td class="good" style="color: #6aaa64; font-weight: bold;">{score}</td>'
+    elif score <= 5:
+        return f'<td class="medium" style="color: #c9b458; font-weight: bold;">{score}</td>'
+    else:
+        return f'<td class="bad" style="color: #ff5c5c; font-weight: bold;">{score}</td>'
+
+def generate_weekly_totals_html(league_data):
+    """Generate Weekly Totals tab HTML"""
+    week_wordles = league_data['week_wordles']
+    weekly_stats = league_data['weekly_stats']
+    
+    html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+<div class="table-container" style="overflow-x: auto;">
+<table>
+<thead>
+<tr>
+    <th class="sticky-column">Player</th>
+    <th>Weekly Score</th>
+    <th>Used Scores</th>
+    <th>Failed</th>
+    <th>Thrown Out</th>
+'''
+    
+    # Add column headers for each day of the week (Monday-Sunday) - NO Wordle numbers
+    for wordle_num in week_wordles:
+        day_name = get_day_name(wordle_num)
+        html += f'    <th>{day_name}</th>\n'
+    
+    html += '</tr>\n</thead>\n<tbody>\n'
+    
+    # Sort players by best_5_total (ascending)
+    sorted_players = sorted(
+        weekly_stats.items(),
+        key=lambda x: (x[1]['best_5_total'] if x[1]['used_scores'] >= 5 else 999, x[0])
+    )
+    
+    for player_name, stats in sorted_players:
+        # Highlight winner
+        row_class = ''
+        if league_data['weekly_winner'] and player_name == league_data['weekly_winner']['name']:
+            row_class = ' class="highlight"'
+        
+        html += f'<tr{row_class}>\n'
+        html += f'    <td class="sticky-column"><strong>{player_name}</strong></td>\n'
+        # Show current total even if less than 5 games, but only highlight/compete if >= 5
+        if stats["used_scores"] > 0:
+            total_display = str(stats["best_5_total"])
+        else:
+            total_display = "-"
+        html += f'    <td style="font-weight: bold;">{total_display}</td>\n'
+        html += f'    <td>{stats["used_scores"]}</td>\n'
+        # Failed column - only highlight if there ARE failed attempts
+        if stats["failed_attempts"] > 0:
+            html += f'    <td style="color: #ff5c5c; font-weight: bold;">{stats["failed_attempts"]}</td>\n'
+        else:
+            html += f'    <td>-</td>\n'
+        html += f'    <td>{stats["thrown_out"] if stats["thrown_out"] > 0 else "-"}</td>\n'
+        
+        # Add daily scores
+        for wordle_num in week_wordles:
+            if wordle_num in stats['daily_scores']:
+                score = stats['daily_scores'][wordle_num]['score']
+                html += generate_score_cell(score)
+            else:
+                html += '<td>-</td>\n'
+        
+        html += '</tr>\n'
+    
+    html += '</tbody>\n</table>\n'
+    html += '<p class="note" style="font-style: italic; margin-top: 10px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
+    html += '<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your best 5 scores. Additional scores appear in \'Thrown Out\'</p>\n'
+    html += '</div>\n'
+    
+    return html
+
+def generate_season_stats_html(league_data):
+    """Generate Season / All-Time Stats tab HTML"""
+    html = '<div class="season-container" style="margin-bottom: 30px;">\n'
+    html += '<h3 style="margin-bottom: 10px; color: #6aaa64;">Season 1</h3>\n'
+    html += '<table class="season-table">\n'
+    html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
+    html += '<tbody>\n'
+    html += '</tbody>\n</table>\n'
+    html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get 4 weekly wins is the Season Champ!</p>\n'
+    html += '</div>\n'
+    
+    # All-Time Stats
+    html += '<div class="all-time-container">\n'
+    html += '<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>\n'
+    html += '<table>\n'
+    html += '<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>\n'
+    html += '<tbody>\n'
+    
+    for i, stats in enumerate(league_data['all_time_stats']):
+        # Only highlight first player WITH scores
+        has_scores = stats["games_played"] > 0
+        row_class = ' class="highlight" style="background-color: rgba(106, 170, 100, 0.15);"' if i == 0 and has_scores else ''
+        html += f'<tr{row_class}>\n'
+        html += f'    <td><strong>{stats["name"]}</strong></td>\n'
+        html += f'    <td>{stats["games_played"] if has_scores else "-"}</td>\n'
+        avg_display = f'{stats["avg_score"]:.2f}' if has_scores else "-"
+        html += f'    <td>{avg_display}</td>\n'
+        html += '</tr>\n'
+    
+    html += '</tbody>\n</table>\n</div>\n'
+    
+    return html
+
+def generate_full_html(league_data, league_name="League 6 Beta"):
+    """Generate complete HTML page"""
+    latest_html = generate_latest_scores_html(league_data)
+    weekly_html = generate_weekly_totals_html(league_data)
+    stats_html = generate_season_stats_html(league_data)
+    
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{league_name} - Wordle League</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+    /* Emoji pattern styles */
+    .score-display {{
+        display: flex;
+        align-items: center;
+    }}
+    
+    .emoji-pattern {{
+        margin-left: 15px;
+        font-size: 0.8rem;
+        line-height: 1.1;
+        display: inline-block;
+        letter-spacing: 0;
+        font-family: monospace;
+        text-align: right;
+    }}
+    
+    .emoji-row {{
+        white-space: nowrap;
+        height: 1.1em;
+        margin: 0;
+        padding: 0;
+        display: block;
+    }}
+    
+    .emoji-container {{
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-left: auto;
+    }}
+    
+    .highlight {{
+        background-color: rgba(106, 170, 100, 0.2);
+    }}
+    
+    /* Failed attempts column styling */
+    .failed-attempts {{
+        background-color: rgba(128, 58, 58, 0.2);
+        font-weight: bold;
+        color: #ff6b6b;
+    }}
+</style>
+</head>
+<body>
+<header style="padding: 10px 0; margin-bottom: 10px;">
+<div class="container" style="padding: 10px; text-align: center;">
+<h1 class="title" style="font-size: 24px; margin-bottom: 0; text-align: center;">{league_name}</h1>
+</div>
+</header>
+<div class="container">
+<div class="tab-container">
+<div class="tab-buttons tabs">
+<div style="width: 100%; display: flex; justify-content: center;">
+<button class="tab-button active" data-tab="latest">Latest Scores</button>
+<button class="tab-button" data-tab="weekly">Weekly Totals</button>
+</div>
+<div style="width: 100%; display: flex; justify-content: center;">
+<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
+</div>
+</div>
+<div class="tab-content active" id="latest">
+{latest_html}
+</div>
+<div class="tab-content" id="weekly">
+{weekly_html}
+</div>
+<div class="tab-content" id="stats">
+{stats_html}
+</div>
+</div>
+</div>
+<script src="script.js"></script>
+<script src="tabs.js"></script>
+</body>
+</html>'''
+    
+    return html
+
+if __name__ == "__main__":
+    # Test with mock data
+    logging.basicConfig(level=logging.INFO)
+    print("Use league_data_adapter.py to get real data, then pass to generate_full_html()")

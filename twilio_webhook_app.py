@@ -328,8 +328,35 @@ def webhook():
         # Log the result but don't send SMS
         if result == "new":
             logging.info(f"✅ Score recorded! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
+            
+            # Trigger update pipeline (async to avoid blocking webhook response)
+            try:
+                from update_pipeline import run_update_pipeline
+                logging.info("🔄 Triggering update pipeline...")
+                pipeline_status = run_update_pipeline(league_id=league_id)
+                if pipeline_status['success']:
+                    logging.info(f"✅ Pipeline completed in {pipeline_status['duration']:.2f}s")
+                else:
+                    logging.error(f"❌ Pipeline failed: {', '.join(pipeline_status['errors'])}")
+            except Exception as pipeline_error:
+                logging.error(f"Pipeline error: {pipeline_error}")
+                # Don't fail the webhook if pipeline fails
+                
         elif result == "updated":
             logging.info(f"✅ Score updated! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
+            
+            # Also trigger pipeline on updates
+            try:
+                from update_pipeline import run_update_pipeline
+                logging.info("🔄 Triggering update pipeline...")
+                pipeline_status = run_update_pipeline(league_id=league_id)
+                if pipeline_status['success']:
+                    logging.info(f"✅ Pipeline completed in {pipeline_status['duration']:.2f}s")
+                else:
+                    logging.error(f"❌ Pipeline failed: {', '.join(pipeline_status['errors'])}")
+            except Exception as pipeline_error:
+                logging.error(f"Pipeline error: {pipeline_error}")
+                
         elif result == "exists":
             logging.info(f"Score already exists for {player_name}: Wordle #{wordle_num}")
         elif result == "old_score":
