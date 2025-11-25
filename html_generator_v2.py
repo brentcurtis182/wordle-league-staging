@@ -29,14 +29,14 @@ def generate_score_card_html(player_name, score_data):
         score_display = '<span>No Score</span>'
         emoji_html = '<div class="emoji-pattern"></div>'
     else:
-        # Color code the score
+        # Color code the score (1-3 green, 4-6 yellow, 7/X red)
         if score <= 3:
             color = '#6aaa64'  # Green
             bg_color = 'rgba(106, 170, 100, 0.15)'
-        elif score <= 5:
+        elif score <= 6:
             color = '#c9b458'  # Yellow
             bg_color = 'rgba(201, 180, 88, 0.15)'
-        else:
+        else:  # 7 or X
             color = '#ff5c5c'  # Red
             bg_color = 'rgba(255, 92, 92, 0.15)'
         
@@ -68,8 +68,22 @@ def generate_latest_scores_html(league_data):
     
     html = f'<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #6aaa64; text-align: center;">Wordle #{today_wordle} - {wordle_date}</h2>\n'
     
-    # Show all players
-    for player_name in sorted(league_data['latest_scores'].keys()):
+    # Sort players: those with scores first, then those without (alphabetically within each group)
+    players_with_scores = []
+    players_without_scores = []
+    
+    for player_name, score_data in league_data['latest_scores'].items():
+        if score_data.get('score'):
+            players_with_scores.append(player_name)
+        else:
+            players_without_scores.append(player_name)
+    
+    # Sort each group alphabetically
+    players_with_scores.sort()
+    players_without_scores.sort()
+    
+    # Show players with scores first, then players without
+    for player_name in players_with_scores + players_without_scores:
         score_data = league_data['latest_scores'][player_name]
         html += generate_score_card_html(player_name, score_data)
     
@@ -80,11 +94,11 @@ def generate_score_cell(score):
     if score is None:
         return '<td>-</td>'
     
-    if score == 7:  # Failed attempt
+    if score == 7:  # Failed attempt (X)
         return '<td class="failed" style="color: #ff5c5c; font-weight: bold;">X</td>'
-    elif score <= 3:
+    elif score <= 3:  # 1-3 green
         return f'<td class="good" style="color: #6aaa64; font-weight: bold;">{score}</td>'
-    elif score <= 5:
+    elif score <= 6:  # 4-6 yellow
         return f'<td class="medium" style="color: #c9b458; font-weight: bold;">{score}</td>'
     else:
         return f'<td class="bad" style="color: #ff5c5c; font-weight: bold;">{score}</td>'
