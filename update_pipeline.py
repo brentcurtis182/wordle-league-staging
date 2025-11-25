@@ -62,20 +62,39 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         }
         logging.info(f"[Pipeline] HTML generated successfully ({len(html_content)} chars) in {status['steps']['generate_html']['duration']:.2f}s")
         
-        # Step 3: Publish to GitHub
+        # Step 3: Publish to GitHub (HTML + CSS/JS assets)
         logging.info(f"[Pipeline] Step 3: Publishing to GitHub Pages")
         step_start = datetime.now()
         
-        file_path = 'league6/index.html'
         commit_message = f"Update League 6 - Wordle #{league_data['today_wordle']}"
         
-        publish_success = publish_to_github(html_content, file_path, commit_message)
+        # Read CSS and JS files
+        import os
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        with open(os.path.join(base_dir, 'styles.css'), 'r', encoding='utf-8') as f:
+            styles_css = f.read()
+        with open(os.path.join(base_dir, 'script.js'), 'r', encoding='utf-8') as f:
+            script_js = f.read()
+        with open(os.path.join(base_dir, 'tabs.js'), 'r', encoding='utf-8') as f:
+            tabs_js = f.read()
+        
+        # Publish all files
+        from github_publisher import publish_multiple_files
+        files = {
+            'league6/index.html': html_content,
+            'league6/styles.css': styles_css,
+            'league6/script.js': script_js,
+            'league6/tabs.js': tabs_js
+        }
+        
+        publish_success = publish_multiple_files(files, commit_message)
         
         status['steps']['publish_github'] = {
             'success': publish_success,
             'duration': (datetime.now() - step_start).total_seconds(),
             'details': {
-                'file_path': file_path
+                'files': list(files.keys())
             }
         }
         
