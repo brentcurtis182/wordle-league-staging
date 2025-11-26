@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""
+Scheduled Tasks for Wordle League Cloud
+Runs daily at 12:01 AM Pacific Time to:
+1. Clear latest scores for new day
+2. Calculate weekly winners (on Mondays)
+3. Check for season transitions
+4. Update HTML and publish
+"""
+
+import os
+import sys
+import logging
+from datetime import datetime, timedelta
+import pytz
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from cloud_deployment.league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from cloud_deployment.update_tables_cloud import run_full_update_for_league
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+
+def clear_latest_scores(league_id):
+    """
+    Clear latest_scores table for a new day
+    This resets the 'Latest Scores' tab
+    """
+    logging.info(f"Clearing latest scores for league {league_id}")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Clear all latest scores for this league
+        cursor.execute("""
+            DELETE FROM latest_scores
+            WHERE league_id = %s
+        """, (league_id,))
+        
+        conn.commit()
+        logging.info(f"Cleared {cursor.rowcount} latest scores for league {league_id}")
+        
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error clearing latest scores: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def is_monday():
+    """Check if today is Monday (start of new week)"""
+    pacific = pytz.timezone('America/Los_Angeles')
+    now = datetime.now(pacific)
+    return now.weekday() == 0  # Monday = 0
+
+def run_daily_reset(league_id):
+    """
+    Run daily reset tasks:
+    1. Clear latest scores
+    2. If Monday, calculate weekly winners and check season transitions
+    3. Regenerate and publish HTML
+    """
+    logging.info("=" * 60)
+    logging.info(f"DAILY RESET - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logging.info("=" * 60)
+    
+    try:
+        # Step 1: Clear latest scores
+        clear_latest_scores(league_id)
+        
+        # Step 2: If Monday, run full weekly update
+        if is_monday():
+            logging.info("🗓️  MONDAY - Running weekly winner calculation and season check")
+            success = run_full_update_for_league(league_id)
+            if success:
+                logging.info("✅ Weekly update completed successfully")
+            else:
+                logging.error("❌ Weekly update failed")
+        else:
+            logging.info("Not Monday - skipping weekly winner calculation")
+            
+            # Still regenerate HTML to show cleared latest scores
+            from cloud_deployment.update_pipeline import run_update_pipeline
+            pipeline_status = run_update_pipeline(league_id)
+            if pipeline_status['success']:
+                logging.info("✅ HTML regenerated and published")
+            else:
+                logging.error("❌ HTML regeneration failed")
+        
+        logging.info("=" * 60)
+        logging.info("DAILY RESET COMPLETE")
+        logging.info("=" * 60)
+        
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error in daily reset: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def run_all_leagues_daily_reset():
+    """Run daily reset for all active leagues"""
+    # For now, just League 6
+    # Later you can add other leagues: [1, 2, 3, 4, 5, 6]
+    leagues = [6]
+    
+    for league_id in leagues:
+        logging.info(f"\n{'='*60}")
+        logging.info(f"Processing League {league_id}")
+        logging.info(f"{'='*60}")
+        run_daily_reset(league_id)
+
+if __name__ == "__main__":
+    # This script should be run daily at 12:01 AM Pacific
+    run_all_leagues_daily_reset()

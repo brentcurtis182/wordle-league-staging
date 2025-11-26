@@ -380,6 +380,21 @@ def health():
     """Health check endpoint"""
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
 
+@app.route('/daily-reset', methods=['GET', 'POST'])
+def daily_reset_endpoint():
+    """
+    Endpoint for scheduled daily reset
+    Should be called at midnight Pacific by external cron service
+    """
+    try:
+        from scheduled_tasks import run_all_leagues_daily_reset
+        logging.info("Daily reset triggered via endpoint")
+        run_all_leagues_daily_reset()
+        return {'status': 'success', 'message': 'Daily reset completed'}, 200
+    except Exception as e:
+        logging.error(f"Daily reset error: {e}")
+        return {'status': 'error', 'message': str(e)}, 500
+
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint"""
@@ -387,4 +402,4 @@ def index():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
