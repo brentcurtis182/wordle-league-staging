@@ -14,8 +14,8 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the weekly winners adapter
-from cloud_deployment.weekly_winners_adapter import load_weekly_winners, save_weekly_winners
-from cloud_deployment.league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from weekly_winners_adapter import load_weekly_winners, save_weekly_winners
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
 
 # Import core functions from original script
 from update_tables_preserve_structure import (
