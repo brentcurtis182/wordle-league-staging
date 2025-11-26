@@ -118,14 +118,35 @@ else:
 
 ---
 
+## FIXES COMPLETED
+
+1. ✅ **Wordle number validation** - Only accepts today/yesterday
+2. ✅ **Reaction filtering** - All reaction types ignored
+3. ✅ **Weekly totals sorting** - Eligible players first, then by score
+4. ✅ **Database schema** - Added emoji_pattern column and constraints
+
+## STILL TO AUDIT
+
+1. ⏳ **Season table HTML generation** - Compare proven vs cloud
+2. ✅ **All-time stats** - reset_date is FUTURE FEATURE (admin panel), not needed now
+3. ⏳ **Weekly reset logic** - Monday reset behavior
+4. ⏳ **Daily reset** - Verify it doesn't clear permanent scores
+5. ⏳ **Edge cases** - X scores display, missing days, etc.
+
+## FUTURE FEATURES (Not Needed Now)
+
+1. **reset_date filtering** - For admin panel where users can reset leagues
+   - Reset seasons but keep all-time stats
+   - Reset all-time but keep seasons
+   - Full league reset
+   - User wants this for future league management UI
+
 ## NEXT STEPS
 
-1. Fix Wordle number validation (CRITICAL)
-2. Compare HTML generation line-by-line
-3. Verify season table logic
-4. Check weekly reset logic
-5. Verify all-time stats calculation
-6. Test edge cases (X scores, missing days, etc.)
+1. Compare season table HTML generation
+2. Verify all-time stats calculation matches
+3. Check Monday weekly reset logic
+4. Test edge cases (X scores, missing days, etc.)
 
 ---
 
