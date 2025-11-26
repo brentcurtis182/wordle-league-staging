@@ -17,8 +17,8 @@ import pytz
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cloud_deployment.league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
-from cloud_deployment.update_tables_cloud import run_full_update_for_league
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from update_tables_cloud import run_full_update_for_league
 
 # Set up logging
 logging.basicConfig(
@@ -140,7 +140,7 @@ def run_daily_reset(league_id):
             logging.info("Not Monday - skipping weekly winner calculation")
             
             # Still regenerate HTML to show cleared latest scores
-            from cloud_deployment.update_pipeline import run_update_pipeline
+            from update_pipeline import run_update_pipeline
             pipeline_status = run_update_pipeline(league_id)
             if pipeline_status['success']:
                 logging.info("✅ HTML regenerated and published")
