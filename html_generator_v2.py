@@ -128,13 +128,15 @@ def generate_weekly_totals_html(league_data):
     
     html += '</tr>\n</thead>\n<tbody>\n'
     
-    # Sort players: more games first, then by score
-    # Players with 5+ games sorted by score, then players with <5 games sorted by games (desc) then score
+    # Sort players: ELIGIBLE FIRST (5+ scores), then by score, then by games
+    # This matches the proven script logic exactly
     sorted_players = sorted(
         weekly_stats.items(),
         key=lambda x: (
-            -x[1]['used_scores'],  # More games first (negative for descending)
-            x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999  # Then by score
+            x[1]['used_scores'] < 5,  # Eligible (5+) first (False sorts before True)
+            -x[1]['used_scores'] if x[1]['used_scores'] < 5 else 0,  # Non-eligible by games (desc)
+            x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999,  # Then by score (asc)
+            -x[1]['games_played']  # Tie-breaker: more games played
         )
     )
     

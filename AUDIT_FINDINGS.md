@@ -44,11 +44,16 @@ else:
 - ✅ Calculates best 5 scores
 - ✅ Tracks thrown out scores
 - ✅ Handles X scores as 7
-- ❓ Daily scores by Wordle number (not weekday names)
-- ❓ No CSS class assignment
-- ❓ Sorting logic may differ
+- ✅ Daily scores by Wordle number (converted to day names in HTML)
+- ✅ CSS class assignment in HTML generator
+- ❌ **SORTING MISMATCH:** Doesn't separate eligible/ineligible first!
 
-**Action:** Need to verify weekly totals HTML generation matches proven script
+### ISSUE: Sorting Logic Mismatch
+**Proven:** Eligible players (5+ scores) ALWAYS appear first, sorted by score
+**Cloud:** All players sorted by game count, then score (no eligible/ineligible separation)
+
+**Impact:** Players with 4 games could appear above players with 5 games if they have a better score
+**Fix Needed:** Update `html_generator_v2.py` lines 133-138 to match proven sorting
 
 ---
 
