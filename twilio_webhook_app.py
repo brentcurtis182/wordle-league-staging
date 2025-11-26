@@ -138,6 +138,23 @@ def extract_wordle_score(message_body):
         logging.warning(f"Could not convert Wordle number: {wordle_num_str}")
         return None, None, None
     
+    # CRITICAL: Validate Wordle number is today or yesterday only
+    from datetime import date, timedelta
+    ref_date = date(2021, 6, 19)
+    ref_wordle = 0
+    today = date.today()
+    days_since_ref = (today - ref_date).days
+    today_wordle = ref_wordle + days_since_ref
+    yesterday_wordle = today_wordle - 1
+    
+    if wordle_num == today_wordle:
+        logging.info(f"✓ VALIDATED: Wordle #{wordle_num} is today's")
+    elif wordle_num == yesterday_wordle:
+        logging.info(f"✓ VALIDATED: Wordle #{wordle_num} is yesterday's (late submission)")
+    else:
+        logging.warning(f"✗ REJECTED: Wordle #{wordle_num} is neither today's ({today_wordle}) nor yesterday's ({yesterday_wordle})")
+        return None, None, None
+    
     # Extract score
     score_str = match.group(2)
     if score_str.upper() == 'X':
