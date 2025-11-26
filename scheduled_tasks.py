@@ -67,14 +67,15 @@ def set_last_reset_date(league_id, reset_date):
 
 def clear_latest_scores(league_id):
     """
-    Clear latest_scores table for a new day
+    Clear latest scores table for a new day
     This resets the 'Latest Scores' tab
-    Only clears if it's actually a new day
+    Only clears if we haven't already reset today
     """
     pacific = pytz.timezone('America/Los_Angeles')
-    today = datetime.now(pacific).strftime('%Y-%m-%d')
+    now_pacific = datetime.now(pacific)
+    today = now_pacific.strftime('%Y-%m-%d')
     
-    # Check last reset date
+    # Check if we already reset today
     last_reset = get_last_reset_date(league_id)
     
     if last_reset == today:
