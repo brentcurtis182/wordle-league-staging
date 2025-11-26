@@ -128,19 +128,28 @@ def generate_weekly_totals_html(league_data):
     
     html += '</tr>\n</thead>\n<tbody>\n'
     
-    # Sort players by best_5_total (ascending)
+    # Sort players: more games first, then by score
+    # Players with 5+ games sorted by score, then players with <5 games sorted by games (desc) then score
     sorted_players = sorted(
         weekly_stats.items(),
-        key=lambda x: (x[1]['best_5_total'] if x[1]['used_scores'] >= 5 else 999, x[0])
+        key=lambda x: (
+            -x[1]['used_scores'],  # More games first (negative for descending)
+            x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999  # Then by score
+        )
     )
     
     for player_name, stats in sorted_players:
-        # Highlight winner
+        # Highlight players with 5+ games in green
         row_class = ''
+        row_style = ''
+        if stats['used_scores'] >= 5:
+            row_style = ' style="background-color: rgba(106, 170, 100, 0.15);"'
+        
+        # Also highlight weekly winner
         if league_data['weekly_winner'] and player_name == league_data['weekly_winner']['name']:
             row_class = ' class="highlight"'
         
-        html += f'<tr{row_class}>\n'
+        html += f'<tr{row_class}{row_style}>\n'
         html += f'    <td class="sticky-column"><strong>{player_name}</strong></td>\n'
         # Show current total even if less than 5 games, but only highlight/compete if >= 5
         if stats["used_scores"] > 0:
