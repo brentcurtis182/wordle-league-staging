@@ -314,8 +314,8 @@ def webhook():
         
         # Conversation to League mapping
         conversation_to_league = {
+            'CH1ef798b5bfba4e5297268d69c01949f5': 6,  # League 6
             'CH4438ff5531514178bb13c5c0e96d5579': 7,  # BellyUp (League 7)
-            # Add League 6 conversation SID here when you have it
         }
         
         # Default to League 6 if no conversation SID or not mapped
