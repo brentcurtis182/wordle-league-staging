@@ -304,8 +304,23 @@ def webhook():
             # Return empty TwiML response (no SMS sent back)
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
-        # For now, all beta players are in League 6
-        league_id = 6
+        # Map conversation SID to league ID
+        # Get conversation SID from request
+        conversation_sid = None
+        if request.is_json:
+            conversation_sid = request.get_json().get('ConversationSid')
+        else:
+            conversation_sid = request.form.get('ConversationSid')
+        
+        # Conversation to League mapping
+        conversation_to_league = {
+            'CH4438ff5531514178bb13c5c0e96d5579': 7,  # BellyUp (League 7)
+            # Add League 6 conversation SID here when you have it
+        }
+        
+        # Default to League 6 if no conversation SID or not mapped
+        league_id = conversation_to_league.get(conversation_sid, 6)
+        logging.info(f"Conversation SID: {conversation_sid} -> League {league_id}")
         
         # Get player name from phone number
         player_name = get_player_from_phone(from_number, league_id)

@@ -164,9 +164,9 @@ def run_daily_reset(league_id):
 
 def run_all_leagues_daily_reset():
     """Run daily reset for all active leagues"""
-    # For now, just League 6
-    # Later you can add other leagues: [1, 2, 3, 4, 5, 6]
-    leagues = [6]
+    # Beta leagues: 6 and 7
+    # Later you can add other leagues: [1, 2, 3, 4, 5]
+    leagues = [6, 7]
     
     for league_id in leagues:
         logging.info(f"\n{'='*60}")
