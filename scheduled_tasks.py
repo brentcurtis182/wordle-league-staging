@@ -32,10 +32,11 @@ def get_last_reset_date(league_id):
     cursor = conn.cursor()
     
     try:
+        key = f'last_reset_date_league_{league_id}'
         cursor.execute("""
-            SELECT setting_value FROM settings
-            WHERE league_id = %s AND setting_key = 'last_reset_date'
-        """, (league_id,))
+            SELECT value FROM settings
+            WHERE key = %s
+        """, (key,))
         
         result = cursor.fetchone()
         if result:
@@ -51,12 +52,13 @@ def set_last_reset_date(league_id, reset_date):
     cursor = conn.cursor()
     
     try:
+        key = f'last_reset_date_league_{league_id}'
         cursor.execute("""
-            INSERT INTO settings (league_id, setting_key, setting_value)
-            VALUES (%s, 'last_reset_date', %s)
-            ON CONFLICT (league_id, setting_key) 
-            DO UPDATE SET setting_value = EXCLUDED.setting_value
-        """, (league_id, reset_date))
+            INSERT INTO settings (key, value)
+            VALUES (%s, %s)
+            ON CONFLICT (key) 
+            DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+        """, (key, reset_date))
         
         conn.commit()
     finally:
