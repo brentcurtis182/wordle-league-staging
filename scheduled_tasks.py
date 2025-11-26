@@ -119,4 +119,12 @@ def run_all_leagues_daily_reset():
 
 if __name__ == "__main__":
     # This script should be run daily at 12:01 AM Pacific
-    run_all_leagues_daily_reset()
+    # Can be run via Railway cron job or external scheduler
+    print("Starting daily reset...")
+    success = run_all_leagues_daily_reset()
+    if success:
+        print("Daily reset completed successfully!")
+        sys.exit(0)
+    else:
+        print("Daily reset failed!")
+        sys.exit(1)
