@@ -329,15 +329,15 @@ def webhook():
         if result == "new":
             logging.info(f"✅ Score recorded! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Trigger update pipeline (async to avoid blocking webhook response)
+            # Trigger full update pipeline including weekly winners
             try:
-                from update_pipeline import run_update_pipeline
-                logging.info("🔄 Triggering update pipeline...")
-                pipeline_status = run_update_pipeline(league_id=league_id)
-                if pipeline_status['success']:
-                    logging.info(f"✅ Pipeline completed in {pipeline_status['duration']:.2f}s")
+                from update_tables_cloud import run_full_update_for_league
+                logging.info("Triggering full update pipeline...")
+                success = run_full_update_for_league(league_id=league_id)
+                if success:
+                    logging.info("Pipeline completed successfully")
                 else:
-                    logging.error(f"❌ Pipeline failed: {', '.join(pipeline_status['errors'])}")
+                    logging.error("Pipeline failed")
             except Exception as pipeline_error:
                 logging.error(f"Pipeline error: {pipeline_error}")
                 # Don't fail the webhook if pipeline fails
@@ -345,15 +345,15 @@ def webhook():
         elif result == "updated":
             logging.info(f"✅ Score updated! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Also trigger pipeline on updates
+            # Also trigger full update on updates
             try:
-                from update_pipeline import run_update_pipeline
-                logging.info("🔄 Triggering update pipeline...")
-                pipeline_status = run_update_pipeline(league_id=league_id)
-                if pipeline_status['success']:
-                    logging.info(f"✅ Pipeline completed in {pipeline_status['duration']:.2f}s")
+                from update_tables_cloud import run_full_update_for_league
+                logging.info("Triggering full update pipeline...")
+                success = run_full_update_for_league(league_id=league_id)
+                if success:
+                    logging.info("Pipeline completed successfully")
                 else:
-                    logging.error(f"❌ Pipeline failed: {', '.join(pipeline_status['errors'])}")
+                    logging.error("Pipeline failed")
             except Exception as pipeline_error:
                 logging.error(f"Pipeline error: {pipeline_error}")
                 

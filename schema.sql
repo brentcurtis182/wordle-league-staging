@@ -51,11 +51,32 @@ CREATE TABLE IF NOT EXISTS season_winners (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Weekly winners table (replaces weekly_winners.json)
+CREATE TABLE IF NOT EXISTS weekly_winners (
+    id SERIAL PRIMARY KEY,
+    league_id INTEGER NOT NULL,
+    week_wordle_number INTEGER NOT NULL,
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    player_name VARCHAR(100) NOT NULL,
+    score INTEGER NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(league_id, week_wordle_number, player_id)
+);
+
+-- League seasons table (tracks current season per league)
+CREATE TABLE IF NOT EXISTS league_seasons (
+    league_id INTEGER PRIMARY KEY,
+    current_season INTEGER DEFAULT 1,
+    season_start_week INTEGER,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_scores_player_wordle ON scores(player_id, wordle_number);
 CREATE INDEX IF NOT EXISTS idx_scores_league_date ON scores(player_id, date);
 CREATE INDEX IF NOT EXISTS idx_players_league ON players(league_id);
 CREATE INDEX IF NOT EXISTS idx_latest_scores_league ON latest_scores(league_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_winners_league_week ON weekly_winners(league_id, week_wordle_number);
 
 -- Insert League 6 Beta Test players
 INSERT INTO players (name, phone_number, league_id, active) VALUES

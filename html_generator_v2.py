@@ -175,13 +175,40 @@ def generate_weekly_totals_html(league_data):
 
 def generate_season_stats_html(league_data):
     """Generate Season / All-Time Stats tab HTML"""
+    season_data = league_data.get('season_data', {})
+    current_season = season_data.get('current_season', 1)
+    season_standings = season_data.get('season_standings', {})
+    season_winners = season_data.get('season_winners', [])
+    
     html = '<div class="season-container" style="margin-bottom: 30px;">\n'
-    html += '<h3 style="margin-bottom: 10px; color: #6aaa64;">Season 1</h3>\n'
+    html += f'<h3 style="margin-bottom: 10px; color: #6aaa64;">Season {current_season}</h3>\n'
     html += '<table class="season-table">\n'
     html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
     html += '<tbody>\n'
+    
+    # Add current season standings
+    if season_standings:
+        # Sort by wins descending
+        sorted_standings = sorted(season_standings.items(), key=lambda x: x[1]['wins'], reverse=True)
+        for player_name, data in sorted_standings:
+            wins = data['wins']
+            weeks_display = ', '.join([f"{w} ({s})" for w, s in zip(data['weeks'], data['scores'])])
+            html += f'<tr>\n'
+            html += f'    <td><strong>{player_name}</strong></td>\n'
+            html += f'    <td>{wins}</td>\n'
+            html += f'    <td>{weeks_display if weeks_display else "-"}</td>\n'
+            html += '</tr>\n'
+    
     html += '</tbody>\n</table>\n'
     html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get 4 weekly wins is the Season Champ!</p>\n'
+    
+    # Show previous season winners if any
+    if season_winners:
+        for winner in season_winners:
+            season_num = winner.get('season', 0)
+            winner_name = winner.get('name', 'Unknown')
+            html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winner_name}</p>\n'
+    
     html += '</div>\n'
     
     # All-Time Stats

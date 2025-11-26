@@ -299,6 +299,9 @@ def get_complete_league_data(league_id):
     else:
         logging.warning(f"No players met minimum 5 games requirement for week {week_wordles[0]}")
     
+    # Get season data (will be populated by season_management module)
+    season_data = get_season_data(league_id)
+    
     return {
         'league_id': league_id,
         'today_wordle': today_wordle,
@@ -307,7 +310,80 @@ def get_complete_league_data(league_id):
         'weekly_stats': weekly_stats,
         'weekly_winner': weekly_winner,
         'all_time_stats': all_time_stats,
+        'season_data': season_data,
         'timestamp': datetime.now()
+    }
+
+def get_season_data(league_id):
+    """Get season information from PostgreSQL"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get current season
+    cursor.execute("""
+        SELECT current_season, season_start_week
+        FROM league_seasons
+        WHERE league_id = %s
+    """, (league_id,))
+    
+    season_result = cursor.fetchone()
+    current_season = season_result[0] if season_result else 1
+    season_start_week = season_result[1] if season_result else None
+    
+    # Get current season standings (weekly wins)
+    season_standings = {}
+    if season_start_week:
+        cursor.execute("""
+            SELECT 
+                ww.player_name,
+                ww.week_wordle_number,
+                ww.score
+            FROM weekly_winners ww
+            WHERE ww.league_id = %s
+              AND ww.week_wordle_number >= %s
+            ORDER BY ww.player_name, ww.week_wordle_number
+        """, (league_id, season_start_week))
+        
+        for row in cursor.fetchall():
+            player_name = row[0]
+            week_num = row[1]
+            score = row[2]
+            
+            if player_name not in season_standings:
+                season_standings[player_name] = {
+                    'wins': 0,
+                    'weeks': [],
+                    'scores': []
+                }
+            
+            season_standings[player_name]['wins'] += 1
+            season_standings[player_name]['weeks'].append(week_num)
+            season_standings[player_name]['scores'].append(score)
+    
+    # Get past season winners
+    cursor.execute("""
+        SELECT sw.season_number, p.name, sw.wins
+        FROM season_winners sw
+        JOIN players p ON sw.player_id = p.id
+        WHERE sw.league_id = %s
+        ORDER BY sw.season_number DESC
+    """, (league_id,))
+    
+    season_winners = []
+    for row in cursor.fetchall():
+        season_winners.append({
+            'season': row[0],
+            'name': row[1],
+            'wins': row[2]
+        })
+    
+    cursor.close()
+    conn.close()
+    
+    return {
+        'current_season': current_season,
+        'season_standings': season_standings,
+        'season_winners': season_winners
     }
 
 if __name__ == "__main__":
