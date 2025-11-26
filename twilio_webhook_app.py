@@ -250,6 +250,15 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                     SET score = %s, emoji_pattern = %s, timestamp = %s 
                     WHERE player_id = %s AND wordle_number = %s
                 """, (score, emoji_pattern, now, player_id, wordle_num))
+                
+                # Also update latest_scores
+                cursor.execute("""
+                    INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (player_id, wordle_number) 
+                    DO UPDATE SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp
+                """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
+                
                 conn.commit()
                 logging.info(f"Updated score for {player_name}, Wordle #{wordle_num}")
                 cursor.close()
@@ -259,11 +268,20 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                 cursor.close()
                 return "exists"
         else:
-            # Insert new score
+            # Insert new score into scores table
             cursor.execute("""
                 INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (player_id, wordle_num, score, wordle_date, emoji_pattern, now))
+            
+            # Also insert into latest_scores table for daily tracking
+            cursor.execute("""
+                INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (player_id, wordle_number) 
+                DO UPDATE SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp
+            """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
+            
             conn.commit()
             logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_num}")
             cursor.close()
