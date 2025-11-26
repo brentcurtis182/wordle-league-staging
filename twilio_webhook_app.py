@@ -323,6 +323,11 @@ def webhook():
         
         logging.info(f"Message from {from_number}: {message_body[:100]}")
         
+        # Ignore "Liked" messages
+        if message_body.strip().startswith('Liked'):
+            logging.info("Ignoring 'Liked' message")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+        
         # Extract Wordle score
         wordle_num, score, emoji_pattern = extract_wordle_score(message_body)
         
