@@ -215,10 +215,24 @@ def generate_season_stats_html(league_data):
     
     # Show previous season winners if any
     if season_winners:
+        # Group winners by season to handle ties
+        seasons_dict = {}
         for winner in season_winners:
             season_num = winner.get('season', 0)
             winner_name = winner.get('name', 'Unknown')
-            html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winner_name}</p>\n'
+            if season_num not in seasons_dict:
+                seasons_dict[season_num] = []
+            seasons_dict[season_num].append(winner_name)
+        
+        # Display each season's winners
+        for season_num in sorted(seasons_dict.keys()):
+            winners = seasons_dict[season_num]
+            if len(winners) == 1:
+                html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winners[0]}</p>\n'
+            else:
+                # Multiple winners (tie)
+                winner_list = ' and '.join(winners) if len(winners) == 2 else ', '.join(winners[:-1]) + ', and ' + winners[-1]
+                html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winners: {winner_list}</p>\n'
     
     html += '</div>\n'
     
