@@ -109,14 +109,12 @@ def get_latest_scores_for_display(league_id):
     latest_scores = {}
     
     for player in players:
-        # Get their most recent score (prefer today, but show latest if no score today)
+        # Get ONLY today's score (not most recent)
         cursor.execute("""
             SELECT wordle_number, score, emoji_pattern, date
             FROM scores
-            WHERE player_id = %s
-            ORDER BY wordle_number DESC
-            LIMIT 1
-        """, (player['id'],))
+            WHERE player_id = %s AND wordle_number = %s
+        """, (player['id'], today_wordle))
         
         result = cursor.fetchone()
         
@@ -128,6 +126,7 @@ def get_latest_scores_for_display(league_id):
                 'date': result[3]
             }
         else:
+            # No score for today - show as not submitted
             latest_scores[player['name']] = {
                 'wordle_num': today_wordle,
                 'score': None,
