@@ -20,6 +20,12 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     Returns:
         dict: Status information
     """
+    # Map league IDs to URL slugs
+    league_slugs = {
+        6: 'league6',
+        7: 'bellyup'
+    }
+    league_slug = league_slugs.get(league_id, f'league{league_id}')
     start_time = datetime.now()
     status = {
         'success': False,
@@ -66,7 +72,7 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         logging.info(f"[Pipeline] Step 3: Publishing to GitHub Pages")
         step_start = datetime.now()
         
-        commit_message = f"Update League 6 - Wordle #{league_data['today_wordle']}"
+        commit_message = f"Update {league_slug} - Wordle #{league_data['today_wordle']}"
         
         # Read CSS and JS files
         import os
@@ -82,10 +88,10 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         # Publish all files
         from github_publisher import publish_multiple_files
         files = {
-            'league6/index.html': html_content,
-            'league6/styles.css': styles_css,
-            'league6/script.js': script_js,
-            'league6/tabs.js': tabs_js
+            f'{league_slug}/index.html': html_content,
+            f'{league_slug}/styles.css': styles_css,
+            f'{league_slug}/script.js': script_js,
+            f'{league_slug}/tabs.js': tabs_js
         }
         
         publish_success = publish_multiple_files(files, commit_message)
