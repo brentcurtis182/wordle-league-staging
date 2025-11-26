@@ -26,12 +26,60 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 
+def get_last_reset_date(league_id):
+    """Get the last reset date from settings table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT setting_value FROM settings
+            WHERE league_id = %s AND setting_key = 'last_reset_date'
+        """, (league_id,))
+        
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def set_last_reset_date(league_id, reset_date):
+    """Store the last reset date in settings table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO settings (league_id, setting_key, setting_value)
+            VALUES (%s, 'last_reset_date', %s)
+            ON CONFLICT (league_id, setting_key) 
+            DO UPDATE SET setting_value = EXCLUDED.setting_value
+        """, (league_id, reset_date))
+        
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
 def clear_latest_scores(league_id):
     """
     Clear latest_scores table for a new day
     This resets the 'Latest Scores' tab
+    Only clears if it's actually a new day
     """
-    logging.info(f"Clearing latest scores for league {league_id}")
+    pacific = pytz.timezone('America/Los_Angeles')
+    today = datetime.now(pacific).strftime('%Y-%m-%d')
+    
+    # Check last reset date
+    last_reset = get_last_reset_date(league_id)
+    
+    if last_reset == today:
+        logging.info(f"Already reset today ({today}) - skipping")
+        return False
+    
+    logging.info(f"Clearing latest scores for league {league_id} (last reset: {last_reset}, today: {today})")
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -46,9 +94,15 @@ def clear_latest_scores(league_id):
         conn.commit()
         logging.info(f"Cleared {cursor.rowcount} latest scores for league {league_id}")
         
+        # Update last reset date
+        set_last_reset_date(league_id, today)
+        
+        return True
+        
     except Exception as e:
         conn.rollback()
         logging.error(f"Error clearing latest scores: {e}")
+        return False
     finally:
         cursor.close()
         conn.close()
