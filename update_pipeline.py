@@ -20,12 +20,17 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     Returns:
         dict: Status information
     """
-    # Map league IDs to URL slugs
+    # Map league IDs to URL slugs and names
     league_slugs = {
         6: 'league6',
         7: 'bellyup'
     }
+    league_names = {
+        6: 'League 6 Beta',
+        7: 'BellyUp'
+    }
     league_slug = league_slugs.get(league_id, f'league{league_id}')
+    league_display_name = league_names.get(league_id, f'League {league_id}')
     start_time = datetime.now()
     status = {
         'success': False,
@@ -57,7 +62,7 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         logging.info(f"[Pipeline] Step 2: Generating HTML")
         step_start = datetime.now()
         
-        html_content = generate_full_html(league_data, league_name)
+        html_content = generate_full_html(league_data, league_display_name)
         
         status['steps']['generate_html'] = {
             'success': True,
