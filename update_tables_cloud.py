@@ -17,18 +17,152 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from weekly_winners_adapter import load_weekly_winners, save_weekly_winners
 from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
 
-# Import core functions from original script
-from update_tables_preserve_structure import (
-    check_for_season_winners,
-    WINS_FOR_SEASON_VICTORY,
-    MIN_GAMES_REQUIRED
-)
+# Constants from original script
+WINS_FOR_SEASON_VICTORY = 4  # Number of weekly wins to win a season
+MIN_GAMES_REQUIRED = 5       # Require 5 games minimum for weekly winner eligibility
 
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
+
+def check_for_season_winners(winners_data):
+    """
+    Check if any league has players with 4+ weekly wins, who qualify as season winners.
+    Each league operates independently with its own season schedule.
+    """
+    logging.info("Checking for season winners (requires 4 weekly wins)")
+    
+    # Process each league independently
+    for league_key in winners_data['leagues']:
+        league_info = winners_data['leagues'][league_key]
+        
+        # Get current season from league data (don't override it)
+        current_season = league_info.get('current_season', 1)
+        
+        logging.info(f"Checking league {league_key} ('{league_info.get('name', 'Unknown')}') - current season: {current_season}")
+        
+        # Get season boundaries for the current season
+        seasons_data = league_info.get('seasons', {})
+        season_start_week = None
+        season_end_week = None
+        
+        if str(current_season) in seasons_data:
+            season_start_week = seasons_data[str(current_season)].get('start_week')
+            season_end_week = seasons_data[str(current_season)].get('end_week')
+        
+        # Count weekly wins per player ONLY within current season boundaries
+        player_wins = {}
+        
+        logging.info(f"  Counting wins for season {current_season}: start_week={season_start_week}, end_week={season_end_week}")
+        
+        # Access weekly_winners correctly using the new structure
+        if 'weekly_winners' in league_info:
+            for week, winners in league_info['weekly_winners'].items():
+                week_num = int(week)
+                
+                # Skip weeks outside current season boundaries
+                if season_start_week and week_num < int(season_start_week):
+                    logging.info(f"    Skipping week {week_num} (before season start {season_start_week})")
+                    continue
+                if season_end_week and week_num > int(season_end_week):
+                    logging.info(f"    Skipping week {week_num} (after season end {season_end_week})")
+                    continue
+                
+                logging.info(f"    Processing week {week_num} (within season boundaries)")
+                for winner in winners:
+                    player_name = winner.get('name', 'Unknown')
+                    if player_name not in player_wins:
+                        player_wins[player_name] = 0
+                    player_wins[player_name] += 1
+                    logging.info(f"      {player_name} now has {player_wins[player_name]} weekly wins in season {current_season}")
+        
+        # Check if any player has enough wins to win the season
+        season_winners = []
+        for player_name, win_count in player_wins.items():
+            if win_count >= WINS_FOR_SEASON_VICTORY:
+                season_winners.append({
+                    'name': player_name,
+                    'weekly_wins': win_count,
+                    'season': current_season,
+                    'completed_date': datetime.now().strftime("%Y-%m-%d")
+                })
+                logging.info(f"  {player_name} has {win_count} weekly wins (threshold: {WINS_FOR_SEASON_VICTORY})")
+        
+        # If we have winners, update the season_winners entry and reset league data
+        if season_winners:
+            # Sort by win count (descending) to find who has the most wins
+            season_winners.sort(key=lambda x: x['weekly_wins'], reverse=True)
+            
+            # Get the highest win count
+            top_win_count = season_winners[0]['weekly_wins']
+            
+            # CRITICAL: Only the player(s) with the MOST wins are season winners
+            final_winners = [w for w in season_winners if w['weekly_wins'] == top_win_count]
+            
+            # Format winner names for display
+            winner_names = ', '.join([w['name'] for w in final_winners])
+            logging.info(f"  Season {current_season} winner(s): {winner_names} with {top_win_count} wins")
+            
+            # Add winners to the season_winners data
+            if 'season_winners' not in league_info:
+                league_info['season_winners'] = []
+                
+            # Add all winning players
+            for winner in final_winners:
+                # Check if this winner is already recorded to avoid duplicates
+                winner_exists = False
+                for existing_winner in league_info.get('season_winners', []):
+                    if (existing_winner.get('name') == winner['name'] and 
+                        (existing_winner.get('season') == winner['season'] or
+                         existing_winner.get('season_number') == winner['season'])):
+                        winner_exists = True
+                        break
+                        
+                if not winner_exists:
+                    league_info['season_winners'].append(winner)
+                    logging.info(f"SEASON TRANSITION: League {league_key}: {winner['name']} is Season {current_season} winner with {winner['weekly_wins']} weekly wins")
+            
+            # Mark this season as complete
+            if 'completed_seasons' not in league_info:
+                league_info['completed_seasons'] = []
+                
+            if current_season not in league_info['completed_seasons']:
+                league_info['completed_seasons'].append(current_season)
+                logging.info(f"Marked season {current_season} as complete for league {league_key}")
+            
+            # Update season boundaries: close current season, start new season
+            if str(current_season) in seasons_data:
+                # Set end_week for completed season to the latest week with data
+                if 'weekly_winners' in league_info:
+                    weeks = sorted([int(w) for w in league_info['weekly_winners'].keys() if league_info['weekly_winners'][w]])
+                    if weeks:
+                        latest_week = str(weeks[-1])
+                        seasons_data[str(current_season)]['end_week'] = latest_week
+                        logging.info(f"Set season {current_season} end_week to {latest_week} for league {league_key}")
+            
+            # Increment season when player reaches 4 wins
+            new_season = current_season + 1
+            league_info['current_season'] = new_season
+            
+            # Update global current_seasons tracker
+            if 'current_seasons' in winners_data:
+                winners_data['current_seasons'][league_key] = new_season
+            
+            # Create new season entry with start week as next Monday
+            if 'weekly_winners' in league_info:
+                weeks = sorted([int(w) for w in league_info['weekly_winners'].keys()])
+                if weeks:
+                    # Next season starts 7 days after the last week
+                    next_season_start = str(weeks[-1] + 7)
+                    if str(new_season) not in seasons_data:
+                        seasons_data[str(new_season)] = {
+                            'start_week': next_season_start,
+                            'end_week': None,
+                            'winner': None
+                        }
+                        logging.info(f"Created season {new_season} entry with start_week {next_season_start} for league {league_key}")
 
 def update_weekly_winners_from_db(league_id):
     """
