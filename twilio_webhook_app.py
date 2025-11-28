@@ -347,6 +347,18 @@ def webhook():
                 logging.info(f"Ignoring '{pattern}' reaction message")
                 return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
+        # CRITICAL: Ignore messages with emoji reactions followed by "to" and quoted text
+        # Format: "😮​ to " Wordle..." or similar emoji reactions
+        import re
+        if re.search(r'^[\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF].*\s+to\s+"', message_body, re.IGNORECASE):
+            logging.info(f"Ignoring emoji reaction message (emoji + 'to \"')")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+        
+        # Also ignore if message contains quotes around Wordle (someone reacting to a score)
+        if ' to "Wordle' in message_body or 'to " Wordle' in message_body:
+            logging.info(f"Ignoring quoted Wordle score (reaction to someone else's score)")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+        
         # Extract Wordle score
         wordle_num, score, emoji_pattern = extract_wordle_score(message_body)
         
