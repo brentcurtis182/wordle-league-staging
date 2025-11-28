@@ -68,23 +68,37 @@ def generate_latest_scores_html(league_data):
     
     html = f'<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #6aaa64; text-align: center;">Wordle #{today_wordle} - {wordle_date}</h2>\n'
     
-    # Sort players: those with scores first, then those without (alphabetically within each group)
-    players_with_scores = []
-    players_without_scores = []
+    # Sort players: scores first (by numeric value), then No Score (alphabetically)
+    # This matches the proven script logic
+    players_list = []
     
     for player_name, score_data in league_data['latest_scores'].items():
-        if score_data.get('score'):
-            players_with_scores.append(player_name)
+        score = score_data.get('score')
+        
+        # Determine sort keys
+        if score and score > 0:
+            # Has a score: sort by numeric value (X/6 = 7)
+            has_score = 0  # Scores come first
+            numeric_score = score  # Already numeric (1-7)
         else:
-            players_without_scores.append(player_name)
+            # No score: push to bottom
+            has_score = 1
+            numeric_score = 999
+        
+        players_list.append({
+            'name': player_name,
+            'data': score_data,
+            'has_score': has_score,
+            'numeric_score': numeric_score
+        })
     
-    # Sort each group alphabetically
-    players_with_scores.sort()
-    players_without_scores.sort()
+    # Sort: scores first (by value), then No Score (by name)
+    players_list.sort(key=lambda x: (x['has_score'], x['numeric_score'], x['name']))
     
-    # Show players with scores first, then players without
-    for player_name in players_with_scores + players_without_scores:
-        score_data = league_data['latest_scores'][player_name]
+    # Generate HTML for sorted players
+    for player_info in players_list:
+        player_name = player_info['name']
+        score_data = player_info['data']
         html += generate_score_card_html(player_name, score_data)
     
     return html
