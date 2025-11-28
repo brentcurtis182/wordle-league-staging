@@ -260,30 +260,11 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
         now = datetime.now()
         
         if existing_score:
-            # Update if different
-            if existing_score[0] != score or existing_score[1] != emoji_pattern:
-                cursor.execute("""
-                    UPDATE scores 
-                    SET score = %s, emoji_pattern = %s, timestamp = %s 
-                    WHERE player_id = %s AND wordle_number = %s
-                """, (score, emoji_pattern, now, player_id, wordle_num))
-                
-                # Also update latest_scores
-                cursor.execute("""
-                    INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (player_id, wordle_number) 
-                    DO UPDATE SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp
-                """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
-                
-                conn.commit()
-                logging.info(f"Updated score for {player_name}, Wordle #{wordle_num}")
-                cursor.close()
-                return "updated"
-            else:
-                logging.info(f"Score already exists for {player_name}, Wordle #{wordle_num}")
-                cursor.close()
-                return "exists"
+            # CRITICAL: Once a score is posted, it's LOCKED - never update
+            # This prevents reactions or duplicate submissions from overwriting legitimate scores
+            logging.info(f"Score already exists for {player_name}, Wordle #{wordle_num} - LOCKED (no updates allowed)")
+            cursor.close()
+            return "exists"
         else:
             # Insert new score into scores table
             cursor.execute("""
@@ -357,6 +338,14 @@ def webhook():
         # Also ignore if message contains quotes around Wordle (someone reacting to a score)
         if ' to "Wordle' in message_body or 'to " Wordle' in message_body:
             logging.info(f"Ignoring quoted Wordle score (reaction to someone else's score)")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+        
+        # CRITICAL: Reject messages that don't start with "Wordle" (after stripping whitespace)
+        # Legitimate submissions from NYT app always start with "Wordle"
+        # Anything before "Wordle" is a reaction/comment
+        stripped_message = message_body.strip()
+        if not stripped_message.startswith('Wordle'):
+            logging.info(f"Ignoring message that doesn't start with 'Wordle': {message_body[:50]}")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
         # Extract Wordle score
