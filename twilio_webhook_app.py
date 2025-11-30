@@ -518,6 +518,24 @@ def fix_jeremy():
         logging.error(f"Error fixing Jeremy's score: {e}")
         return {'error': str(e)}, 500
 
+@app.route('/restore-today', methods=['POST'])
+def restore_today():
+    """Restore today's scores from Twilio logs"""
+    try:
+        from restore_todays_scores import restore_todays_scores
+        logging.info("Restoring today's scores from Twilio...")
+        count = restore_todays_scores()
+        return {
+            'success': True,
+            'message': f'Restored {count} scores from Twilio',
+            'scores_restored': count
+        }, 200
+    except Exception as e:
+        logging.error(f"Error restoring scores: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint"""
