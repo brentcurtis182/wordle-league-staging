@@ -168,11 +168,16 @@ def run_all_leagues_daily_reset():
     # Later you can add other leagues: [1, 2, 3, 4, 5]
     leagues = [6, 7]
     
+    all_success = True
     for league_id in leagues:
         logging.info(f"\n{'='*60}")
         logging.info(f"Processing League {league_id}")
         logging.info(f"{'='*60}")
-        run_daily_reset(league_id)
+        success = run_daily_reset(league_id)
+        if not success:
+            all_success = False
+    
+    return all_success
 
 if __name__ == "__main__":
     # This script should be run daily at 12:01 AM Pacific
