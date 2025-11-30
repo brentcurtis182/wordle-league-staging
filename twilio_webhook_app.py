@@ -536,6 +536,35 @@ def restore_today():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/restore-nov30', methods=['POST'])
+def restore_nov30():
+    """Restore Nov 30 scores for Matt and Rob"""
+    try:
+        from restore_nov30 import restore_scores
+        logging.info("Restoring Nov 30 scores...")
+        success = restore_scores()
+        
+        if success:
+            # Trigger HTML regeneration
+            from update_tables_cloud import run_full_update_for_league
+            logging.info("Regenerating HTML...")
+            run_full_update_for_league(league_id=6)
+            
+            return {
+                'success': True,
+                'message': 'Restored Nov 30 scores and regenerated HTML'
+            }, 200
+        else:
+            return {
+                'success': False,
+                'message': 'No scores were restored'
+            }, 200
+    except Exception as e:
+        logging.error(f"Error restoring Nov 30 scores: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint"""
