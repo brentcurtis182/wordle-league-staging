@@ -74,6 +74,7 @@ def generate_latest_scores_html(league_data):
     
     for player_name, score_data in league_data['latest_scores'].items():
         score = score_data.get('score')
+        timestamp = score_data.get('timestamp', '')  # Get timestamp for tie-breaking
         
         # Determine sort keys
         if score and score > 0:
@@ -84,16 +85,19 @@ def generate_latest_scores_html(league_data):
             # No score: push to bottom
             has_score = 1
             numeric_score = 999
+            timestamp = 'zzz'  # Push no-scores to bottom alphabetically
         
         players_list.append({
             'name': player_name,
             'data': score_data,
             'has_score': has_score,
-            'numeric_score': numeric_score
+            'numeric_score': numeric_score,
+            'timestamp': timestamp
         })
     
-    # Sort: scores first (by value), then No Score (by name)
-    players_list.sort(key=lambda x: (x['has_score'], x['numeric_score'], x['name']))
+    # Sort: scores first (by value), then by timestamp (first posted = top)
+    # For tied scores, earlier timestamp appears first
+    players_list.sort(key=lambda x: (x['has_score'], x['numeric_score'], x['timestamp'], x['name']))
     
     # Generate HTML for sorted players
     for player_info in players_list:
