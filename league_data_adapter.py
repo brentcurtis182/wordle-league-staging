@@ -193,7 +193,11 @@ def get_weekly_stats(league_id):
         best_5_scores = all_scores[:5] if len(all_scores) >= 5 else all_scores
         best_5_total = sum(best_5_scores)
         used_scores = len(best_5_scores)
-        thrown_out = max(0, len(all_scores) - 5)
+        
+        # Get the actual thrown out scores (not just the count)
+        thrown_out_scores = all_scores[5:] if len(all_scores) > 5 else []
+        thrown_out = thrown_out_scores  # List of actual scores thrown out
+        
         avg_score = best_5_total / used_scores if used_scores > 0 else 0
         
         weekly_stats[player['name']] = {

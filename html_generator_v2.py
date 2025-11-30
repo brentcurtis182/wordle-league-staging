@@ -179,7 +179,12 @@ def generate_weekly_totals_html(league_data):
             html += f'    <td style="color: #ff5c5c; font-weight: bold;">{stats["failed_attempts"]}</td>\n'
         else:
             html += f'    <td>-</td>\n'
-        html += f'    <td>{stats["thrown_out"] if stats["thrown_out"] > 0 else "-"}</td>\n'
+        # Thrown Out column - show actual scores, not count
+        if stats["thrown_out"] and len(stats["thrown_out"]) > 0:
+            thrown_out_display = ', '.join(str(s) for s in stats["thrown_out"])
+            html += f'    <td>{thrown_out_display}</td>\n'
+        else:
+            html += f'    <td>-</td>\n'
         
         # Add daily scores
         for wordle_num in week_wordles:
