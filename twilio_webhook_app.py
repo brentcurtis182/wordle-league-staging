@@ -762,6 +762,38 @@ def check_table_schema():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-league4-season', methods=['GET'])
+def check_league4_season():
+    """Check League 4 season settings"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT current_season, season_start_week, season_end_week
+            FROM league_seasons
+            WHERE league_id = 4
+        """)
+        
+        result = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        if result:
+            return jsonify({
+                'current_season': result[0],
+                'season_start_week': result[1],
+                'season_end_week': result[2]
+            })
+        else:
+            return jsonify({'error': 'No season data found for League 4'})
+    except Exception as e:
+        logging.error(f"Error checking season: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/check-league4-players', methods=['GET'])
 def check_league4_players():
     """Check if League 4 players exist in database"""
