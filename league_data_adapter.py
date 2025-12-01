@@ -338,13 +338,12 @@ def get_season_data(league_id):
     season_standings = {}
     cursor.execute("""
         SELECT 
-            p.name,
-            ww.week_start_wordle,
-            ww.best_5_total
+            ww.player_name,
+            ww.week_wordle_number,
+            ww.score
         FROM weekly_winners ww
-        JOIN players p ON ww.player_id = p.id
         WHERE ww.league_id = %s
-        ORDER BY p.name, ww.week_start_wordle
+        ORDER BY ww.player_name, ww.week_wordle_number
     """, (league_id,))
     
     for row in cursor.fetchall():
