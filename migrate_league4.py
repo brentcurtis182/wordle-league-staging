@@ -129,26 +129,35 @@ def migrate_league4():
                 logging.info(f"  Season {season}: {player_name} ({wins} wins)")
         
         conn.commit()
+        cursor.close()
+        conn.close()
+        
         logging.info("✅ League 4 migration completed successfully!")
         
-        # Step 6: Generate HTML
+        # Step 6: Generate HTML (separate from DB transaction)
         logging.info("Generating HTML...")
-        from update_pipeline import run_update_pipeline
-        success = run_update_pipeline(4)
-        
-        if success:
-            logging.info("✅ HTML generated and published!")
-        else:
-            logging.error("❌ HTML generation failed")
+        try:
+            from update_pipeline import run_update_pipeline
+            success = run_update_pipeline(4)
+            
+            if success:
+                logging.info("✅ HTML generated and published!")
+            else:
+                logging.error("❌ HTML generation failed")
+        except Exception as html_error:
+            logging.error(f"HTML generation error (non-fatal): {html_error}")
         
     except Exception as e:
         logging.error(f"Error during migration: {e}")
         import traceback
         traceback.print_exc()
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
+        try:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+        except:
+            pass
+        raise
 
 if __name__ == "__main__":
     migrate_league4()
