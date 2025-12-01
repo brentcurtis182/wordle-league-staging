@@ -378,6 +378,7 @@ def webhook():
         
         # Conversation to League mapping
         conversation_to_league = {
+            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # Party (League 4)
             'CH1ef798b5bfba4e5297268d69c01949f5': 6,  # League 6
             'CH4438ff5531514178bb13c5c0e96d5579': 7,  # BellyUp (League 7)
         }
