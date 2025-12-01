@@ -164,12 +164,18 @@ def check_for_season_winners(winners_data):
                         }
                         logging.info(f"Created season {new_season} entry with start_week {next_season_start} for league {league_key}")
 
-def update_weekly_winners_from_db(league_id):
+def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wordle=None):
     """
     Calculate and save weekly winners for a league
     This is the cloud version of update_weekly_winners_json()
+    
+    If week_start_wordle and week_end_wordle are provided, only calculate that specific week.
+    Otherwise, calculate all weeks (used for initial setup).
     """
-    logging.info(f"Updating weekly winners for league {league_id}")
+    if week_start_wordle and week_end_wordle:
+        logging.info(f"Updating weekly winners for league {league_id}, week {week_start_wordle}-{week_end_wordle}")
+    else:
+        logging.info(f"Updating weekly winners for league {league_id} (all weeks)")
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -201,26 +207,33 @@ def update_weekly_winners_from_db(league_id):
         current_season = season_result[0] if season_result else 1
         season_start_week = season_result[1] if season_result else None
         
-        # Get all weeks since season start (or all time if no season start)
-        if season_start_week:
-            min_wordle = season_start_week
+        # If specific week provided, only process that week
+        if week_start_wordle and week_end_wordle:
+            # Calculate the Monday date for this week
+            from league_data_adapter import get_week_start_date
+            monday_date = get_week_start_date(week_start_wordle)
+            weeks = [(monday_date, week_start_wordle)]
         else:
-            min_wordle = 1507  # OFFICIAL_SEASON_START
-        
-        # Get all Monday dates (week starts) that have scores
-        cursor.execute("""
-            SELECT DISTINCT 
-                DATE_TRUNC('week', date + INTERVAL '1 day')::date - INTERVAL '1 day' as monday_date,
-                MIN(wordle_number) as week_wordle
-            FROM scores s
-            JOIN players p ON s.player_id = p.id
-            WHERE p.league_id = %s
-              AND s.wordle_number >= %s
-            GROUP BY monday_date
-            ORDER BY monday_date
-        """, (league_id, min_wordle))
-        
-        weeks = cursor.fetchall()
+            # Get all weeks since season start (or all time if no season start)
+            if season_start_week:
+                min_wordle = season_start_week
+            else:
+                min_wordle = 1507  # OFFICIAL_SEASON_START
+            
+            # Get all Monday dates (week starts) that have scores
+            cursor.execute("""
+                SELECT DISTINCT 
+                    DATE_TRUNC('week', date + INTERVAL '1 day')::date - INTERVAL '1 day' as monday_date,
+                    MIN(wordle_number) as week_wordle
+                FROM scores s
+                JOIN players p ON s.player_id = p.id
+                WHERE p.league_id = %s
+                  AND s.wordle_number >= %s
+                GROUP BY monday_date
+                ORDER BY monday_date
+            """, (league_id, min_wordle))
+            
+            weeks = cursor.fetchall()
         
         for week_row in weeks:
             monday_date = week_row[0]
@@ -317,7 +330,7 @@ def update_weekly_winners_from_db(league_id):
 def run_full_update_for_league(league_id):
     """
     Run the complete update process for a league:
-    1. Update weekly winners
+    1. Update weekly winners for LAST week (the week that just ended)
     2. Check for season transitions
     3. Generate HTML
     4. Publish to GitHub
@@ -325,8 +338,28 @@ def run_full_update_for_league(league_id):
     logging.info(f"=== Starting full update for league {league_id} ===")
     
     try:
-        # Step 1: Update weekly winners
-        if not update_weekly_winners_from_db(league_id):
+        # Calculate LAST week's Wordle range (the week that just ended)
+        today = datetime.now().date()
+        
+        # Find last Monday (start of last week)
+        days_since_monday = today.weekday()  # 0=Monday, 6=Sunday
+        if days_since_monday == 0:
+            # Today is Monday, so last week started 7 days ago
+            last_monday = today - timedelta(days=7)
+        else:
+            # Go back to last Monday, then back 7 more days
+            last_monday = today - timedelta(days=days_since_monday + 7)
+        
+        last_sunday = last_monday + timedelta(days=6)
+        
+        # Calculate Wordle numbers for last week
+        last_week_start_wordle = calculate_wordle_number(last_monday)
+        last_week_end_wordle = calculate_wordle_number(last_sunday)
+        
+        logging.info(f"Calculating winners for LAST week: {last_monday} to {last_sunday} (Wordles {last_week_start_wordle}-{last_week_end_wordle})")
+        
+        # Step 1: Update weekly winners for last week only
+        if not update_weekly_winners_from_db(league_id, last_week_start_wordle, last_week_end_wordle):
             logging.error("Failed to update weekly winners")
             return False
         
