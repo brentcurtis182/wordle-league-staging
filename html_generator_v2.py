@@ -45,10 +45,18 @@ def generate_score_card_html(player_name, score_data):
         
         # Generate emoji pattern HTML
         if emoji_pattern:
-            emoji_rows = emoji_pattern.strip().split('\n')
+            # Handle both newline and space-separated rows
+            emoji_pattern_clean = emoji_pattern.strip()
+            if '\n' in emoji_pattern_clean:
+                emoji_rows = emoji_pattern_clean.split('\n')
+            else:
+                # Split by double space or single space between 5-emoji groups
+                emoji_rows = emoji_pattern_clean.split(' ')
+            
             emoji_html = '<div class="emoji-pattern">'
             for row in emoji_rows:
-                emoji_html += f'<div class="emoji-row">{row}</div>'
+                if row.strip():  # Skip empty rows
+                    emoji_html += f'<div class="emoji-row">{row.strip()}</div>'
             emoji_html += '</div>'
         else:
             emoji_html = '<div class="emoji-pattern"></div>'
@@ -249,7 +257,7 @@ def generate_season_stats_html(league_data):
     html += '</tbody>\n</table>\n'
     html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get 4 weekly wins is the Season Champ!</p>\n'
     
-    # Show previous season winners if any
+    # Show previous season winners if any (NEWEST FIRST)
     if season_winners:
         # Group winners by season to handle ties
         seasons_dict = {}
@@ -260,8 +268,8 @@ def generate_season_stats_html(league_data):
                 seasons_dict[season_num] = []
             seasons_dict[season_num].append(winner_name)
         
-        # Display each season's winners
-        for season_num in sorted(seasons_dict.keys()):
+        # Display each season's winners in REVERSE order (newest first)
+        for season_num in sorted(seasons_dict.keys(), reverse=True):
             winners = seasons_dict[season_num]
             if len(winners) == 1:
                 html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winners[0]}</p>\n'
