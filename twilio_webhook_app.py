@@ -661,6 +661,22 @@ def create_tables_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/insert-league4-scores', methods=['POST'])
+def insert_league4_scores_endpoint():
+    """Insert League 4 scores manually"""
+    try:
+        from insert_league4_scores import insert_scores
+        insert_scores()
+        return jsonify({
+            'success': True,
+            'message': 'League 4 scores inserted and HTML regenerated'
+        })
+    except Exception as e:
+        logging.error(f"Error inserting scores: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/migrate-league4', methods=['POST'])
 def migrate_league4_endpoint():
     """Run League 4 migration"""
