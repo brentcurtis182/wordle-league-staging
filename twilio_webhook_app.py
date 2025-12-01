@@ -661,6 +661,47 @@ def migrate_league4_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-league4-scores', methods=['GET'])
+def check_league4_scores():
+    """Check if League 4 scores are in database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check latest_scores
+        cursor.execute("""
+            SELECT player_name, wordle_number, score, timestamp
+            FROM latest_scores
+            WHERE league_id = 4
+            ORDER BY timestamp DESC
+        """)
+        latest = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
+        
+        # Check scores
+        cursor.execute("""
+            SELECT player_name, wordle_number, score, timestamp
+            FROM scores
+            WHERE league_id = 4
+            ORDER BY timestamp DESC
+            LIMIT 10
+        """)
+        permanent = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'latest_scores': latest,
+            'permanent_scores': permanent,
+            'count_latest': len(latest),
+            'count_permanent': len(permanent)
+        })
+    except Exception as e:
+        logging.error(f"Error checking scores: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/debug-season-data/<int:league_id>', methods=['GET'])
 def debug_season_data(league_id):
     """Debug endpoint to see what season data is being fetched"""
