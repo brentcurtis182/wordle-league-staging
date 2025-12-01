@@ -770,7 +770,7 @@ def check_league4_season():
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT current_season, season_start_week, season_end_week
+            SELECT current_season, season_start_week
             FROM league_seasons
             WHERE league_id = 4
         """)
@@ -783,8 +783,7 @@ def check_league4_season():
         if result:
             return jsonify({
                 'current_season': result[0],
-                'season_start_week': result[1],
-                'season_end_week': result[2]
+                'season_start_week': result[1]
             })
         else:
             return jsonify({'error': 'No season data found for League 4'})
