@@ -42,10 +42,11 @@ def create_tables():
             )
         """)
         
-        # Create season_winners table
-        logging.info("Creating season_winners table...")
+        # Drop and recreate season_winners table with correct schema
+        logging.info("Dropping and recreating season_winners table...")
+        cursor.execute("DROP TABLE IF EXISTS season_winners CASCADE")
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS season_winners (
+            CREATE TABLE season_winners (
                 id SERIAL PRIMARY KEY,
                 league_id INTEGER NOT NULL,
                 season_number INTEGER NOT NULL,
