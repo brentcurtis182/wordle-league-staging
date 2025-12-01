@@ -661,6 +661,32 @@ def migrate_league4_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-table-schema', methods=['GET'])
+def check_table_schema():
+    """Check latest_scores table schema"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'latest_scores'
+            ORDER BY ordinal_position
+        """)
+        
+        columns = [{'name': r[0], 'type': r[1]} for r in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'columns': columns})
+    except Exception as e:
+        logging.error(f"Error checking schema: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/check-league4-scores', methods=['GET'])
 def check_league4_scores():
     """Check if League 4 scores are in database"""
