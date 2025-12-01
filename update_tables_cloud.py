@@ -209,9 +209,13 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
         
         # If specific week provided, only process that week
         if week_start_wordle and week_end_wordle:
-            # Calculate the Monday date for this week
-            from league_data_adapter import get_week_start_date
-            monday_date = get_week_start_date(week_start_wordle)
+            # Convert Wordle number to date
+            # Reference: July 31, 2025 = Wordle 1503
+            reference_date = datetime(2025, 7, 31).date()
+            reference_wordle = 1503
+            days_diff = week_start_wordle - reference_wordle
+            monday_date = reference_date + timedelta(days=days_diff)
+            
             weeks = [(monday_date, week_start_wordle)]
         else:
             # Get all weeks since season start (or all time if no season start)
