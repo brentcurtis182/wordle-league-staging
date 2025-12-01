@@ -673,7 +673,7 @@ def check_league4_scores():
             SELECT p.name, ls.wordle_number, ls.score, ls.timestamp
             FROM latest_scores ls
             JOIN players p ON ls.player_id = p.id
-            WHERE ls.league_id = 4
+            WHERE p.league_id = 4
             ORDER BY ls.timestamp DESC
         """)
         latest = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
@@ -683,7 +683,7 @@ def check_league4_scores():
             SELECT p.name, s.wordle_number, s.score, s.timestamp
             FROM scores s
             JOIN players p ON s.player_id = p.id
-            WHERE s.league_id = 4
+            WHERE p.league_id = 4
             ORDER BY s.timestamp DESC
             LIMIT 10
         """)
