@@ -687,6 +687,35 @@ def check_table_schema():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-league4-players', methods=['GET'])
+def check_league4_players():
+    """Check if League 4 players exist in database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, name, phone_number
+            FROM players
+            WHERE league_id = 4
+            ORDER BY name
+        """)
+        
+        players = [{'id': r[0], 'name': r[1], 'phone': r[2]} for r in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'count': len(players),
+            'players': players
+        })
+    except Exception as e:
+        logging.error(f"Error checking players: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/check-league4-scores', methods=['GET'])
 def check_league4_scores():
     """Check if League 4 scores are in database"""
