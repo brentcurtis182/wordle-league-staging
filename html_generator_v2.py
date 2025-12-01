@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-HTML Generation v2 - Using the proven data adapter
-Generates leaderboard HTML pages using existing Wordle League logic
+HTML Generator v2 for Cloud Wordle League
+Generates complete HTML pages from league data
+Updated: 2025-12-01 15:47 PST
 """
-
 import logging
 from datetime import datetime, date, timedelta
 

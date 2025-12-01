@@ -334,17 +334,29 @@ def get_season_data(league_id):
     season_start_week = season_result[1] if season_result else None
     
     # Get current season standings (weekly wins)
-    # Show all weekly winners for this league (they're all in current season for now)
+    # Only show weekly winners from current season (>= season_start_week)
     season_standings = {}
-    cursor.execute("""
-        SELECT 
-            ww.player_name,
-            ww.week_wordle_number,
-            ww.score
-        FROM weekly_winners ww
-        WHERE ww.league_id = %s
-        ORDER BY ww.player_name, ww.week_wordle_number
-    """, (league_id,))
+    if season_start_week:
+        cursor.execute("""
+            SELECT 
+                ww.player_name,
+                ww.week_wordle_number,
+                ww.score
+            FROM weekly_winners ww
+            WHERE ww.league_id = %s AND ww.week_wordle_number >= %s
+            ORDER BY ww.player_name, ww.week_wordle_number
+        """, (league_id, season_start_week))
+    else:
+        # No season start week set, show all
+        cursor.execute("""
+            SELECT 
+                ww.player_name,
+                ww.week_wordle_number,
+                ww.score
+            FROM weekly_winners ww
+            WHERE ww.league_id = %s
+            ORDER BY ww.player_name, ww.week_wordle_number
+        """, (league_id,))
     
     for row in cursor.fetchall():
         player_name = row[0]
