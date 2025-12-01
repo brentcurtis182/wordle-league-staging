@@ -22,10 +22,12 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     """
     # Map league IDs to URL slugs and names
     league_slugs = {
+        4: 'party',
         6: 'league6',
         7: 'bellyup'
     }
     league_names = {
+        4: 'Party',
         6: 'League 6 Beta',
         7: 'BellyUp'
     }
