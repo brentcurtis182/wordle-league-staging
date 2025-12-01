@@ -334,34 +334,34 @@ def get_season_data(league_id):
     season_start_week = season_result[1] if season_result else None
     
     # Get current season standings (weekly wins)
+    # Show all weekly winners for this league (they're all in current season for now)
     season_standings = {}
-    if season_start_week:
-        cursor.execute("""
-            SELECT 
-                ww.player_name,
-                ww.week_wordle_number,
-                ww.score
-            FROM weekly_winners ww
-            WHERE ww.league_id = %s
-              AND ww.week_wordle_number >= %s
-            ORDER BY ww.player_name, ww.week_wordle_number
-        """, (league_id, season_start_week))
+    cursor.execute("""
+        SELECT 
+            p.name,
+            ww.week_start_wordle,
+            ww.best_5_total
+        FROM weekly_winners ww
+        JOIN players p ON ww.player_id = p.id
+        WHERE ww.league_id = %s
+        ORDER BY p.name, ww.week_start_wordle
+    """, (league_id,))
+    
+    for row in cursor.fetchall():
+        player_name = row[0]
+        week_num = row[1]
+        score = row[2]
         
-        for row in cursor.fetchall():
-            player_name = row[0]
-            week_num = row[1]
-            score = row[2]
-            
-            if player_name not in season_standings:
-                season_standings[player_name] = {
-                    'wins': 0,
-                    'weeks': [],
-                    'scores': []
-                }
-            
-            season_standings[player_name]['wins'] += 1
-            season_standings[player_name]['weeks'].append(week_num)
-            season_standings[player_name]['scores'].append(score)
+        if player_name not in season_standings:
+            season_standings[player_name] = {
+                'wins': 0,
+                'weeks': [],
+                'scores': []
+            }
+        
+        season_standings[player_name]['wins'] += 1
+        season_standings[player_name]['weeks'].append(week_num)
+        season_standings[player_name]['scores'].append(score)
     
     # Get past season winners
     cursor.execute("""
