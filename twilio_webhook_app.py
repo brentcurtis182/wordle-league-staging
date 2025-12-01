@@ -645,6 +645,22 @@ def reset_weekly_winners():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/create-tables', methods=['POST'])
+def create_tables_endpoint():
+    """Create missing database tables"""
+    try:
+        from create_missing_tables import create_tables
+        create_tables()
+        return jsonify({
+            'success': True,
+            'message': 'Tables created'
+        })
+    except Exception as e:
+        logging.error(f"Error creating tables: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/migrate-league4', methods=['POST'])
 def migrate_league4_endpoint():
     """Run League 4 migration"""
@@ -657,6 +673,32 @@ def migrate_league4_endpoint():
         })
     except Exception as e:
         logging.error(f"Error in migration: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
+@app.route('/list-all-tables', methods=['GET'])
+def list_all_tables():
+    """List all tables in the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """)
+        
+        tables = [r[0] for r in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'tables': tables})
+    except Exception as e:
+        logging.error(f"Error listing tables: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}, 500
