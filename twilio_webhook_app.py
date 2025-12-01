@@ -661,6 +661,23 @@ def create_tables_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-league4', methods=['POST'])
+def regenerate_league4():
+    """Manually regenerate League 4 HTML"""
+    try:
+        from update_pipeline import run_update_pipeline
+        result = run_update_pipeline(4)
+        return jsonify({
+            'success': True,
+            'result': result,
+            'message': 'League 4 HTML regenerated'
+        })
+    except Exception as e:
+        logging.error(f"Error regenerating League 4: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/insert-league4-scores', methods=['POST'])
 def insert_league4_scores_endpoint():
     """Insert League 4 scores manually"""
