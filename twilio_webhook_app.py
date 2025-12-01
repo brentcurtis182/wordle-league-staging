@@ -22,6 +22,18 @@ app = Flask(__name__)
 
 # Phone number to player/league mappings
 PHONE_MAPPINGS = {
+    # League 4: Party
+    4: {
+        "18587359353": "Brent",
+        "19165416576": "Dustin",
+        "17609082401": "Jess",
+        "17609082000": "Matt",
+        "17606725317": "Meghan",
+        "17608156131": "Rob",
+        "16503468822": "Jason",
+        "16198713458": "Patty",
+        "17609949392": "Dani",
+    },
     # League 6: Beta Test
     6: {
         "18587359353": "Brent",
