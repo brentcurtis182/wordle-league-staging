@@ -590,6 +590,22 @@ def calculate_last_week_winners_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/debug-season-data/<int:league_id>', methods=['GET'])
+def debug_season_data(league_id):
+    """Debug endpoint to see what season data is being fetched"""
+    try:
+        from league_data_adapter import get_season_data
+        season_data = get_season_data(league_id)
+        return jsonify({
+            'league_id': league_id,
+            'season_data': season_data
+        })
+    except Exception as e:
+        logging.error(f"Error in debug endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint"""
