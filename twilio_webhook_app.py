@@ -8,7 +8,7 @@ import os
 import re
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from twilio.twiml.messaging_response import MessagingResponse
 import psycopg2
 
