@@ -668,21 +668,23 @@ def check_league4_scores():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Check latest_scores
+        # Check latest_scores with player names
         cursor.execute("""
-            SELECT player_name, wordle_number, score, timestamp
-            FROM latest_scores
-            WHERE league_id = 4
-            ORDER BY timestamp DESC
+            SELECT p.name, ls.wordle_number, ls.score, ls.timestamp
+            FROM latest_scores ls
+            JOIN players p ON ls.player_id = p.id
+            WHERE ls.league_id = 4
+            ORDER BY ls.timestamp DESC
         """)
         latest = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
         
-        # Check scores
+        # Check scores with player names
         cursor.execute("""
-            SELECT player_name, wordle_number, score, timestamp
-            FROM scores
-            WHERE league_id = 4
-            ORDER BY timestamp DESC
+            SELECT p.name, s.wordle_number, s.score, s.timestamp
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE s.league_id = 4
+            ORDER BY s.timestamp DESC
             LIMIT 10
         """)
         permanent = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
