@@ -207,6 +207,18 @@ def generate_weekly_totals_html(league_data):
     
     return html
 
+def wordle_to_date_string(wordle_num):
+    """Convert Wordle number to 'Nov 25' format date string"""
+    from datetime import datetime, timedelta
+    # Reference: Wordle 1503 = July 31, 2025
+    reference_date = datetime(2025, 7, 31)
+    reference_wordle = 1503
+    
+    days_diff = wordle_num - reference_wordle
+    target_date = reference_date + timedelta(days=days_diff)
+    
+    return target_date.strftime("%b %d")
+
 def generate_season_stats_html(league_data):
     """Generate Season / All-Time Stats tab HTML"""
     season_data = league_data.get('season_data', {})
@@ -226,7 +238,8 @@ def generate_season_stats_html(league_data):
         sorted_standings = sorted(season_standings.items(), key=lambda x: x[1]['wins'], reverse=True)
         for player_name, data in sorted_standings:
             wins = data['wins']
-            weeks_display = ', '.join([f"{w} ({s})" for w, s in zip(data['weeks'], data['scores'])])
+            # Convert Wordle numbers to dates
+            weeks_display = ', '.join([f"{wordle_to_date_string(w)} ({s})" for w, s in zip(data['weeks'], data['scores'])])
             html += f'<tr>\n'
             html += f'    <td><strong>{player_name}</strong></td>\n'
             html += f'    <td>{wins}</td>\n'

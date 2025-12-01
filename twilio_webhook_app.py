@@ -590,6 +590,35 @@ def calculate_last_week_winners_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/delete-old-weeks', methods=['POST'])
+def delete_old_weeks():
+    """Delete weeks 1618 and 1620 from old manual calculations"""
+    try:
+        from league_data_adapter import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete week 1618 and 1620
+        cursor.execute("DELETE FROM weekly_winners WHERE week_wordle_number IN (1618, 1620)")
+        deleted = cursor.rowcount
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Deleted {deleted} old weekly winner rows")
+        
+        return jsonify({
+            'success': True,
+            'deleted': deleted,
+            'message': 'Deleted old manual calculation weeks'
+        })
+    except Exception as e:
+        logging.error(f"Error deleting old weeks: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/debug-season-data/<int:league_id>', methods=['GET'])
 def debug_season_data(league_id):
     """Debug endpoint to see what season data is being fetched"""
