@@ -644,6 +644,22 @@ def reset_weekly_winners():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/migrate-league4', methods=['POST'])
+def migrate_league4_endpoint():
+    """Run League 4 migration"""
+    try:
+        from migrate_league4 import migrate_league4
+        migrate_league4()
+        return jsonify({
+            'success': True,
+            'message': 'League 4 migration completed'
+        })
+    except Exception as e:
+        logging.error(f"Error in migration: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/debug-season-data/<int:league_id>', methods=['GET'])
 def debug_season_data(league_id):
     """Debug endpoint to see what season data is being fetched"""
