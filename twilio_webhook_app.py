@@ -661,12 +661,12 @@ def create_tables_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
-@app.route('/import-league4-history', methods=['POST'])
-def import_league4_history():
-    """Import all historical scores for League 4"""
+@app.route('/bulk-insert-league4', methods=['POST'])
+def bulk_insert_league4():
+    """Bulk insert League 4 historical scores from JSON"""
     try:
-        from import_league4_history import import_historical_scores
-        success = import_historical_scores()
+        from bulk_insert_league4_scores import bulk_insert_scores
+        success = bulk_insert_scores()
         return jsonify({
             'success': success,
             'message': 'League 4 history imported' if success else 'Import failed'
