@@ -403,9 +403,12 @@ def webhook():
         player_name = get_player_from_phone(from_number, league_id)
         
         if not player_name:
-            logging.warning(f"Unknown phone number: {from_number}")
+            logging.error(f"❌ PLAYER NOT FOUND - Phone: {from_number}, League: {league_id}")
+            logging.error(f"Available players in league {league_id}: {PHONE_MAPPINGS.get(league_id, {})}")
             # Return empty TwiML response (no SMS sent back)
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+        
+        logging.info(f"✅ Player identified: {player_name} (phone: {from_number}, league: {league_id})")
         
         # Save to database
         conn = get_db_connection()
