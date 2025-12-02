@@ -704,6 +704,67 @@ def migrate_league1_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/test-insert-league1', methods=['POST'])
+def test_insert_league1():
+    """Test inserting one League 1 score"""
+    try:
+        import json
+        from datetime import datetime, date, timedelta
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get League 1 players
+        cursor.execute("SELECT id, name FROM players WHERE league_id = 1")
+        players = {row[1]: row[0] for row in cursor.fetchall()}
+        
+        # Try to insert one test score
+        test_score = {
+            'player_name': 'Brent',
+            'wordle_number': 1507,
+            'score': 3,
+            'date': '2025-08-04',
+            'emoji_pattern': None,
+            'timestamp': '2025-08-18 15:17:14'
+        }
+        
+        player_id = players.get(test_score['player_name'])
+        
+        if not player_id:
+            return jsonify({'error': f"Player {test_score['player_name']} not found", 'players': players})
+        
+        # Parse date
+        date_obj = datetime.strptime(test_score['date'], '%Y-%m-%d').date()
+        timestamp_obj = datetime.strptime(test_score['timestamp'], '%Y-%m-%d %H:%M:%S')
+        
+        # Try insert
+        cursor.execute("""
+            INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        """, (player_id, test_score['wordle_number'], test_score['score'], date_obj, test_score['emoji_pattern'], timestamp_obj))
+        
+        result = cursor.fetchone()
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'inserted': result is not None,
+            'player_id': player_id,
+            'test_score': test_score,
+            'result_id': result[0] if result else None
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in test insert: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/bulk-insert-league1', methods=['POST'])
 def bulk_insert_league1():
     """Bulk insert League 1 historical scores from JSON"""
