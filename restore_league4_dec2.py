@@ -14,7 +14,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def restore_scores():
-    """Restore the 5 lost scores"""
+    """Restore the 5 lost scores - move from League 6 to League 4 with correct player IDs"""
     
     # Phone to player mapping for League 4
     phone_to_player = {
@@ -24,6 +24,10 @@ def restore_scores():
         '17609082401': 'Jess',
         '17609082000': 'Matt'
     }
+    
+    # Map League 6 player names to League 4 phones (since they saved with wrong names)
+    # Brent in League 6 = multiple people in League 4
+    # We'll use timestamps to match
     
     # Scores from Twilio conversation
     scores = [
@@ -68,7 +72,20 @@ def restore_scores():
     cursor = conn.cursor()
     
     try:
-        # Get player IDs
+        # First, delete any Wordle 1627 scores from League 6 (they're wrong)
+        cursor.execute("""
+            DELETE FROM scores 
+            WHERE wordle_number = 1627 
+            AND player_id IN (SELECT id FROM players WHERE league_id = 6)
+        """)
+        cursor.execute("""
+            DELETE FROM latest_scores 
+            WHERE wordle_number = 1627 
+            AND league_id = 6
+        """)
+        logging.info("Deleted incorrect scores from League 6")
+        
+        # Get player IDs for League 4
         cursor.execute("SELECT id, name, phone_number FROM players WHERE league_id = 4")
         players = {row[2]: {'id': row[0], 'name': row[1]} for row in cursor.fetchall()}
         
