@@ -719,6 +719,23 @@ def regenerate_league1():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-league7', methods=['POST'])
+def regenerate_league7():
+    """Manually regenerate League 7 HTML"""
+    try:
+        from update_pipeline import run_update_pipeline
+        result = run_update_pipeline(7)
+        return jsonify({
+            'success': True,
+            'result': result,
+            'message': 'League 7 HTML regenerated'
+        })
+    except Exception as e:
+        logging.error(f"Error regenerating League 7: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/regenerate-league4', methods=['POST'])
 def regenerate_league4():
     """Manually regenerate League 4 HTML"""
