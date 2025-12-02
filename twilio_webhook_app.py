@@ -395,7 +395,7 @@ def webhook():
         conversation_to_league = {
             'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # League 1: Warriorz
             'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # League 3: PAL
-            'CH0a5c0e2c1c3e4f1f8a5e0e2c1c3e4f1f': 4,  # League 4: Party
+            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # League 4: Party
             'CH7a8b9c0d1e2f3g4h5i6j7k8l9m0n1o2p': 6,  # League 6: Beta
             'CH3q4r5s6t7u8v9w0x1y2z3a4b5c6d7e8f': 7,  # League 7: BellyUp
         }
