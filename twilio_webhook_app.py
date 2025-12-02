@@ -834,6 +834,18 @@ def test_insert_league1():
         traceback.print_exc()
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/force-insert-league1', methods=['POST'])
+def force_insert_league1():
+    """Force insert League 1 with detailed tracking"""
+    try:
+        from force_insert_league1 import force_insert
+        result = force_insert()
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in force insert: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/bulk-insert-league1-v2', methods=['POST'])
 def bulk_insert_league1_v2():
     """Bulk insert League 1 historical scores from JSON - V2"""
