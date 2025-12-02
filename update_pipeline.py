@@ -96,12 +96,22 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         
         # Publish all files
         from github_publisher import publish_multiple_files
-        files = {
-            f'{league_slug}/index.html': html_content,
-            f'{league_slug}/styles.css': styles_css,
-            f'{league_slug}/script.js': script_js,
-            f'{league_slug}/tabs.js': tabs_js
-        }
+        
+        # Handle root path (empty league_slug) vs subdirectory
+        if league_slug:
+            files = {
+                f'{league_slug}/index.html': html_content,
+                f'{league_slug}/styles.css': styles_css,
+                f'{league_slug}/script.js': script_js,
+                f'{league_slug}/tabs.js': tabs_js
+            }
+        else:
+            files = {
+                'index.html': html_content,
+                'styles.css': styles_css,
+                'script.js': script_js,
+                'tabs.js': tabs_js
+            }
         
         publish_success = publish_multiple_files(files, commit_message)
         
