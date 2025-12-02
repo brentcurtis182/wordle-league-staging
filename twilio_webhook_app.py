@@ -871,6 +871,59 @@ def test_insert_league1():
         traceback.print_exc()
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/test-insert-league3-players', methods=['POST'])
+def test_insert_league3_players():
+    """Test inserting League 3 players"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert league first
+        cursor.execute("""
+            INSERT INTO leagues (id, name, github_pages_url, twilio_conversation_sid)
+            VALUES (3, 'PAL', 'https://brentcurtis182.github.io/wordle-league/pal/', 'CHc8f0c4a776f14bcd96e7c8838a6aec13')
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                github_pages_url = EXCLUDED.github_pages_url,
+                twilio_conversation_sid = EXCLUDED.twilio_conversation_sid
+        """)
+        
+        players = [
+            ('Vox', '18587359353'),
+            ('Fuzwuz', '17604206113'),
+            ('Pants', '17605830059'),
+            ('Starslider', '14698345364')
+        ]
+        
+        results = []
+        for name, phone in players:
+            cursor.execute("SELECT id FROM players WHERE name = %s AND league_id = 3", (name,))
+            existing = cursor.fetchone()
+            
+            if not existing:
+                cursor.execute("""
+                    INSERT INTO players (name, phone_number, league_id)
+                    VALUES (%s, %s, 3)
+                    RETURNING id
+                """, (name, phone))
+                player_id = cursor.fetchone()[0]
+                results.append(f"Inserted {name} with ID {player_id}")
+            else:
+                results.append(f"{name} already exists with ID {existing[0]}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/migrate-league3', methods=['POST'])
 def migrate_league3_endpoint():
     """Run League 3 migration"""
