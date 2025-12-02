@@ -54,9 +54,9 @@ def migrate_league3():
         # Step 1: Insert league
         logging.info("Inserting League 3 (PAL)...")
         cursor.execute("""
-            INSERT INTO leagues (id, name)
-            VALUES (3, 'PAL')
-            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+            INSERT INTO leagues (id, name, display_name)
+            VALUES (3, 'PAL', 'PAL')
+            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, display_name = EXCLUDED.display_name
         """)
         
         # Step 2: Insert players

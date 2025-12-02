@@ -880,9 +880,9 @@ def test_insert_league3_players():
         
         # Insert league first
         cursor.execute("""
-            INSERT INTO leagues (id, name)
-            VALUES (3, 'PAL')
-            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+            INSERT INTO leagues (id, name, display_name)
+            VALUES (3, 'PAL', 'PAL')
+            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, display_name = EXCLUDED.display_name
         """)
         
         players = [
