@@ -988,8 +988,11 @@ def restore_league4_dec2():
                 cursor.execute("""
                     INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
                     VALUES (%s, 4, 1627, %s, %s, %s)
-                    ON CONFLICT (player_id, wordle_number) DO UPDATE 
-                    SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern
+                    ON CONFLICT (player_id) DO UPDATE 
+                    SET wordle_number = EXCLUDED.wordle_number,
+                        score = EXCLUDED.score, 
+                        emoji_pattern = EXCLUDED.emoji_pattern,
+                        timestamp = EXCLUDED.timestamp
                 """, (player_id, score, emoji, timestamp))
                 
                 inserted += 1
