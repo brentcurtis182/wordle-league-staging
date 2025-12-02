@@ -661,6 +661,22 @@ def create_tables_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/import-league4-history', methods=['POST'])
+def import_league4_history():
+    """Import all historical scores for League 4"""
+    try:
+        from import_league4_history import import_historical_scores
+        success = import_historical_scores()
+        return jsonify({
+            'success': success,
+            'message': 'League 4 history imported' if success else 'Import failed'
+        })
+    except Exception as e:
+        logging.error(f"Error importing history: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/regenerate-league4', methods=['POST'])
 def regenerate_league4():
     """Manually regenerate League 4 HTML"""
