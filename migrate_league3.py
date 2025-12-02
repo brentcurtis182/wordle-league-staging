@@ -17,11 +17,35 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def migrate_league3():
     """Migrate League 3 (PAL)"""
     
-    # Load weekly winners data
-    with open(r'F:\Wordle-League\Wordle-League-Legacy-Scores\weekly_winners.json', 'r') as f:
-        data = json.load(f)
-    
-    league_data = data['leagues']['3']
+    # Embedded league data (from weekly_winners.json)
+    league_data = {
+        "name": "PAL",
+        "current_season": 5,
+        "season_winners": [
+            {"season": 1, "name": "Vox", "weekly_wins": 3, "completed_date": "2025-09-15"},
+            {"season": 2, "name": "Vox", "weekly_wins": 4, "completed_date": "2025-09-29"},
+            {"season": 3, "name": "Vox", "weekly_wins": 4, "completed_date": "2025-10-27"},
+            {"season": 4, "name": "Vox", "weekly_wins": 4, "completed_date": "2025-11-24"}
+        ],
+        "weekly_winners": {
+            "1514": [{"name": "Vox", "score": 21}],
+            "1521": [{"name": "Vox", "score": 18}],
+            "1528": [{"name": "Vox", "score": 20}],
+            "1535": [{"name": "Vox", "score": 17}],
+            "1542": [{"name": "Vox", "score": 17}],
+            "1549": [{"name": "Vox", "score": 22}],
+            "1556": [{"name": "Vox", "score": 16}],
+            "1563": [{"name": "Vox", "score": 17}],
+            "1570": [{"name": "Vox", "score": 16}],
+            "1577": [{"name": "Vox", "score": 19}],
+            "1584": [{"name": "Vox", "score": 16}],
+            "1591": [{"name": "Vox", "score": 19}],
+            "1598": [{"name": "Vox", "score": 15}],
+            "1605": [{"name": "Vox", "score": 18}],
+            "1612": [{"name": "Vox", "score": 21}],
+            "1619": [{"name": "Vox", "score": 19}]
+        }
+    }
     
     conn = get_db_connection()
     cursor = conn.cursor()
