@@ -712,6 +712,35 @@ def migrate_league1_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-players-table-constraints', methods=['GET'])
+def check_players_table_constraints():
+    """Check constraints on players table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get table constraints
+        cursor.execute("""
+            SELECT conname, contype, pg_get_constraintdef(oid)
+            FROM pg_constraint
+            WHERE conrelid = 'players'::regclass
+        """)
+        
+        constraints = []
+        for row in cursor.fetchall():
+            constraints.append({
+                'name': row[0],
+                'type': row[1],
+                'definition': row[2]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'constraints': constraints})
+    except Exception as e:
+        return {'error': str(e)}, 500
+
 @app.route('/check-scores-table-constraints', methods=['GET'])
 def check_scores_table_constraints():
     """Check constraints on scores table"""
