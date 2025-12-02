@@ -89,6 +89,9 @@ def restore_scores():
         cursor.execute("SELECT id, name, phone_number FROM players WHERE league_id = 4")
         players = {row[2]: {'id': row[0], 'name': row[1]} for row in cursor.fetchall()}
         
+        logging.info(f"Found {len(players)} League 4 players")
+        logging.info(f"Player phones: {list(players.keys())}")
+        
         # Calculate date for Wordle 1627
         ref_date = date(2025, 7, 31)
         ref_wordle = 1503
@@ -101,8 +104,11 @@ def restore_scores():
         for score_data in scores:
             phone = score_data['phone']
             
+            logging.info(f"Processing score for phone {phone}")
+            
             if phone not in players:
                 logging.warning(f"Phone {phone} not found in League 4 players")
+                logging.warning(f"Available phones: {list(players.keys())}")
                 skipped += 1
                 continue
             
