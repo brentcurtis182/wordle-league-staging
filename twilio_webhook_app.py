@@ -1133,6 +1133,14 @@ def check_scores(league_id):
         
         # Check scores with player names
         cursor.execute("""
+            SELECT COUNT(*)
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s
+        """, (league_id,))
+        total_count = cursor.fetchone()[0]
+        
+        cursor.execute("""
             SELECT p.name, s.wordle_number, s.score, s.timestamp
             FROM scores s
             JOIN players p ON s.player_id = p.id
@@ -1150,7 +1158,8 @@ def check_scores(league_id):
             'latest_scores': latest,
             'permanent_scores': permanent,
             'count_latest': len(latest),
-            'count_permanent': len(permanent)
+            'count_permanent': total_count,
+            'sample_count': len(permanent)
         })
     except Exception as e:
         logging.error(f"Error checking scores: {e}")
