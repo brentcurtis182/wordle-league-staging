@@ -72,12 +72,20 @@ def migrate_league3():
         ]
         
         for name, phone in players:
+            # Check if player already exists
             cursor.execute("""
-                INSERT INTO players (name, phone_number, league_id)
-                VALUES (%s, %s, 3)
-                ON CONFLICT DO NOTHING
-            """, (name, phone))
-            logging.info(f"  Added player: {name}")
+                SELECT id FROM players WHERE name = %s AND league_id = 3
+            """, (name,))
+            existing = cursor.fetchone()
+            
+            if not existing:
+                cursor.execute("""
+                    INSERT INTO players (name, phone_number, league_id)
+                    VALUES (%s, %s, 3)
+                """, (name, phone))
+                logging.info(f"  Added player: {name}")
+            else:
+                logging.info(f"  Player already exists: {name}")
         
         # Step 3: Insert current season (Season 5, started week 1619)
         logging.info("Inserting current season...")
