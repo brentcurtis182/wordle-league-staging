@@ -164,9 +164,9 @@ def run_daily_reset(league_id):
 
 def run_all_leagues_daily_reset():
     """Run daily reset for all active leagues"""
-    # Beta leagues: 6 and 7
-    # Later you can add other leagues: [1, 2, 3, 4, 5]
-    leagues = [6, 7]
+    # Active leagues: 1 (Warriorz), 3 (PAL), 4 (Party), 7 (BellyUp)
+    # League 6 (Beta) is inactive
+    leagues = [1, 3, 4, 7]
     
     all_success = True
     for league_id in leagues:
