@@ -915,6 +915,42 @@ def check_league4_season():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-players/<int:league_id>', methods=['GET'])
+def check_players(league_id):
+    """Check players for any league"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, name, phone_number
+            FROM players
+            WHERE league_id = %s
+            ORDER BY name
+        """, (league_id,))
+        
+        players = []
+        for row in cursor.fetchall():
+            players.append({
+                'id': row[0],
+                'name': row[1],
+                'phone': row[2]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'league_id': league_id,
+            'count': len(players),
+            'players': players
+        })
+    except Exception as e:
+        logging.error(f"Error checking players: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/check-league4-players', methods=['GET'])
 def check_league4_players():
     """Check if League 4 players exist in database"""
