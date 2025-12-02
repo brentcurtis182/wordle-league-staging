@@ -418,33 +418,51 @@ def webhook():
         if result == "new":
             logging.info(f"✅ Score recorded! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Trigger full update pipeline after successful save
+            # Trigger full update pipeline in background (async)
             try:
-                from update_pipeline import run_update_pipeline
-                logging.info("Triggering full update pipeline...")
-                result_data = run_update_pipeline(league_id)
-                if result_data.get('success'):
-                    logging.info("Pipeline completed successfully")
-                else:
-                    logging.error(f"Pipeline failed: {result_data.get('errors')}")
+                import threading
+                def run_pipeline_async():
+                    try:
+                        from update_pipeline import run_update_pipeline
+                        logging.info(f"[Async] Triggering update pipeline for league {league_id}...")
+                        result_data = run_update_pipeline(league_id)
+                        if result_data.get('success'):
+                            logging.info(f"[Async] Pipeline completed successfully for league {league_id}")
+                        else:
+                            logging.error(f"[Async] Pipeline failed for league {league_id}: {result_data.get('errors')}")
+                    except Exception as e:
+                        logging.error(f"[Async] Pipeline error for league {league_id}: {e}")
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                logging.info(f"Pipeline triggered in background thread for league {league_id}")
             except Exception as pipeline_error:
-                logging.error(f"Pipeline error: {pipeline_error}")
+                logging.error(f"Error starting pipeline thread: {pipeline_error}")
                 # Don't fail the webhook if pipeline fails
                 
         elif result == "updated":
             logging.info(f"✅ Score updated! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Also trigger full update on updates
+            # Also trigger full update in background
             try:
-                from update_pipeline import run_update_pipeline
-                logging.info("Triggering full update pipeline...")
-                result_data = run_update_pipeline(league_id)
-                if result_data.get('success'):
-                    logging.info("Pipeline completed successfully")
-                else:
-                    logging.error(f"Pipeline failed: {result_data.get('errors')}")
+                import threading
+                def run_pipeline_async():
+                    try:
+                        from update_pipeline import run_update_pipeline
+                        logging.info(f"[Async] Triggering update pipeline for league {league_id}...")
+                        result_data = run_update_pipeline(league_id)
+                        if result_data.get('success'):
+                            logging.info(f"[Async] Pipeline completed successfully for league {league_id}")
+                        else:
+                            logging.error(f"[Async] Pipeline failed for league {league_id}: {result_data.get('errors')}")
+                    except Exception as e:
+                        logging.error(f"[Async] Pipeline error for league {league_id}: {e}")
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                logging.info(f"Pipeline triggered in background thread for league {league_id}")
             except Exception as pipeline_error:
-                logging.error(f"Pipeline error: {pipeline_error}")
+                logging.error(f"Error starting pipeline thread: {pipeline_error}")
                 
         elif result == "exists":
             logging.info(f"Score already exists for {player_name}: Wordle #{wordle_num}")
