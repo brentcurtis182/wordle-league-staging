@@ -708,6 +708,19 @@ def migrate_league1_endpoint():
 def bulk_insert_league1():
     """Bulk insert League 1 historical scores from JSON"""
     try:
+        import os
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        json_file = os.path.join(script_dir, 'league1_historical_scores.json')
+        
+        logging.info(f"Checking for JSON file at: {json_file}")
+        logging.info(f"File exists: {os.path.exists(json_file)}")
+        
+        if os.path.exists(json_file):
+            import json
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            logging.info(f"JSON file has {len(data)} scores")
+        
         from bulk_insert_league1_scores import bulk_insert_scores
         success = bulk_insert_scores()
         return jsonify({
