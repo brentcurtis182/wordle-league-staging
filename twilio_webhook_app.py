@@ -880,6 +880,50 @@ def check_league4_players():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-scores/<int:league_id>', methods=['GET'])
+def check_scores(league_id):
+    """Check scores for any league"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check latest_scores with player names
+        cursor.execute("""
+            SELECT p.name, ls.wordle_number, ls.score, ls.timestamp
+            FROM latest_scores ls
+            JOIN players p ON ls.player_id = p.id
+            WHERE p.league_id = %s
+            ORDER BY ls.timestamp DESC
+        """, (league_id,))
+        latest = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
+        
+        # Check scores with player names
+        cursor.execute("""
+            SELECT p.name, s.wordle_number, s.score, s.timestamp
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s
+            ORDER BY s.timestamp DESC
+            LIMIT 10
+        """, (league_id,))
+        permanent = [{'player': r[0], 'wordle': r[1], 'score': r[2], 'time': str(r[3])} for r in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'league_id': league_id,
+            'latest_scores': latest,
+            'permanent_scores': permanent,
+            'count_latest': len(latest),
+            'count_permanent': len(permanent)
+        })
+    except Exception as e:
+        logging.error(f"Error checking scores: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/check-league4-scores', methods=['GET'])
 def check_league4_scores():
     """Check if League 4 scores are in database"""
