@@ -49,13 +49,6 @@ PHONE_MAPPINGS = {
         "16198713458": "Patty",
         "17609949392": "Dani",
     },
-    # League 6: Beta Test
-    6: {
-        "18587359353": "Brent",
-        "17609082000": "Matt",
-        "17608156131": "Rob",
-        "16503468822": "Jason",
-    },
     # League 7: BellyUp
     7: {
         "18587359353": "Brent",
@@ -396,12 +389,14 @@ def webhook():
             'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # League 1: Warriorz
             'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # League 3: PAL
             'CHed74f2e9f16240e9a578f96299c395ce': 4,  # League 4: Party
-            'CH1ef798b5bfba4e5297268d69c01949f5': 6,  # League 6: Beta
             'CH4438ff5531514178bb13c5c0e96d5579': 7,  # League 7: BellyUp
         }
         
-        # Default to League 6 if no conversation SID or not mapped
-        league_id = conversation_to_league.get(conversation_sid, 6)
+        # If no conversation SID or not mapped, log error and return
+        league_id = conversation_to_league.get(conversation_sid)
+        if not league_id:
+            logging.error(f"Unknown conversation SID: {conversation_sid}")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         logging.info(f"Conversation SID: {conversation_sid} -> League {league_id}")
         
         # Get player name from phone number
@@ -936,6 +931,51 @@ def migrate_league3_endpoint():
         import traceback
         traceback.print_exc()
         return {'error': str(e)}, 500
+
+@app.route('/insert-brent-league3', methods=['POST'])
+def insert_brent_league3():
+    """Manually insert Brent's League 3 score"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get Vox's player ID (Brent in League 3)
+        cursor.execute("SELECT id FROM players WHERE name = 'Vox' AND league_id = 3")
+        player_id = cursor.fetchone()[0]
+        
+        from datetime import datetime, date, timedelta
+        ref_date = date(2025, 7, 31)
+        wordle_date = ref_date + timedelta(days=124)  # 1627 - 1503
+        timestamp = datetime.strptime('2025-12-02 09:30:27', '%Y-%m-%d %H:%M:%S')
+        
+        # Insert into scores
+        cursor.execute("""
+            INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+            VALUES (%s, 1627, 4, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+        """, (player_id, wordle_date, '⬛⬛🟨🟩⬛\n⬛🟨⬛🟩⬛\n🟨⬛🟨🟩⬛\n🟩🟩🟩🟩🟩', timestamp))
+        
+        # Insert into latest_scores
+        cursor.execute("""
+            INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+            VALUES (%s, 3, 1627, 4, %s, %s)
+            ON CONFLICT (player_id) DO UPDATE 
+            SET wordle_number = 1627, score = 4, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp
+        """, (player_id, '⬛⬛🟨🟩⬛\n⬛🟨⬛🟩⬛\n🟨⬛🟨🟩⬛\n🟩🟩🟩🟩🟩', timestamp))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Regenerate HTML
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(3)
+        
+        return jsonify({'success': True, 'message': 'Score inserted and HTML regenerated'})
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
 @app.route('/restore-league4-dec2', methods=['POST'])
 def restore_league4_dec2():
