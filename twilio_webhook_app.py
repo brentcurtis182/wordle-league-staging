@@ -30,6 +30,13 @@ PHONE_MAPPINGS = {
         "13109263555": "Joanna",
         "19492304472": "Nanna",
     },
+    # League 3: PAL
+    3: {
+        "18587359353": "Vox",
+        "17604206113": "Fuzwuz",
+        "17605830059": "Pants",
+        "14698345364": "Starslider",
+    },
     # League 4: Party
     4: {
         "18587359353": "Brent",
@@ -386,10 +393,11 @@ def webhook():
         
         # Conversation to League mapping
         conversation_to_league = {
-            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # Warriorz (League 1)
-            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # Party (League 4)
-            'CH1ef798b5bfba4e5297268d69c01949f5': 6,  # League 6
-            'CH4438ff5531514178bb13c5c0e96d5579': 7,  # BellyUp (League 7)
+            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # League 1: Warriorz
+            'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # League 3: PAL
+            'CH0a5c0e2c1c3e4f1f8a5e0e2c1c3e4f1f': 4,  # League 4: Party
+            'CH7a8b9c0d1e2f3g4h5i6j7k8l9m0n1o2p': 6,  # League 6: Beta
+            'CH3q4r5s6t7u8v9w0x1y2z3a4b5c6d7e8f': 7,  # League 7: BellyUp
         }
         
         # Default to League 6 if no conversation SID or not mapped
@@ -832,6 +840,34 @@ def test_insert_league1():
         logging.error(f"Error in test insert: {e}")
         import traceback
         traceback.print_exc()
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
+@app.route('/migrate-league3', methods=['POST'])
+def migrate_league3_endpoint():
+    """Run League 3 migration"""
+    try:
+        from migrate_league3 import migrate_league3
+        migrate_league3()
+        return jsonify({
+            'success': True,
+            'message': 'League 3 migration completed'
+        })
+    except Exception as e:
+        logging.error(f"Error in migration: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
+@app.route('/force-insert-league3', methods=['POST'])
+def force_insert_league3():
+    """Force insert League 3 with detailed tracking"""
+    try:
+        from force_insert_league3 import force_insert
+        result = force_insert()
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in force insert: {e}")
+        import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
 @app.route('/force-insert-league1', methods=['POST'])
