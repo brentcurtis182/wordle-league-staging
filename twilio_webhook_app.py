@@ -704,6 +704,57 @@ def migrate_league1_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-scores-table-constraints', methods=['GET'])
+def check_scores_table_constraints():
+    """Check constraints on scores table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get table constraints
+        cursor.execute("""
+            SELECT conname, contype, pg_get_constraintdef(oid)
+            FROM pg_constraint
+            WHERE conrelid = 'scores'::regclass
+        """)
+        
+        constraints = []
+        for row in cursor.fetchall():
+            constraints.append({
+                'name': row[0],
+                'type': row[1],
+                'definition': row[2]
+            })
+        
+        # Check for any existing League 1 scores with wordle_number 1507
+        cursor.execute("""
+            SELECT s.id, p.name, p.league_id, s.wordle_number, s.score
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE s.wordle_number = 1507
+            ORDER BY p.league_id, p.name
+        """)
+        
+        wordle_1507_scores = []
+        for row in cursor.fetchall():
+            wordle_1507_scores.append({
+                'score_id': row[0],
+                'player': row[1],
+                'league_id': row[2],
+                'wordle': row[3],
+                'score': row[4]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'constraints': constraints,
+            'wordle_1507_scores': wordle_1507_scores
+        })
+    except Exception as e:
+        return {'error': str(e)}, 500
+
 @app.route('/list-files', methods=['GET'])
 def list_files():
     """List files in the deployment directory"""
