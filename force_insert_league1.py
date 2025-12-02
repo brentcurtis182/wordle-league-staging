@@ -49,6 +49,10 @@ def force_insert():
             wordle_num = score_data['wordle_number']
             score = score_data['score']
             
+            # Convert 'X' to 7 for failed attempts
+            if score == 'X' or score == 'x':
+                score = 7
+            
             if player_name not in player_map:
                 results['errors'].append(f"Player {player_name} not found")
                 results['skipped'] += 1
