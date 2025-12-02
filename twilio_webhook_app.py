@@ -704,6 +704,24 @@ def migrate_league1_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/list-files', methods=['GET'])
+def list_files():
+    """List files in the deployment directory"""
+    try:
+        import os
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        files = os.listdir(script_dir)
+        json_files = [f for f in files if f.endswith('.json')]
+        
+        return jsonify({
+            'script_dir': script_dir,
+            'total_files': len(files),
+            'json_files': json_files,
+            'all_files': files[:50]  # First 50 files
+        })
+    except Exception as e:
+        return {'error': str(e)}, 500
+
 @app.route('/test-insert-league1', methods=['POST'])
 def test_insert_league1():
     """Test inserting one League 1 score"""
