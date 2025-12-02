@@ -880,12 +880,9 @@ def test_insert_league3_players():
         
         # Insert league first
         cursor.execute("""
-            INSERT INTO leagues (id, name, github_pages_url, twilio_conversation_sid)
-            VALUES (3, 'PAL', 'https://brentcurtis182.github.io/wordle-league/pal/', 'CHc8f0c4a776f14bcd96e7c8838a6aec13')
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name,
-                github_pages_url = EXCLUDED.github_pages_url,
-                twilio_conversation_sid = EXCLUDED.twilio_conversation_sid
+            INSERT INTO leagues (id, name)
+            VALUES (3, 'PAL')
+            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
         """)
         
         players = [
