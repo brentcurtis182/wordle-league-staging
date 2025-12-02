@@ -941,23 +941,72 @@ def migrate_league3_endpoint():
 def restore_league4_dec2():
     """Restore League 4 scores from Dec 2 that were lost"""
     try:
-        from restore_league4_dec2 import restore_scores
-        success = restore_scores()
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        if success:
-            # Regenerate HTML
-            from update_pipeline import run_update_pipeline
-            run_update_pipeline(4)
-            
-            return jsonify({
-                'success': True,
-                'message': 'League 4 scores restored and HTML regenerated'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'No scores were restored'
-            })
+        # Delete wrong scores from League 6
+        cursor.execute("""
+            DELETE FROM scores 
+            WHERE wordle_number = 1627 
+            AND player_id IN (SELECT id FROM players WHERE league_id = 6)
+        """)
+        cursor.execute("""
+            DELETE FROM latest_scores 
+            WHERE wordle_number = 1627 
+            AND league_id = 6
+        """)
+        
+        # Get League 4 player IDs
+        cursor.execute("SELECT id, phone_number FROM players WHERE league_id = 4")
+        phone_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+        
+        # Scores to insert
+        scores = [
+            ('17609082401', 4, '⬜⬜🟩⬜⬜\n🟨⬜🟨⬜⬜\n⬜🟩🟩⬜🟩\n🟩🟩🟩🟩🟩', '2025-12-02 06:40:45'),
+            ('17609082000', 4, '⬛🟩🟨⬛🟨\n⬛⬛⬛⬛⬛\n⬛🟩🟨🟨🟨\n🟩🟩🟩🟩🟩', '2025-12-02 07:22:42'),
+            ('19165416576', 7, '⬛⬛🟨⬛⬛\n⬛🟩⬛⬛⬛\n⬛🟩⬛⬛⬛\n⬛🟩⬛⬛⬛\n⬛🟩🟨🟨🟨\n🟨🟩🟩🟨⬛', '2025-12-02 07:41:09'),
+            ('16503468822', 4, '⬛⬛🟨🟩⬛\n⬛🟩⬛🟩⬛\n⬛🟩🟨🟩⬛\n🟩🟩🟩🟩🟩', '2025-12-02 08:22:53'),
+            ('17608156131', 5, '⬜⬜⬜🟨🟨\n⬜⬜🟨🟨⬜\n⬜🟩⬜🟨🟨\n⬜🟩🟨⬜⬜\n🟩🟩🟩🟩🟩', '2025-12-02 08:24:38'),
+        ]
+        
+        from datetime import datetime, date, timedelta
+        ref_date = date(2025, 7, 31)
+        wordle_date = ref_date + timedelta(days=124)  # 1627 - 1503
+        
+        inserted = 0
+        for phone, score, emoji, ts in scores:
+            if phone in phone_to_id:
+                player_id = phone_to_id[phone]
+                timestamp = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+                
+                cursor.execute("""
+                    INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+                    VALUES (%s, 1627, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (player_id, score, wordle_date, emoji, timestamp))
+                
+                cursor.execute("""
+                    INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+                    VALUES (%s, 4, 1627, %s, %s, %s)
+                    ON CONFLICT (player_id, wordle_number) DO UPDATE 
+                    SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern
+                """, (player_id, score, emoji, timestamp))
+                
+                inserted += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Regenerate HTML
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(4)
+        
+        return jsonify({
+            'success': True,
+            'inserted': inserted,
+            'message': f'Restored {inserted} scores and regenerated HTML'
+        })
     except Exception as e:
         logging.error(f"Error restoring scores: {e}")
         import traceback
