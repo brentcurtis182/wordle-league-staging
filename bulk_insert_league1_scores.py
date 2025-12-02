@@ -17,10 +17,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def bulk_insert_scores():
     """Insert all scores from JSON file"""
     
-    json_file = 'league1_historical_scores.json'
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_file = os.path.join(script_dir, 'league1_historical_scores.json')
+    
+    logging.info(f"Looking for JSON file at: {json_file}")
+    logging.info(f"File exists: {os.path.exists(json_file)}")
     
     if not os.path.exists(json_file):
         logging.error(f"JSON file not found: {json_file}")
+        logging.error(f"Current directory: {os.getcwd()}")
+        logging.error(f"Script directory: {script_dir}")
+        logging.error(f"Files in script directory: {os.listdir(script_dir)[:20]}")
         return False
     
     # Load scores from JSON
