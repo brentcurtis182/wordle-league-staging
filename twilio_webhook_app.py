@@ -409,15 +409,15 @@ def webhook():
         if result == "new":
             logging.info(f"✅ Score recorded! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Trigger full update pipeline including weekly winners
+            # Trigger full update pipeline after successful save
             try:
-                from update_tables_cloud import run_full_update_for_league
+                from update_pipeline import run_update_pipeline
                 logging.info("Triggering full update pipeline...")
-                success = run_full_update_for_league(league_id=league_id)
-                if success:
+                result_data = run_update_pipeline(league_id)
+                if result_data.get('success'):
                     logging.info("Pipeline completed successfully")
                 else:
-                    logging.error("Pipeline failed")
+                    logging.error(f"Pipeline failed: {result_data.get('errors')}")
             except Exception as pipeline_error:
                 logging.error(f"Pipeline error: {pipeline_error}")
                 # Don't fail the webhook if pipeline fails
@@ -427,13 +427,13 @@ def webhook():
             
             # Also trigger full update on updates
             try:
-                from update_tables_cloud import run_full_update_for_league
+                from update_pipeline import run_update_pipeline
                 logging.info("Triggering full update pipeline...")
-                success = run_full_update_for_league(league_id=league_id)
-                if success:
+                result_data = run_update_pipeline(league_id)
+                if result_data.get('success'):
                     logging.info("Pipeline completed successfully")
                 else:
-                    logging.error("Pipeline failed")
+                    logging.error(f"Pipeline failed: {result_data.get('errors')}")
             except Exception as pipeline_error:
                 logging.error(f"Pipeline error: {pipeline_error}")
                 
