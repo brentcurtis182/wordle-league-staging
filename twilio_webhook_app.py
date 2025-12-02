@@ -937,6 +937,23 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-league3', methods=['POST'])
+def regenerate_league3():
+    """Manually regenerate League 3 HTML"""
+    try:
+        from update_pipeline import run_update_pipeline
+        result = run_update_pipeline(3)
+        return jsonify({
+            'success': True,
+            'result': result,
+            'message': 'League 3 HTML regenerated'
+        })
+    except Exception as e:
+        logging.error(f"Error regenerating League 3: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/force-insert-league3', methods=['POST'])
 def force_insert_league3():
     """Force insert League 3 with detailed tracking"""
