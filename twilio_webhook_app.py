@@ -296,8 +296,8 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             cursor.execute("""
                 INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (player_id, wordle_number) 
-                DO UPDATE SET score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp
+                ON CONFLICT (player_id) 
+                DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp, league_id = EXCLUDED.league_id
             """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
             
             conn.commit()
