@@ -69,24 +69,30 @@ def force_insert():
             except:
                 timestamp_obj = datetime.now()
             
-            # Insert
-            cursor.execute("""
-                INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (player_id, wordle_number) DO NOTHING
-            """, (player_id, wordle_num, score, date_obj, score_data.get('emoji_pattern'), timestamp_obj))
-            
-            if cursor.rowcount > 0:
-                results['imported'] += 1
-                # Commit every 50
-                if results['imported'] % 50 == 0:
-                    conn.commit()
-                    logging.info(f"Committed {results['imported']} scores")
-            else:
+            # Insert with individual error handling
+            try:
+                cursor.execute("""
+                    INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (player_id, wordle_number) DO NOTHING
+                """, (player_id, wordle_num, score, date_obj, score_data.get('emoji_pattern'), timestamp_obj))
+                
+                if cursor.rowcount > 0:
+                    results['imported'] += 1
+                    # Commit every 50
+                    if results['imported'] % 50 == 0:
+                        conn.commit()
+                        logging.info(f"Committed {results['imported']} scores")
+                else:
+                    results['skipped'] += 1
+            except Exception as insert_error:
+                # Rollback this one insert and continue
+                conn.rollback()
+                results['errors'].append(f"Insert error on score {i} ({player_name}, W{wordle_num}): {str(insert_error)}")
                 results['skipped'] += 1
                 
         except Exception as e:
-            results['errors'].append(f"Error on score {i}: {str(e)}")
+            results['errors'].append(f"Parse error on score {i}: {str(e)}")
             results['skipped'] += 1
     
     # Final commit
