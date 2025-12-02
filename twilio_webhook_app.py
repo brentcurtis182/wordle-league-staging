@@ -932,6 +932,31 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/update-conversation-names', methods=['POST'])
+def update_conversation_names():
+    """Update Twilio conversation unique names"""
+    try:
+        from update_conversation_names import client, conversations
+        
+        results = []
+        for sid, name in conversations:
+            try:
+                conversation = client.conversations.conversations(sid).update(
+                    unique_name=name
+                )
+                results.append(f"✅ Updated {sid} -> {name}")
+            except Exception as e:
+                results.append(f"❌ Error updating {sid}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/insert-brent-league3', methods=['POST'])
 def insert_brent_league3():
     """Manually insert Brent's League 3 score"""
