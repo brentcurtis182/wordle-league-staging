@@ -937,6 +937,32 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/restore-league4-dec2', methods=['POST'])
+def restore_league4_dec2():
+    """Restore League 4 scores from Dec 2 that were lost"""
+    try:
+        from restore_league4_dec2 import restore_scores
+        success = restore_scores()
+        
+        if success:
+            # Regenerate HTML
+            from update_pipeline import run_update_pipeline
+            run_update_pipeline(4)
+            
+            return jsonify({
+                'success': True,
+                'message': 'League 4 scores restored and HTML regenerated'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No scores were restored'
+            })
+    except Exception as e:
+        logging.error(f"Error restoring scores: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/regenerate-league3', methods=['POST'])
 def regenerate_league3():
     """Manually regenerate League 3 HTML"""
