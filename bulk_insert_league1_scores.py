@@ -119,7 +119,12 @@ def bulk_insert_scores():
         logging.info(f"  Imported: {imported}")
         logging.info(f"  Skipped: {skipped}")
         
-        return True
+        return {
+            'success': True,
+            'imported': imported,
+            'skipped': skipped,
+            'total': len(all_scores)
+        }
         
     except Exception as e:
         logging.error(f"Error during import: {e}")

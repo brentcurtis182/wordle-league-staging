@@ -801,11 +801,15 @@ def bulk_insert_league1():
             logging.info(f"JSON file has {len(data)} scores")
         
         from bulk_insert_league1_scores import bulk_insert_scores
-        success = bulk_insert_scores()
-        return jsonify({
-            'success': success,
-            'message': 'League 1 history imported' if success else 'Import failed'
-        })
+        result = bulk_insert_scores()
+        
+        if isinstance(result, dict):
+            return jsonify(result)
+        else:
+            return jsonify({
+                'success': result,
+                'message': 'League 1 history imported' if result else 'Import failed'
+            })
     except Exception as e:
         logging.error(f"Error importing history: {e}")
         import traceback
