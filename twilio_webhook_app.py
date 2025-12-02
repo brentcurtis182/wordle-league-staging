@@ -22,6 +22,14 @@ app = Flask(__name__)
 
 # Phone number to player/league mappings
 PHONE_MAPPINGS = {
+    # League 1: Warriorz
+    1: {
+        "18587359353": "Brent",
+        "17603341190": "Malia",
+        "17608462302": "Evan",
+        "13109263555": "Joanna",
+        "19492304472": "Nanna",
+    },
     # League 4: Party
     4: {
         "18587359353": "Brent",
@@ -378,6 +386,7 @@ def webhook():
         
         # Conversation to League mapping
         conversation_to_league = {
+            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # Warriorz (League 1)
             'CHed74f2e9f16240e9a578f96299c395ce': 4,  # Party (League 4)
             'CH1ef798b5bfba4e5297268d69c01949f5': 6,  # League 6
             'CH4438ff5531514178bb13c5c0e96d5579': 7,  # BellyUp (League 7)
@@ -657,6 +666,22 @@ def create_tables_endpoint():
         })
     except Exception as e:
         logging.error(f"Error creating tables: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
+@app.route('/migrate-league1', methods=['POST'])
+def migrate_league1_endpoint():
+    """Run League 1 migration"""
+    try:
+        from migrate_league1 import migrate_league1
+        migrate_league1()
+        return jsonify({
+            'success': True,
+            'message': 'League 1 migration completed'
+        })
+    except Exception as e:
+        logging.error(f"Error in migration: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}, 500
