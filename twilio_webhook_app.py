@@ -704,6 +704,22 @@ def migrate_league1_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/bulk-insert-league1', methods=['POST'])
+def bulk_insert_league1():
+    """Bulk insert League 1 historical scores from JSON"""
+    try:
+        from bulk_insert_league1_scores import bulk_insert_scores
+        success = bulk_insert_scores()
+        return jsonify({
+            'success': success,
+            'message': 'League 1 history imported' if success else 'Import failed'
+        })
+    except Exception as e:
+        logging.error(f"Error importing history: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/bulk-insert-league4', methods=['POST'])
 def bulk_insert_league4():
     """Bulk insert League 4 historical scores from JSON"""
