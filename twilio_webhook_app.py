@@ -935,6 +935,29 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-league3-html', methods=['POST'])
+def regenerate_league3_html():
+    """Regenerate HTML for League 3 to display season winners"""
+    try:
+        from update_pipeline import run_update_pipeline
+        
+        logging.info("Regenerating HTML for League 3...")
+        success = run_update_pipeline(3)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'League 3 HTML regenerated successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to regenerate League 3 HTML'
+            }), 500
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/fix-season-winners', methods=['POST'])
 def fix_season_winners():
     """Fix duplicate season winners and add missing League 3 winners"""
