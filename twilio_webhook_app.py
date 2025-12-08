@@ -1291,6 +1291,24 @@ def check_league_seasons():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/debug-league3-data', methods=['GET'])
+def debug_league3_data():
+    """Debug what data is being fetched for League 3"""
+    try:
+        from league_data_adapter import get_complete_league_data
+        
+        data = get_complete_league_data(3)
+        
+        return jsonify({
+            'success': True,
+            'current_season': data.get('current_season'),
+            'season_standings': data.get('season_standings'),
+            'season_winners': data.get('season_winners')
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-league3-winners', methods=['GET'])
 def check_league3_winners():
     """Check League 3 all weekly winners"""
