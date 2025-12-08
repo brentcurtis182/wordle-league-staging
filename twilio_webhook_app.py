@@ -1144,6 +1144,58 @@ def debug_league7_lastweek():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/initialize-seasons-table', methods=['POST'])
+def initialize_seasons_table():
+    """Initialize seasons table with historical season data"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # League 1: Seasons 1-3 completed, Season 4 in progress
+        seasons_data = [
+            # League 1
+            (1, 1, 1514, 1520),  # Season 1: Aug 11 - Aug 17 (Joanna won)
+            (1, 2, 1521, 1555),  # Season 2: Aug 18 - Sep 28 (Joanna won)
+            (1, 3, 1556, 1618),  # Season 3: Sep 29 - Nov 16 (Brent won)
+            (1, 4, 1619, None),  # Season 4: Nov 24 - present (in progress)
+            
+            # League 3: Seasons 1-4 completed, Season 5 in progress
+            (3, 1, 1514, 1520),  # Season 1 (Vox won)
+            (3, 2, 1521, 1548),  # Season 2 (Vox won)
+            (3, 3, 1549, 1590),  # Season 3 (Vox won)
+            (3, 4, 1591, 1625),  # Season 4 (Vox won)
+            (3, 5, 1626, None),  # Season 5: in progress
+            
+            # League 4: Seasons 1-3 completed, Season 4 in progress
+            (4, 1, 1514, 1520),  # Season 1 (Brent won)
+            (4, 2, 1521, 1569),  # Season 2 (Brent won)
+            (4, 3, 1570, 1625),  # Season 3 (Rob won)
+            (4, 4, 1626, None),  # Season 4: in progress
+            
+            # League 7: Season 1 in progress
+            (7, 1, 1619, None),  # Season 1: started Nov 24
+        ]
+        
+        for league_id, season_num, start_week, end_week in seasons_data:
+            cursor.execute("""
+                INSERT INTO seasons (league_id, season_number, start_week, end_week)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (league_id, season_number) DO UPDATE
+                SET start_week = EXCLUDED.start_week, end_week = EXCLUDED.end_week
+            """, (league_id, season_num, start_week, end_week))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Seasons table initialized with historical data'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/fix-league-seasons', methods=['POST'])
 def fix_league_seasons():
     """Reset league seasons to correct values"""

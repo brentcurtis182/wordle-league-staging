@@ -31,14 +31,25 @@ def create_tables():
             )
         """)
         
-        # Create league_seasons table
+        # Create league_seasons table (tracks current season per league)
         logging.info("Creating league_seasons table...")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS league_seasons (
                 league_id INTEGER PRIMARY KEY REFERENCES leagues(id),
-                current_season INTEGER NOT NULL,
-                season_start_week INTEGER,
-                season_end_week INTEGER
+                current_season INTEGER NOT NULL
+            )
+        """)
+        
+        # Create seasons table (tracks start/end week for each season)
+        logging.info("Creating seasons table...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS seasons (
+                id SERIAL PRIMARY KEY,
+                league_id INTEGER NOT NULL REFERENCES leagues(id),
+                season_number INTEGER NOT NULL,
+                start_week INTEGER,
+                end_week INTEGER,
+                UNIQUE(league_id, season_number)
             )
         """)
         

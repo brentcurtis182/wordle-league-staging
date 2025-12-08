@@ -335,10 +335,36 @@ def get_season_data(league_id):
     current_season = season_result[0] if season_result else 1
     season_start_week = season_result[1] if season_result else None
     
+    # Get current season boundaries from seasons table
+    cursor.execute("""
+        SELECT start_week, end_week
+        FROM seasons
+        WHERE league_id = %s AND season_number = %s
+    """, (league_id, current_season))
+    
+    season_bounds = cursor.fetchone()
+    season_start = season_bounds[0] if season_bounds else None
+    season_end = season_bounds[1] if season_bounds else None
+    
     # Get current season standings (weekly wins)
-    # Only show weekly winners from current season (>= season_start_week)
+    # Only show weekly winners from current season (between start_week and end_week)
     season_standings = {}
-    if season_start_week:
+    
+    if season_start and season_end:
+        # Season has both start and end (completed season)
+        cursor.execute("""
+            SELECT 
+                ww.player_name,
+                ww.week_wordle_number,
+                ww.score
+            FROM weekly_winners ww
+            WHERE ww.league_id = %s 
+              AND ww.week_wordle_number >= %s 
+              AND ww.week_wordle_number <= %s
+            ORDER BY ww.player_name, ww.week_wordle_number
+        """, (league_id, season_start, season_end))
+    elif season_start:
+        # Season has start but no end (current season in progress)
         cursor.execute("""
             SELECT 
                 ww.player_name,
@@ -347,9 +373,9 @@ def get_season_data(league_id):
             FROM weekly_winners ww
             WHERE ww.league_id = %s AND ww.week_wordle_number >= %s
             ORDER BY ww.player_name, ww.week_wordle_number
-        """, (league_id, season_start_week))
+        """, (league_id, season_start))
     else:
-        # No season start week set, show all
+        # No season boundaries set, show all (fallback)
         cursor.execute("""
             SELECT 
                 ww.player_name,
