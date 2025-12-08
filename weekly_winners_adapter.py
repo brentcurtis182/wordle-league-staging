@@ -81,7 +81,7 @@ def load_weekly_winners():
         
         # Get season winners
         cursor.execute("""
-            SELECT sw.season_number, p.name, sw.wins, sw.recorded_at
+            SELECT sw.season_number, p.name, sw.wins, sw.completed_date
             FROM season_winners sw
             JOIN players p ON sw.player_id = p.id
             WHERE sw.league_id = %s
