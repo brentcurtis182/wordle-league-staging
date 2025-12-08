@@ -978,6 +978,39 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-league7-exists', methods=['GET'])
+def check_league7_exists():
+    """Check if League 7 exists in leagues table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, name, display_name FROM leagues WHERE id = 7")
+        result = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'exists': True,
+                'league': {
+                    'id': result[0],
+                    'name': result[1],
+                    'display_name': result[2]
+                }
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'exists': False,
+                'message': 'League 7 not found in leagues table'
+            })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/recalculate-league7-winner', methods=['POST'])
 def recalculate_league7_winner():
     """Manually recalculate League 7 last week winner"""
