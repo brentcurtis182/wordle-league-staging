@@ -1144,6 +1144,39 @@ def debug_league7_lastweek():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/fix-league-seasons', methods=['POST'])
+def fix_league_seasons():
+    """Reset league seasons to correct values"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Reset League 1 to Season 4 (next real season after 1, 2, 3)
+        cursor.execute("""
+            UPDATE league_seasons
+            SET current_season = 4, season_start_week = NULL
+            WHERE league_id = 1
+        """)
+        
+        # Reset League 4 to Season 4 (next real season after 1, 2, 3)
+        cursor.execute("""
+            UPDATE league_seasons
+            SET current_season = 4, season_start_week = NULL
+            WHERE league_id = 4
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'League seasons reset to Season 4 with no start_week filter'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-league-seasons', methods=['GET'])
 def check_league_seasons():
     """Check current season and season_start_week for all leagues"""
