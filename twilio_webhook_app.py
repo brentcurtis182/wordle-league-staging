@@ -978,6 +978,35 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/create-league7', methods=['POST'])
+def create_league7():
+    """Create League 7 entry in leagues table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO leagues (id, name, display_name, twilio_conversation_sid, github_path)
+            VALUES (7, 'bellyup', 'Belly Up', 'CH4438ff5531514178bb13c5c0e96d5579', 'bellyup')
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                display_name = EXCLUDED.display_name,
+                twilio_conversation_sid = EXCLUDED.twilio_conversation_sid,
+                github_path = EXCLUDED.github_path
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'League 7 created in leagues table'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-league7-exists', methods=['GET'])
 def check_league7_exists():
     """Check if League 7 exists in leagues table"""
