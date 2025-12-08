@@ -1291,6 +1291,42 @@ def check_league_seasons():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-league1-season4-winners', methods=['GET'])
+def check_league1_season4_winners():
+    """Check League 1 weekly winners for Season 4 (week 1619+)"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT week_wordle_number, player_name, score
+            FROM weekly_winners
+            WHERE league_id = 1 AND week_wordle_number >= 1619
+            ORDER BY week_wordle_number
+        """)
+        
+        winners = []
+        for row in cursor.fetchall():
+            winners.append({
+                'week': row[0],
+                'player': row[1],
+                'score': row[2]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'league': 'League 1 Season 4',
+            'start_week': 1619,
+            'winners': winners,
+            'count': len(winners)
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-all-weekly-winners', methods=['GET'])
 def check_all_weekly_winners():
     """Check all weekly winners for all leagues"""
