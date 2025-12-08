@@ -1144,6 +1144,48 @@ def debug_league7_lastweek():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-all-weekly-winners', methods=['GET'])
+def check_all_weekly_winners():
+    """Check all weekly winners for all leagues"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT ww.league_id, l.name, ww.week_wordle_number, ww.player_name, ww.score
+            FROM weekly_winners ww
+            LEFT JOIN leagues l ON ww.league_id = l.id
+            ORDER BY ww.league_id, ww.week_wordle_number DESC
+        """)
+        
+        winners_by_league = {}
+        for row in cursor.fetchall():
+            league_id = row[0]
+            league_name = row[1] or f"League {league_id}"
+            
+            if league_id not in winners_by_league:
+                winners_by_league[league_id] = {
+                    'league_name': league_name,
+                    'winners': []
+                }
+            
+            winners_by_league[league_id]['winners'].append({
+                'week': row[2],
+                'player': row[3],
+                'score': row[4]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'leagues': winners_by_league
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-last-week-winners', methods=['GET'])
 def check_last_week_winners():
     """Check who won last week (Wordle 1626) for each league"""
