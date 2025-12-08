@@ -935,6 +935,44 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/debug-league1-lastweek', methods=['GET'])
+def debug_league1_lastweek():
+    """Debug what scores exist for League 1 last week"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check scores for Wordles 1626-1632
+        cursor.execute("""
+            SELECT p.name, s.wordle_number, s.score, s.date
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = 1
+            AND s.wordle_number BETWEEN 1626 AND 1632
+            ORDER BY p.name, s.wordle_number
+        """)
+        
+        scores = []
+        for row in cursor.fetchall():
+            scores.append({
+                'player': row[0],
+                'wordle': row[1],
+                'score': row[2],
+                'date': str(row[3])
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'scores': scores,
+            'count': len(scores)
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/calculate-last-week-winners', methods=['POST'])
 def calculate_last_week_winners():
     """Manually calculate and save last week's winners for all leagues"""
