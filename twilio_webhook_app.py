@@ -935,6 +935,42 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/check-season-winners', methods=['GET'])
+def check_season_winners():
+    """Check all season winners in database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT sw.league_id, sw.season_number, p.name, sw.wins, sw.completed_date
+            FROM season_winners sw
+            JOIN players p ON sw.player_id = p.id
+            ORDER BY sw.league_id, sw.season_number
+        """)
+        
+        winners = []
+        for row in cursor.fetchall():
+            winners.append({
+                'league_id': row[0],
+                'season': row[1],
+                'player': row[2],
+                'wins': row[3],
+                'completed_date': str(row[4]) if row[4] else None
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'season_winners': winners,
+            'count': len(winners)
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/delete-league6', methods=['POST'])
 def delete_league6():
     """Completely remove League 6 from the database"""
