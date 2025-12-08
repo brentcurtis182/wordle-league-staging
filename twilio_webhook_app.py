@@ -1152,7 +1152,7 @@ def check_league_seasons():
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT league_id, current_season, season_start_week, season_end_week
+            SELECT league_id, current_season, season_start_week
             FROM league_seasons
             ORDER BY league_id
         """)
@@ -1162,8 +1162,7 @@ def check_league_seasons():
             seasons.append({
                 'league_id': row[0],
                 'current_season': row[1],
-                'season_start_week': row[2],
-                'season_end_week': row[3]
+                'season_start_week': row[2]
             })
         
         cursor.close()
