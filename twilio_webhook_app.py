@@ -935,6 +935,34 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/delete-league6', methods=['POST'])
+def delete_league6():
+    """Completely remove League 6 from the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete in order due to foreign key constraints
+        cursor.execute("DELETE FROM latest_scores WHERE league_id = 6")
+        cursor.execute("DELETE FROM weekly_winners WHERE league_id = 6")
+        cursor.execute("DELETE FROM season_winners WHERE league_id = 6")
+        cursor.execute("DELETE FROM scores WHERE player_id IN (SELECT id FROM players WHERE league_id = 6)")
+        cursor.execute("DELETE FROM players WHERE league_id = 6")
+        cursor.execute("DELETE FROM league_seasons WHERE league_id = 6")
+        cursor.execute("DELETE FROM leagues WHERE id = 6")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'League 6 completely deleted from database'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/debug-league1-lastweek', methods=['GET'])
 def debug_league1_lastweek():
     """Debug what scores exist for League 1 last week"""
