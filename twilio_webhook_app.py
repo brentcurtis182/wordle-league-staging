@@ -1144,6 +1144,36 @@ def debug_league7_lastweek():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/create-seasons-table', methods=['POST'])
+def create_seasons_table():
+    """Create the seasons table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS seasons (
+                id SERIAL PRIMARY KEY,
+                league_id INTEGER NOT NULL REFERENCES leagues(id),
+                season_number INTEGER NOT NULL,
+                start_week INTEGER,
+                end_week INTEGER,
+                UNIQUE(league_id, season_number)
+            )
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Seasons table created'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/initialize-seasons-table', methods=['POST'])
 def initialize_seasons_table():
     """Initialize seasons table with historical season data"""
