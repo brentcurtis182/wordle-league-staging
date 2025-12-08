@@ -935,6 +935,31 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/calculate-last-week-winners', methods=['POST'])
+def calculate_last_week_winners():
+    """Manually calculate and save last week's winners for all leagues"""
+    try:
+        from update_tables_cloud import run_full_update_for_league
+        from datetime import datetime, timedelta
+        
+        results = []
+        for league_id in [1, 3, 4, 7]:
+            logging.info(f"Calculating last week's winners for league {league_id}")
+            success = run_full_update_for_league(league_id)
+            results.append({
+                'league_id': league_id,
+                'success': success
+            })
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/update-conversation-names', methods=['POST'])
 def update_conversation_names():
     """Update Twilio conversation unique names"""
