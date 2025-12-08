@@ -978,6 +978,23 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/recalculate-league7-winner', methods=['POST'])
+def recalculate_league7_winner():
+    """Manually recalculate League 7 last week winner"""
+    try:
+        from update_tables_cloud import run_full_update_for_league
+        
+        logging.info("Recalculating League 7 last week winner...")
+        success = run_full_update_for_league(7)
+        
+        return jsonify({
+            'success': success,
+            'message': 'League 7 winner recalculated' if success else 'Failed to recalculate'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/debug-league7-lastweek', methods=['GET'])
 def debug_league7_lastweek():
     """Debug what scores exist for League 7 last week"""
