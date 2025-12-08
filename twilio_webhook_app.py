@@ -935,6 +935,51 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/fix-season-winners', methods=['POST'])
+def fix_season_winners():
+    """Fix duplicate season winners and add missing League 3 winners"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete duplicate season winners (keep only seasons 1-3 for each league)
+        cursor.execute("""
+            DELETE FROM season_winners 
+            WHERE (league_id = 1 AND season_number > 3)
+               OR (league_id = 4 AND season_number > 3)
+        """)
+        
+        # Get Vox's player_id from League 3
+        cursor.execute("SELECT id FROM players WHERE name = 'Vox' AND league_id = 3")
+        vox_id = cursor.fetchone()[0]
+        
+        # Insert League 3 season winners
+        league3_winners = [
+            (1, vox_id, 3, '2025-09-15'),
+            (2, vox_id, 4, '2025-09-29'),
+            (3, vox_id, 4, '2025-10-27'),
+            (4, vox_id, 4, '2025-11-24')
+        ]
+        
+        for season, player_id, wins, completed_date in league3_winners:
+            cursor.execute("""
+                INSERT INTO season_winners (league_id, season_number, player_id, wins, completed_date)
+                VALUES (3, %s, %s, %s, %s)
+                ON CONFLICT (league_id, season_number, player_id) DO NOTHING
+            """, (season, player_id, wins, completed_date))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Fixed duplicate season winners and added League 3 winners'
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-season-winners', methods=['GET'])
 def check_season_winners():
     """Check all season winners in database"""
