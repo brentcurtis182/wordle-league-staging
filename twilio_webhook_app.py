@@ -1233,17 +1233,24 @@ def fix_league_seasons():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Reset League 1 to Season 4 (next real season after 1, 2, 3)
+        # Set League 1 to Season 4
         cursor.execute("""
             UPDATE league_seasons
-            SET current_season = 4, season_start_week = NULL
+            SET current_season = 4
             WHERE league_id = 1
         """)
         
-        # Reset League 4 to Season 4 (next real season after 1, 2, 3)
+        # Set League 3 to Season 5
         cursor.execute("""
             UPDATE league_seasons
-            SET current_season = 4, season_start_week = NULL
+            SET current_season = 5
+            WHERE league_id = 3
+        """)
+        
+        # Set League 4 to Season 4
+        cursor.execute("""
+            UPDATE league_seasons
+            SET current_season = 4
             WHERE league_id = 4
         """)
         

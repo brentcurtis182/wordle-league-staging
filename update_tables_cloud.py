@@ -329,10 +329,6 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
             winner_names = ', '.join([w['name'] for w in winners])
             logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
         
-        # DISABLED: Season winner checking creates duplicates
-        # This should only run on Monday mornings via scheduled task, not on manual calculations
-        # check_for_season_winners(winners_data)
-        
         # Save back to database
         save_weekly_winners(winners_data)
         
@@ -341,6 +337,138 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
         
     except Exception as e:
         logging.error(f"Error updating weekly winners: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def check_and_handle_season_transition(league_id):
+    """
+    Check if any player has reached 4 weekly wins and handle season transition.
+    Adapted from legacy check_for_season_winners() function.
+    
+    This should ONLY be called by run_full_update_for_league() on Mondays.
+    """
+    WINS_FOR_SEASON_VICTORY = 4
+    
+    logging.info(f"Checking for season transition in league {league_id}")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get current season info
+        cursor.execute("""
+            SELECT current_season FROM league_seasons WHERE league_id = %s
+        """, (league_id,))
+        result = cursor.fetchone()
+        current_season = result[0] if result else 1
+        
+        # Get current season boundaries
+        cursor.execute("""
+            SELECT start_week, end_week FROM seasons
+            WHERE league_id = %s AND season_number = %s
+        """, (league_id, current_season))
+        season_bounds = cursor.fetchone()
+        
+        if not season_bounds or not season_bounds[0]:
+            logging.warning(f"No season boundaries found for league {league_id} season {current_season}")
+            return False
+        
+        season_start = season_bounds[0]
+        season_end = season_bounds[1]  # Will be None if season is in progress
+        
+        # If season already ended, no need to check
+        if season_end:
+            logging.info(f"Season {current_season} already ended at week {season_end}")
+            return False
+        
+        logging.info(f"  Counting wins for season {current_season}: start_week={season_start}, end_week={season_end}")
+        
+        # Count weekly wins per player ONLY within current season boundaries
+        cursor.execute("""
+            SELECT player_name, COUNT(*) as win_count
+            FROM weekly_winners
+            WHERE league_id = %s AND week_wordle_number >= %s
+            GROUP BY player_name
+            HAVING COUNT(*) >= %s
+            ORDER BY COUNT(*) DESC
+        """, (league_id, season_start, WINS_FOR_SEASON_VICTORY))
+        
+        potential_winners = cursor.fetchall()
+        
+        if not potential_winners:
+            logging.info(f"No players have reached {WINS_FOR_SEASON_VICTORY} wins yet in season {current_season}")
+            return False
+        
+        # Get the highest win count
+        top_win_count = potential_winners[0][1]
+        winners = [row for row in potential_winners if row[1] == top_win_count]
+        
+        logging.info(f"🏆 SEASON TRANSITION: League {league_id} Season {current_season} winner(s):")
+        for winner_name, win_count in winners:
+            logging.info(f"   {winner_name} with {win_count} weekly wins")
+        
+        # Find the last week with data to set as end_week
+        cursor.execute("""
+            SELECT MAX(week_wordle_number) FROM weekly_winners
+            WHERE league_id = %s
+        """, (league_id,))
+        last_week = cursor.fetchone()[0]
+        
+        # Close current season
+        cursor.execute("""
+            UPDATE seasons
+            SET end_week = %s
+            WHERE league_id = %s AND season_number = %s
+        """, (last_week, league_id, current_season))
+        
+        logging.info(f"Closed season {current_season} with end_week = {last_week}")
+        
+        # Save season winners to season_winners table
+        for winner_name, win_count in winners:
+            # Get player_id
+            cursor.execute("""
+                SELECT id FROM players WHERE name = %s AND league_id = %s
+            """, (winner_name, league_id))
+            player_result = cursor.fetchone()
+            if player_result:
+                player_id = player_result[0]
+                cursor.execute("""
+                    INSERT INTO season_winners (league_id, player_id, season_number, wins, completed_date)
+                    VALUES (%s, %s, %s, %s, CURRENT_DATE)
+                    ON CONFLICT (league_id, season_number, player_id) DO NOTHING
+                """, (league_id, player_id, current_season, win_count))
+        
+        # Create new season entry
+        new_season = current_season + 1
+        next_season_start = last_week + 7  # Next Monday
+        
+        cursor.execute("""
+            INSERT INTO seasons (league_id, season_number, start_week, end_week)
+            VALUES (%s, %s, %s, NULL)
+            ON CONFLICT (league_id, season_number) DO NOTHING
+        """, (league_id, new_season, next_season_start))
+        
+        # Update league_seasons table
+        cursor.execute("""
+            UPDATE league_seasons
+            SET current_season = %s
+            WHERE league_id = %s
+        """, (new_season, league_id))
+        
+        conn.commit()
+        
+        logging.info(f"Created season {new_season} starting at week {next_season_start}")
+        logging.info(f"Updated league {league_id} to season {new_season}")
+        
+        return True
+        
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error checking season transition: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -388,7 +516,10 @@ def run_full_update_for_league(league_id):
             logging.error("Failed to update weekly winners")
             return False
         
-        # Step 2: Generate HTML (using existing pipeline)
+        # Step 2: Check for season transitions (ONLY runs in scheduled task, not manual)
+        check_and_handle_season_transition(league_id)
+        
+        # Step 3: Generate HTML (using existing pipeline)
         from update_pipeline import run_update_pipeline
         if not run_update_pipeline(league_id):
             logging.error("Failed to generate and publish HTML")
