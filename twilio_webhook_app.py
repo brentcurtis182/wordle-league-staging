@@ -978,6 +978,65 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/debug-league7-lastweek', methods=['GET'])
+def debug_league7_lastweek():
+    """Debug what scores exist for League 7 last week"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check scores for Wordles 1626-1632
+        cursor.execute("""
+            SELECT p.name, s.wordle_number, s.score, s.date
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = 7
+            AND s.wordle_number BETWEEN 1626 AND 1632
+            ORDER BY p.name, s.wordle_number
+        """)
+        
+        scores = []
+        for row in cursor.fetchall():
+            scores.append({
+                'player': row[0],
+                'wordle': row[1],
+                'score': row[2],
+                'date': str(row[3])
+            })
+        
+        # Group by player
+        from collections import defaultdict
+        player_scores = defaultdict(list)
+        for score in scores:
+            player_scores[score['player']].append(score['score'])
+        
+        # Calculate best 5 for each
+        summary = []
+        for player, scores_list in player_scores.items():
+            sorted_scores = sorted(scores_list)
+            best_5 = sorted_scores[:5] if len(sorted_scores) >= 5 else None
+            summary.append({
+                'player': player,
+                'total_games': len(scores_list),
+                'all_scores': sorted_scores,
+                'best_5': best_5,
+                'best_5_total': sum(best_5) if best_5 else None
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'league': 'League 7 (Belly Up)',
+            'week': '1626-1632 (Dec 1-7)',
+            'total_scores': len(scores),
+            'player_summary': sorted(summary, key=lambda x: x['best_5_total'] if x['best_5_total'] else 999)
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-last-week-winners', methods=['GET'])
 def check_last_week_winners():
     """Check who won last week (Wordle 1626) for each league"""
