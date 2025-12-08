@@ -1078,13 +1078,31 @@ def check_last_week_winners():
                 'score': row[3]
             })
         
+        # Also check all League 7 entries
+        cursor.execute("""
+            SELECT week_wordle_number, player_name, score
+            FROM weekly_winners
+            WHERE league_id = 7
+            ORDER BY week_wordle_number DESC
+            LIMIT 5
+        """)
+        
+        league7_recent = []
+        for row in cursor.fetchall():
+            league7_recent.append({
+                'week': row[0],
+                'player': row[1],
+                'score': row[2]
+            })
+        
         cursor.close()
         conn.close()
         
         return jsonify({
             'success': True,
             'week': '1626 (Dec 1-7, 2025)',
-            'winners': winners
+            'winners': winners,
+            'league7_recent_winners': league7_recent
         })
     except Exception as e:
         import traceback
