@@ -310,8 +310,19 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 for w in winners
             ]
             
+            # Save winners to database weekly_winners table
+            for winner in winners:
+                cursor.execute("""
+                    INSERT INTO weekly_winners (league_id, player_id, week_start_wordle, total_score, season)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (league_id, player_id, week_start_wordle) DO UPDATE
+                    SET total_score = EXCLUDED.total_score, season = EXCLUDED.season
+                """, (league_id, winner['player_id'], week_wordle, winner['score'], current_season))
+            
+            conn.commit()
+            
             winner_names = ', '.join([w['name'] for w in winners])
-            logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total}")
+            logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
         
         # Check for season winners
         check_for_season_winners(winners_data)
