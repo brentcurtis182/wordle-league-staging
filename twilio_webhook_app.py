@@ -1144,6 +1144,39 @@ def debug_league7_lastweek():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-league-seasons', methods=['GET'])
+def check_league_seasons():
+    """Check current season and season_start_week for all leagues"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT league_id, current_season, season_start_week, season_end_week
+            FROM league_seasons
+            ORDER BY league_id
+        """)
+        
+        seasons = []
+        for row in cursor.fetchall():
+            seasons.append({
+                'league_id': row[0],
+                'current_season': row[1],
+                'season_start_week': row[2],
+                'season_end_week': row[3]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'seasons': seasons
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-all-weekly-winners', methods=['GET'])
 def check_all_weekly_winners():
     """Check all weekly winners for all leagues"""
