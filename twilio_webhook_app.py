@@ -978,6 +978,38 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-weekly-winners-schema', methods=['GET'])
+def check_weekly_winners_schema():
+    """Check the schema of weekly_winners table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'weekly_winners'
+            ORDER BY ordinal_position
+        """)
+        
+        columns = []
+        for row in cursor.fetchall():
+            columns.append({
+                'column_name': row[0],
+                'data_type': row[1]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'columns': columns
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-season-winners', methods=['GET'])
 def check_season_winners():
     """Check all season winners in database"""
