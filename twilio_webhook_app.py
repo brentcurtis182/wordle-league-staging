@@ -611,31 +611,6 @@ def restore_nov30():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
-@app.route('/calculate-last-week-winners', methods=['POST'])
-def calculate_last_week_winners_endpoint():
-    """Manually calculate last week's winners"""
-    try:
-        from calculate_weekly_winners import calculate_last_week_winners
-        logging.info("Calculating last week's winners...")
-        
-        leagues = [6, 7]
-        results = {}
-        
-        for league_id in leagues:
-            success = calculate_last_week_winners(league_id)
-            results[f'league_{league_id}'] = 'success' if success else 'failed'
-        
-        return {
-            'success': True,
-            'message': 'Calculated last week winners',
-            'results': results
-        }, 200
-    except Exception as e:
-        logging.error(f"Error calculating last week winners: {e}")
-        import traceback
-        traceback.print_exc()
-        return {'error': str(e)}, 500
-
 @app.route('/reset-weekly-winners', methods=['POST'])
 def reset_weekly_winners():
     """Clear ALL weekly winners and recalculate just last week"""
