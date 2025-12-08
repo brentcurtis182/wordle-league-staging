@@ -910,6 +910,30 @@ def migrate_league3_endpoint():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-all-html', methods=['POST'])
+def regenerate_all_html():
+    """Regenerate HTML for all leagues"""
+    try:
+        from update_pipeline import run_update_pipeline
+        
+        results = []
+        for league_id in [1, 3, 4, 7]:
+            logging.info(f"Regenerating HTML for League {league_id}...")
+            success = run_update_pipeline(league_id)
+            results.append({
+                'league_id': league_id,
+                'success': success
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'All league HTML regenerated',
+            'results': results
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/regenerate-league3-html', methods=['POST'])
 def regenerate_league3_html():
     """Regenerate HTML for League 3 to display season winners"""
