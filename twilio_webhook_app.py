@@ -1186,8 +1186,8 @@ def initialize_seasons_table():
             # League 1
             (1, 1, 1514, 1520),  # Season 1: Aug 11 - Aug 17 (Joanna won)
             (1, 2, 1521, 1555),  # Season 2: Aug 18 - Sep 28 (Joanna won)
-            (1, 3, 1556, 1618),  # Season 3: Sep 29 - Nov 16 (Brent won)
-            (1, 4, 1619, None),  # Season 4: Nov 24 - present (in progress)
+            (1, 3, 1556, 1605),  # Season 3: Sep 29 - Nov 3 (Brent won with 4th win in 1605)
+            (1, 4, 1612, None),  # Season 4: Nov 17 - present (in progress)
             
             # League 3: Seasons 1-4 completed, Season 5 in progress
             (3, 1, 1514, 1520),  # Season 1 (Vox won)
