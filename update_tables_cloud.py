@@ -354,7 +354,11 @@ def run_full_update_for_league(league_id):
     
     try:
         # Calculate LAST week's Wordle range (the week that just ended)
-        today = datetime.now().date()
+        # IMPORTANT: Use Pacific timezone, not UTC
+        import pytz
+        pacific = pytz.timezone('America/Los_Angeles')
+        now_pacific = datetime.now(pacific)
+        today = now_pacific.date()
         
         # Find last Monday (start of last week)
         days_since_monday = today.weekday()  # 0=Monday, 6=Sunday
