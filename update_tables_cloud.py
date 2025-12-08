@@ -329,8 +329,9 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
             winner_names = ', '.join([w['name'] for w in winners])
             logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
         
-        # Check for season winners
-        check_for_season_winners(winners_data)
+        # DISABLED: Season winner checking creates duplicates
+        # This should only run on Monday mornings via scheduled task, not on manual calculations
+        # check_for_season_winners(winners_data)
         
         # Save back to database
         save_weekly_winners(winners_data)

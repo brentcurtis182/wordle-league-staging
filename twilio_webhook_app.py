@@ -940,10 +940,14 @@ def fix_season_winners():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Delete duplicate season winners (keep only seasons 1-3 for each league)
+        # Delete duplicate season winners (keep only real historical seasons)
+        # League 1: Seasons 1-3
+        # League 3: Seasons 1-4
+        # League 4: Seasons 1-3
         cursor.execute("""
             DELETE FROM season_winners 
             WHERE (league_id = 1 AND season_number > 3)
+               OR (league_id = 3 AND season_number > 4)
                OR (league_id = 4 AND season_number > 3)
         """)
         
