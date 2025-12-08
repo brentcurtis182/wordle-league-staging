@@ -246,7 +246,8 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
             # Calculate week range (Monday to Sunday)
             sunday_date = monday_date + timedelta(days=6)
             
-            # Get all scores for this week
+            # Get all scores for this week using Wordle numbers (more reliable than dates)
+            week_end_wordle = week_wordle + 7
             cursor.execute("""
                 SELECT 
                     p.id,
@@ -256,11 +257,11 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 FROM scores s
                 JOIN players p ON s.player_id = p.id
                 WHERE p.league_id = %s
-                  AND s.date >= %s
-                  AND s.date <= %s
+                  AND s.wordle_number >= %s
+                  AND s.wordle_number < %s
                   AND s.score != 7  -- Exclude failed attempts
                 ORDER BY p.name, s.score
-            """, (league_id, monday_date, sunday_date))
+            """, (league_id, week_wordle, week_end_wordle))
             
             # Group scores by player
             player_scores = {}
