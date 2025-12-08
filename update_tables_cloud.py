@@ -248,6 +248,7 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
             
             # Get all scores for this week using Wordle numbers (more reliable than dates)
             week_end_wordle = week_wordle + 7
+            logging.info(f"Querying scores: league_id={league_id}, wordle_number >= {week_wordle} AND < {week_end_wordle}")
             cursor.execute("""
                 SELECT 
                     p.id,
@@ -263,9 +264,12 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 ORDER BY p.name, s.score
             """, (league_id, week_wordle, week_end_wordle))
             
+            rows = cursor.fetchall()
+            logging.info(f"Found {len(rows)} scores for week {week_wordle}")
+            
             # Group scores by player
             player_scores = {}
-            for row in cursor.fetchall():
+            for row in rows:
                 player_id = row[0]
                 player_name = row[1]
                 score = row[2]
