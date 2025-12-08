@@ -978,6 +978,42 @@ def fix_season_winners():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/check-last-week-winners', methods=['GET'])
+def check_last_week_winners():
+    """Check who won last week (Wordle 1626) for each league"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT ww.league_id, l.name, ww.player_name, ww.score
+            FROM weekly_winners ww
+            JOIN leagues l ON ww.league_id = l.id
+            WHERE ww.week_wordle_number = 1626
+            ORDER BY ww.league_id, ww.score
+        """)
+        
+        winners = []
+        for row in cursor.fetchall():
+            winners.append({
+                'league_id': row[0],
+                'league_name': row[1],
+                'player': row[2],
+                'score': row[3]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'week': '1626 (Dec 1-7, 2025)',
+            'winners': winners
+        })
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/check-weekly-winners-schema', methods=['GET'])
 def check_weekly_winners_schema():
     """Check the schema of weekly_winners table"""
