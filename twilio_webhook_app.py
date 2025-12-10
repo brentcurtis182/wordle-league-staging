@@ -194,7 +194,10 @@ def extract_wordle_score(message_body):
         if any(emoji in line for emoji in ['🟩', '⬛', '⬜', '🟨']):
             # Skip the score line itself (e.g., "Wordle 1,618 4/6")
             if not re.search(r'Wordle\s+[\d,]+\s+[1-6X]/6', line):
-                emoji_lines.append(line.strip())
+                # Extract ONLY emoji characters from this line
+                emoji_only = ''.join(char for char in line if char in ['🟩', '⬛', '⬜', '🟨'])
+                if emoji_only:
+                    emoji_lines.append(emoji_only)
     
     if emoji_lines:
         # Multi-line format found
@@ -1260,7 +1263,7 @@ def fix_league_seasons():
         
         return jsonify({
             'success': True,
-            'message': 'League seasons reset to Season 4 with no start_week filter'
+            'message': 'League seasons updated: League 1=Season 4, League 3=Season 5, League 4=Season 4'
         })
     except Exception as e:
         import traceback
