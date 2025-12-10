@@ -1308,13 +1308,23 @@ def fix_nanna_score():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get Nanna's latest score
+        # Get Nanna's player_id
         cursor.execute("""
-            SELECT id, emoji_pattern FROM latest_scores
-            WHERE league_id = 1 AND player_name = 'Nanna'
+            SELECT id FROM players WHERE name = 'Nanna' AND league_id = 1
+        """)
+        player_result = cursor.fetchone()
+        if not player_result:
+            return jsonify({'error': 'Nanna not found'}), 404
+        
+        player_id = player_result[0]
+        
+        # Get Nanna's latest score from scores table
+        cursor.execute("""
+            SELECT id, emoji_pattern FROM scores
+            WHERE player_id = %s
             ORDER BY date DESC
             LIMIT 1
-        """)
+        """, (player_id,))
         
         result = cursor.fetchone()
         if not result:
@@ -1336,7 +1346,7 @@ def fix_nanna_score():
             
             # Update the database
             cursor.execute("""
-                UPDATE latest_scores
+                UPDATE scores
                 SET emoji_pattern = %s
                 WHERE id = %s
             """, (new_pattern, score_id))
