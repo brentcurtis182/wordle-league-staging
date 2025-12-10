@@ -1301,6 +1301,62 @@ def check_league_seasons():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/fix-nanna-score', methods=['POST'])
+def fix_nanna_score():
+    """Fix Nanna's score to remove 'whew' from emoji pattern"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get Nanna's latest score
+        cursor.execute("""
+            SELECT id, emoji_pattern FROM latest_scores
+            WHERE league_id = 1 AND player_name = 'Nanna'
+            ORDER BY date DESC
+            LIMIT 1
+        """)
+        
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'No score found for Nanna'}), 404
+        
+        score_id = result[0]
+        old_pattern = result[1]
+        
+        # Clean the pattern - extract only emoji characters
+        if old_pattern:
+            lines = old_pattern.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                emoji_only = ''.join(char for char in line if char in ['🟩', '⬛', '⬜', '🟨'])
+                if emoji_only:
+                    cleaned_lines.append(emoji_only)
+            
+            new_pattern = '\n'.join(cleaned_lines)
+            
+            # Update the database
+            cursor.execute("""
+                UPDATE latest_scores
+                SET emoji_pattern = %s
+                WHERE id = %s
+            """, (new_pattern, score_id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'success': True,
+                'old_pattern': old_pattern,
+                'new_pattern': new_pattern
+            })
+        else:
+            return jsonify({'error': 'No emoji pattern found'}), 404
+            
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/debug-league3-data', methods=['GET'])
 def debug_league3_data():
     """Debug what data is being fetched for League 3"""
