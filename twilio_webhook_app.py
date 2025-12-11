@@ -1380,44 +1380,23 @@ def send_message_to_league():
                 logging.warning(f"AI enhancement failed, using original message: {e}")
                 # Fall back to original message if AI fails
         
-        # Send message to the conversation thread using Twilio phone number
+        # Send message directly to the Conversations API (will appear in group thread)
         from twilio.rest import Client
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')  # Your Twilio number
         client = Client(twilio_sid, twilio_token)
         
-        # Send as SMS to the conversation (will appear in thread)
-        # Get all players in the league
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT phone_number FROM players 
-            WHERE league_id = %s AND active = TRUE AND phone_number IS NOT NULL
-        """, (league_id,))
-        
-        players = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        # Send one message to the conversation using the Twilio number
-        # This will appear in the group thread
-        sent_messages = []
-        for player in players:
-            phone = player[0]
-            msg = client.messages.create(
-                body=final_message,
-                from_=twilio_phone,
-                to=phone
-            )
-            sent_messages.append({'to': phone, 'sid': msg.sid})
+        # Send message to the conversation - no author specified means it comes from the service
+        message_response = client.conversations.v1.conversations(conversation_sid).messages.create(
+            body=final_message,
+            x_twilio_webhook_enabled='true'  # This allows the message to be sent without author validation
+        )
         
         return jsonify({
             'success': True,
             'league_id': league_id,
             'conversation_sid': conversation_sid,
-            'messages_sent': len(sent_messages),
-            'recipients': sent_messages,
+            'message_sid': message_response.sid,
             'original_message': message,
             'final_message': final_message,
             'ai_enhanced': use_ai
