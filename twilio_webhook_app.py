@@ -624,26 +624,25 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_num}")
             cursor.close()
             
-            # PILOT: Auto-roast X/6 failures in League 4 only
-            if league_id == 4 and score == 7:  # X/6 = 7 in our system
+            # Auto-roast X/6 failures in all leagues
+            if score == 7:  # X/6 = 7 in our system
                 try:
                     send_failure_roast(player_name, league_id)
                 except Exception as e:
                     logging.error(f"Failed to send roast message: {e}")
             
-            # PILOT: Congratulate perfect scores (1/6 or 2/6) with whale emojis in League 4
-            if league_id == 4 and score in [1, 2]:
+            # Congratulate perfect scores (1/6 or 2/6) with whale emojis in all leagues
+            if score in [1, 2]:
                 try:
                     send_perfect_score_congrats(player_name, score, league_id)
                 except Exception as e:
                     logging.error(f"Failed to send perfect score message: {e}")
             
-            # PILOT: Check if all players have posted, then roast lowest scorer(s) in League 4
-            if league_id == 4:
-                try:
-                    check_and_roast_daily_losers(league_id, wordle_num, conn)
-                except Exception as e:
-                    logging.error(f"Failed to check/send daily loser roast: {e}")
+            # Check if all players have posted, then roast lowest scorer(s) in all leagues
+            try:
+                check_and_roast_daily_losers(league_id, wordle_num, conn)
+            except Exception as e:
+                logging.error(f"Failed to check/send daily loser roast: {e}")
             
             return "new"
             
