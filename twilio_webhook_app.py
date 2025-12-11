@@ -1742,6 +1742,30 @@ def send_message_to_league():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/test-sunday-race-update', methods=['POST'])
+def test_sunday_race_update():
+    """Test the Sunday race update for a specific league"""
+    try:
+        from sunday_race_update import send_sunday_race_update
+        
+        data = request.get_json()
+        league_id = data.get('league_id', 4)  # Default to League 4
+        
+        success = send_sunday_race_update(league_id)
+        
+        return jsonify({
+            'success': success,
+            'league_id': league_id,
+            'message': 'Sunday race update sent!' if success else 'Failed to send race update'
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @app.route('/fix-nanna-score', methods=['POST'])
 def fix_nanna_score():
     """Fix Nanna's score to remove 'whew' from emoji pattern"""
