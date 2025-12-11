@@ -454,6 +454,61 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         import traceback
         logging.error(traceback.format_exc())
 
+def send_perfect_score_congrats(player_name, score, league_id):
+    """Send a playful congratulations message for 1/6 or 2/6 scores with whale emojis (cheating joke)"""
+    try:
+        import openai
+        from twilio.rest import Client
+        
+        # Get environment variables
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Map league_id to conversation SID
+        conversation_sids = {
+            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
+            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
+        }
+        
+        conversation_sid = conversation_sids.get(league_id)
+        if not conversation_sid:
+            logging.error(f"No conversation SID for league {league_id}")
+            return
+        
+        # Generate AI congratulations message with whale emoji (cheating joke)
+        prompt = f"Generate a playful congratulations message for {player_name} who just got a {score}/6 on Wordle - an amazing and rare score! Make it sound like you're jokingly suspicious they might be cheating (but in a fun, lighthearted way). MUST include whale emojis 🐋 (it's an inside joke about cheating). DO NOT reveal the Wordle word. Keep it under 160 characters. Be fun and celebratory but with a wink about the 'suspiciously good' score."
+        
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a fun, playful Wordle league bot. Congratulate amazing scores but jokingly imply they might be cheating (it's an inside joke). Always use whale emojis 🐋. Be lighthearted and fun."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=100,
+            temperature=0.9
+        )
+        
+        congrats_message = response.choices[0].message.content.strip()
+        logging.info(f"Generated perfect score congrats for {player_name}: {congrats_message}")
+        
+        # Send to conversation
+        client = Client(twilio_sid, twilio_token)
+        client.conversations.v1.conversations(conversation_sid).messages.create(
+            body=congrats_message,
+            author=twilio_phone
+        )
+        
+        logging.info(f"Sent perfect score congrats to league {league_id} for {player_name}")
+        
+    except Exception as e:
+        logging.error(f"Error sending perfect score congrats: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
 def send_failure_roast(player_name, league_id):
     """Send an AI-generated roast message when a player fails (X/6)"""
     try:
@@ -575,6 +630,13 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                     send_failure_roast(player_name, league_id)
                 except Exception as e:
                     logging.error(f"Failed to send roast message: {e}")
+            
+            # PILOT: Congratulate perfect scores (1/6 or 2/6) with whale emojis in League 4
+            if league_id == 4 and score in [1, 2]:
+                try:
+                    send_perfect_score_congrats(player_name, score, league_id)
+                except Exception as e:
+                    logging.error(f"Failed to send perfect score message: {e}")
             
             # PILOT: Check if all players have posted, then roast lowest scorer(s) in League 4
             if league_id == 4:
