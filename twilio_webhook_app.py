@@ -1847,6 +1847,7 @@ def test_sunday_race_update():
             return jsonify({'error': f'No conversation SID for league {league_id}'}), 400
         
         # Get week start
+        from league_data_adapter import get_week_start_date
         pacific = pytz.timezone('America/Los_Angeles')
         today = datetime.now(pacific).date()
         week_start = get_week_start_date(today)
