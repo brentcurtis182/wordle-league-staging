@@ -251,6 +251,156 @@ def get_player_id(player_name, league_id, conn):
         logging.error(f"Error getting player ID: {e}")
         return None
 
+def get_todays_wordle_word():
+    """Fetch today's Wordle word from an API or return None if unavailable"""
+    try:
+        import requests
+        # Try to get the word from a Wordle API (this is a placeholder - you may need a real API)
+        # For now, we'll return None and let the AI work without the word
+        # TODO: Integrate with a Wordle word API if available
+        return None
+    except:
+        return None
+
+def check_and_roast_daily_losers(league_id, wordle_num, conn):
+    """Check if all players have posted, then roast the lowest scorer(s)"""
+    try:
+        cursor = conn.cursor()
+        
+        # Count active players in league
+        cursor.execute("""
+            SELECT COUNT(*) FROM players 
+            WHERE league_id = %s AND active = TRUE
+        """, (league_id,))
+        total_players = cursor.fetchone()[0]
+        
+        # Count how many have posted today
+        cursor.execute("""
+            SELECT COUNT(*) FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s AND s.wordle_number = %s
+        """, (league_id, wordle_num))
+        posted_count = cursor.fetchone()[0]
+        
+        logging.info(f"League {league_id}: {posted_count}/{total_players} players posted for Wordle #{wordle_num}")
+        
+        # If not all players have posted, don't send message yet
+        if posted_count < total_players:
+            cursor.close()
+            return
+        
+        # All players have posted! Find the lowest score(s)
+        cursor.execute("""
+            SELECT p.name, s.score 
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s AND s.wordle_number = %s
+            ORDER BY s.score DESC
+            LIMIT 1
+        """, (league_id, wordle_num))
+        
+        worst_result = cursor.fetchone()
+        if not worst_result:
+            cursor.close()
+            return
+        
+        worst_score = worst_result[1]
+        
+        # Get all players with the worst score
+        cursor.execute("""
+            SELECT p.name 
+            FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s AND s.wordle_number = %s AND s.score = %s
+        """, (league_id, wordle_num, worst_score))
+        
+        losers = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        
+        if not losers:
+            return
+        
+        # Check if we already sent a roast for this day (to avoid duplicates)
+        # We'll use a simple check: if a message was sent in the last hour, skip
+        # This prevents duplicate roasts if multiple people post at the same time
+        
+        # Send the roast!
+        send_daily_loser_roast(losers, worst_score, league_id, wordle_num)
+        
+    except Exception as e:
+        logging.error(f"Error checking daily losers: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
+    """Send an AI-generated roast for the daily lowest scorer(s) with Wordle word puns"""
+    try:
+        import openai
+        from twilio.rest import Client
+        
+        # Get environment variables
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Map league_id to conversation SID
+        conversation_sids = {
+            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
+            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
+        }
+        
+        conversation_sid = conversation_sids.get(league_id)
+        if not conversation_sid:
+            logging.error(f"No conversation SID for league {league_id}")
+            return
+        
+        # Get today's Wordle word (if available)
+        wordle_word = get_todays_wordle_word()
+        
+        # Format loser names
+        if len(loser_names) == 1:
+            losers_text = loser_names[0]
+        elif len(loser_names) == 2:
+            losers_text = f"{loser_names[0]} and {loser_names[1]}"
+        else:
+            losers_text = ", ".join(loser_names[:-1]) + f", and {loser_names[-1]}"
+        
+        # Generate AI roast message
+        if wordle_word:
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Today's Wordle word was '{wordle_word}' - use this word creatively in puns and wordplay throughout the message. Include whale emojis 🐋 and other fun emojis. Keep it under 280 characters. Be witty, clever, and fun!"
+        else:
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Include whale emojis 🐋 and other fun emojis. Keep it under 200 characters. Be witty and fun!"
+        
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with wordplay and puns. Use emojis liberally, especially whale emojis 🐋 for League 4. Be witty but lighthearted."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150,
+            temperature=0.95  # Very high creativity for maximum fun
+        )
+        
+        roast_message = response.choices[0].message.content.strip()
+        logging.info(f"Generated daily loser roast: {roast_message}")
+        
+        # Send to conversation
+        client = Client(twilio_sid, twilio_token)
+        client.conversations.v1.conversations(conversation_sid).messages.create(
+            body=roast_message,
+            author=twilio_phone
+        )
+        
+        logging.info(f"Sent daily loser roast to league {league_id} for {losers_text}")
+        
+    except Exception as e:
+        logging.error(f"Error sending daily loser roast: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
 def send_failure_roast(player_name, league_id):
     """Send an AI-generated roast message when a player fails (X/6)"""
     try:
@@ -372,6 +522,13 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                     send_failure_roast(player_name, league_id)
                 except Exception as e:
                     logging.error(f"Failed to send roast message: {e}")
+            
+            # PILOT: Check if all players have posted, then roast lowest scorer(s) in League 4
+            if league_id == 4:
+                try:
+                    check_and_roast_daily_losers(league_id, wordle_num, conn)
+                except Exception as e:
+                    logging.error(f"Failed to check/send daily loser roast: {e}")
             
             return "new"
             
