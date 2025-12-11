@@ -1822,6 +1822,7 @@ def test_sunday_race_update():
     """Test the Sunday race update for a specific league"""
     try:
         import openai
+        import pytz
         from twilio.rest import Client
         
         data = request.get_json()
