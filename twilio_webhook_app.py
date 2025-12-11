@@ -1382,7 +1382,9 @@ def send_message_to_league():
         
         # Send message via Twilio Conversations API
         from twilio.rest import Client
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        client = Client(twilio_sid, twilio_token)
         
         message_response = client.conversations.conversations(conversation_sid).messages.create(
             body=final_message
