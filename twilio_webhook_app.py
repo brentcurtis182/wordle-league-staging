@@ -1822,32 +1822,12 @@ def test_sunday_race_update():
     """Test the Sunday race update for a specific league"""
     try:
         import pytz
-        from twilio.rest import Client
-        import openai
+        from league_data_adapter import get_week_start_date
         
         data = request.get_json()
         league_id = data.get('league_id', 4)  # Default to League 4
         
-        # Get environment variables
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
-        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
-        
-        # Map league_id to conversation SID
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
-        
-        conversation_sid = conversation_sids.get(league_id)
-        if not conversation_sid:
-            return jsonify({'error': f'No conversation SID for league {league_id}'}), 400
-        
         # Get week start
-        from league_data_adapter import get_week_start_date
         pacific = pytz.timezone('America/Los_Angeles')
         today = datetime.now(pacific).date()
         week_start = get_week_start_date(today)
@@ -1888,39 +1868,22 @@ def test_sunday_race_update():
                 elif needs['to_tie'] and needs['to_tie'] >= 1:
                     scenarios.append(f"{player['name']} needs a {needs['to_tie']} to tie")
         
-        # Generate AI message
+        # Build message for AI to enhance
         if scenarios:
             scenario_text = ". ".join(scenarios)
-            prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. {scenario_text}. Make it exciting and engaging! Use emojis. Keep it under 280 characters."
+            base_message = f"Sunday Race Update! {leader_text}. {scenario_text}."
         else:
-            prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. Everyone has posted today! Make it exciting and build anticipation for tomorrow's winner announcement! Use emojis. Keep it under 200 characters."
+            base_message = f"Sunday Race Update! {leader_text}. Everyone has posted today! Winner announcement tomorrow!"
         
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. Build excitement and anticipation for the weekly race. Use emojis and be enthusiastic!"},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150,
-            temperature=0.9
-        )
-        
-        race_message = response.choices[0].message.content.strip()
-        logging.info(f"Generated Sunday race update for league {league_id}: {race_message}")
-        
-        # Send to conversation
-        client = Client(twilio_sid, twilio_token)
-        client.conversations.v1.conversations(conversation_sid).messages.create(
-            body=race_message,
-            author=twilio_phone
-        )
+        # Use the existing send_message_to_league logic with AI enhancement
+        result = send_message_to_league_internal(league_id, base_message, use_ai=True, context="sunday_race")
         
         return jsonify({
-            'success': True,
+            'success': result.get('success', False),
             'league_id': league_id,
-            'message': race_message,
             'leader_text': leader_text,
-            'scenarios': scenarios
+            'scenarios': scenarios,
+            'message': result.get('final_message', '')
         })
         
     except Exception as e:
@@ -1929,6 +1892,71 @@ def test_sunday_race_update():
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+def send_message_to_league_internal(league_id, message, use_ai=False, context="general"):
+    """Internal function to send message (used by both endpoint and scheduled tasks)"""
+    import openai
+    from twilio.rest import Client
+    
+    # Map league_id to conversation SID
+    conversation_sids = {
+        1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+        3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+        4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
+        7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
+    }
+    
+    conversation_sid = conversation_sids.get(league_id)
+    if not conversation_sid:
+        return {'success': False, 'error': f'No conversation SID for league {league_id}'}
+    
+    final_message = message
+    if use_ai:
+        try:
+            openai.api_key = os.environ.get('OPENAI_API_KEY')
+            
+            # Create AI prompt based on context
+            if context == "sunday_race":
+                prompt = f"Transform this into an exciting sports announcer style message: '{message}'. Make it enthusiastic and engaging! Use emojis. Keep it under 280 characters."
+            else:
+                prompt = f"Enhance this message to be more fun and engaging: '{message}'. Keep the same meaning but make it more exciting. Use appropriate emojis. Keep it under 160 characters."
+            
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a fun, enthusiastic Wordle league announcer. Keep messages short, use emojis appropriately, and maintain a friendly competitive spirit."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=100,
+                temperature=0.8
+            )
+            
+            final_message = response.choices[0].message.content.strip()
+            logging.info(f"AI enhanced message: {final_message}")
+            
+        except Exception as e:
+            logging.warning(f"AI enhancement failed, using original message: {e}")
+    
+    # Send message
+    twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+    twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+    client = Client(twilio_sid, twilio_token)
+    
+    message_response = client.conversations.v1.conversations(conversation_sid).messages.create(
+        body=final_message,
+        author=twilio_phone
+    )
+    
+    return {
+        'success': True,
+        'league_id': league_id,
+        'conversation_sid': conversation_sid,
+        'message_sid': message_response.sid,
+        'original_message': message,
+        'final_message': final_message,
+        'ai_enhanced': use_ai
+    }
 
 @app.route('/fix-nanna-score', methods=['POST'])
 def fix_nanna_score():
