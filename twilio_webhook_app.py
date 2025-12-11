@@ -20,6 +20,10 @@ logging.basicConfig(
 
 app = Flask(__name__)
 
+# Twilio credentials
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+
 # Phone number to player/league mappings
 PHONE_MAPPINGS = {
     # League 1: Warriorz
