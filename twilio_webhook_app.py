@@ -1380,23 +1380,41 @@ def send_message_to_league():
                 logging.warning(f"AI enhancement failed, using original message: {e}")
                 # Fall back to original message if AI fails
         
-        # Send message via Twilio Conversations API
+        # Send message via Twilio Messaging Service (sends to all participants)
         from twilio.rest import Client
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        messaging_service_sid = os.environ.get('TWILIO_MESSAGING_SERVICE_SID')
         client = Client(twilio_sid, twilio_token)
         
-        # Send message with author set to the messaging service
-        message_response = client.conversations.conversations(conversation_sid).messages.create(
-            body=final_message,
-            author="system"  # Use system as author for bot messages
-        )
+        # Get all players in the league and send individual messages
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT phone_number FROM players 
+            WHERE league_id = %s AND active = TRUE AND phone_number IS NOT NULL
+        """, (league_id,))
+        
+        players = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        sent_messages = []
+        for player in players:
+            phone = player[0]
+            msg = client.messages.create(
+                body=final_message,
+                messaging_service_sid=messaging_service_sid,
+                to=phone
+            )
+            sent_messages.append({'to': phone, 'sid': msg.sid})
         
         return jsonify({
             'success': True,
             'league_id': league_id,
             'conversation_sid': conversation_sid,
-            'message_sid': message_response.sid,
+            'messages_sent': len(sent_messages),
+            'recipients': sent_messages,
             'original_message': message,
             'final_message': final_message,
             'ai_enhanced': use_ai
