@@ -1386,8 +1386,10 @@ def send_message_to_league():
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         client = Client(twilio_sid, twilio_token)
         
+        # Send message with author set to the messaging service
         message_response = client.conversations.conversations(conversation_sid).messages.create(
-            body=final_message
+            body=final_message,
+            author="system"  # Use system as author for bot messages
         )
         
         return jsonify({
