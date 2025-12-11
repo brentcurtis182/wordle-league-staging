@@ -1895,7 +1895,10 @@ def test_sunday_race_update():
         else:
             prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. Everyone has posted today! Make it exciting and build anticipation for tomorrow's winner announcement! Use emojis. Keep it under 200 characters."
         
-        response = openai.chat.completions.create(
+        # Use OpenAI client
+        from openai import OpenAI
+        client_ai = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        response = client_ai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. Build excitement and anticipation for the weekly race. Use emojis and be enthusiastic!"},
