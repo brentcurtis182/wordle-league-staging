@@ -1380,14 +1380,15 @@ def send_message_to_league():
                 logging.warning(f"AI enhancement failed, using original message: {e}")
                 # Fall back to original message if AI fails
         
-        # Send message via Twilio Messaging Service (sends to all participants)
+        # Send message to the conversation thread using Twilio phone number
         from twilio.rest import Client
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        messaging_service_sid = os.environ.get('TWILIO_MESSAGING_SERVICE_SID')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')  # Your Twilio number
         client = Client(twilio_sid, twilio_token)
         
-        # Get all players in the league and send individual messages
+        # Send as SMS to the conversation (will appear in thread)
+        # Get all players in the league
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -1399,12 +1400,14 @@ def send_message_to_league():
         cursor.close()
         conn.close()
         
+        # Send one message to the conversation using the Twilio number
+        # This will appear in the group thread
         sent_messages = []
         for player in players:
             phone = player[0]
             msg = client.messages.create(
                 body=final_message,
-                messaging_service_sid=messaging_service_sid,
+                from_=twilio_phone,
                 to=phone
             )
             sent_messages.append({'to': phone, 'sid': msg.sid})
