@@ -1821,9 +1821,9 @@ def calculate_what_they_need(current_leader_total, player_total, player_days_pos
 def test_sunday_race_update():
     """Test the Sunday race update for a specific league"""
     try:
-        import openai
         import pytz
         from twilio.rest import Client
+        import openai
         
         data = request.get_json()
         league_id = data.get('league_id', 4)  # Default to League 4
@@ -1895,10 +1895,7 @@ def test_sunday_race_update():
         else:
             prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. Everyone has posted today! Make it exciting and build anticipation for tomorrow's winner announcement! Use emojis. Keep it under 200 characters."
         
-        # Use OpenAI client
-        from openai import OpenAI
-        client_ai = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-        response = client_ai.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. Build excitement and anticipation for the weekly race. Use emojis and be enthusiastic!"},
