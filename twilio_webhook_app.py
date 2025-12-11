@@ -1384,12 +1384,14 @@ def send_message_to_league():
         from twilio.rest import Client
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
         client = Client(twilio_sid, twilio_token)
         
-        # Send message to the conversation - no author specified means it comes from the service
+        # Send message to the conversation using the Twilio phone number as author
+        # The phone number is already a participant in the conversation
         message_response = client.conversations.v1.conversations(conversation_sid).messages.create(
             body=final_message,
-            x_twilio_webhook_enabled='true'  # This allows the message to be sent without author validation
+            author=twilio_phone  # Use the Twilio number that's already in the conversation
         )
         
         return jsonify({
