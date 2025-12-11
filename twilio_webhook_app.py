@@ -252,14 +252,67 @@ def get_player_id(player_name, league_id, conn):
         return None
 
 def get_todays_wordle_word():
-    """Fetch today's Wordle word from an API or return None if unavailable"""
+    """Fetch today's Wordle word by scraping or from API"""
     try:
         import requests
-        # Try to get the word from a Wordle API (this is a placeholder - you may need a real API)
-        # For now, we'll return None and let the AI work without the word
-        # TODO: Integrate with a Wordle word API if available
+        import json
+        from datetime import datetime
+        import pytz
+        
+        # Get today's Wordle number
+        pacific = pytz.timezone('America/Los_Angeles')
+        today = datetime.now(pacific).date()
+        ref_date = date(2021, 6, 19)
+        ref_wordle = 0
+        days_since_ref = (today - ref_date).days
+        todays_wordle_num = ref_wordle + days_since_ref
+        
+        # Try Method 1: Wordle Unlimited API (has historical answers)
+        try:
+            url = f"https://www.nytimes.com/svc/wordle/v2/{todays_wordle_num}.json"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                word = data.get('solution', '').upper()
+                if word:
+                    logging.info(f"Got Wordle word from NYT API: {word}")
+                    return word
+        except:
+            pass
+        
+        # Try Method 2: Scrape NYT Wordle page
+        try:
+            response = requests.get('https://www.nytimes.com/games/wordle/index.html', timeout=10)
+            if response.status_code == 200:
+                # Look for the solution in the page source
+                # The word is typically in a JavaScript variable
+                import re
+                # Pattern to find solution in JS
+                match = re.search(r'solution["\']?\s*:\s*["\']([a-z]{5})["\']', response.text, re.IGNORECASE)
+                if match:
+                    word = match.group(1).upper()
+                    logging.info(f"Got Wordle word from scraping: {word}")
+                    return word
+        except:
+            pass
+        
+        # Try Method 3: WordleBot API (unofficial)
+        try:
+            response = requests.get(f'https://www.nytimes.com/svc/wordle/v2/{todays_wordle_num}.json', timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                word = data.get('solution', '').upper()
+                if word:
+                    logging.info(f"Got Wordle word from WordleBot: {word}")
+                    return word
+        except:
+            pass
+        
+        logging.warning("Could not fetch today's Wordle word from any source")
         return None
-    except:
+        
+    except Exception as e:
+        logging.error(f"Error fetching Wordle word: {e}")
         return None
 
 def check_and_roast_daily_losers(league_id, wordle_num, conn):
@@ -370,14 +423,14 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         
         # Generate AI roast message
         if wordle_word:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Today's Wordle word was '{wordle_word}' - use this word creatively in puns and wordplay throughout the message. Include whale emojis 🐋 and other fun emojis. Keep it under 280 characters. Be witty, clever, and fun!"
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Today's Wordle word was '{wordle_word}' - use this word creatively in puns and wordplay throughout the message. Use varied, contextually appropriate emojis (mix it up - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit). Keep it under 280 characters. Be witty, clever, and fun!"
         else:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Include whale emojis 🐋 and other fun emojis. Keep it under 200 characters. Be witty and fun!"
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Use varied, contextually appropriate emojis (mix it up each time - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit the roast). Keep it under 200 characters. Be witty and fun!"
         
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with wordplay and puns. Use emojis liberally, especially whale emojis 🐋 for League 4. Be witty but lighthearted."},
+                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with wordplay and puns. Use varied, contextually appropriate emojis - mix it up each time to keep it fresh. Be witty but lighthearted."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=150,
