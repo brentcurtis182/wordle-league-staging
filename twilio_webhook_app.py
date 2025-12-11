@@ -251,6 +251,61 @@ def get_player_id(player_name, league_id, conn):
         logging.error(f"Error getting player ID: {e}")
         return None
 
+def send_failure_roast(player_name, league_id):
+    """Send an AI-generated roast message when a player fails (X/6)"""
+    try:
+        import openai
+        from twilio.rest import Client
+        
+        # Get environment variables
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Map league_id to conversation SID
+        conversation_sids = {
+            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
+            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
+        }
+        
+        conversation_sid = conversation_sids.get(league_id)
+        if not conversation_sid:
+            logging.error(f"No conversation SID for league {league_id}")
+            return
+        
+        # Generate AI roast message
+        prompt = f"Generate a playful, fun roast message for {player_name} who just failed today's Wordle (got X/6). DO NOT reveal or mention the Wordle word since other players haven't posted yet. Keep it under 160 characters. Use emojis. Be witty and flirty, not mean."
+        
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a fun, playful Wordle league bot that roasts players who fail. Be witty and use emojis, but keep it lighthearted and fun. Never reveal the Wordle word."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=100,
+            temperature=0.9  # High creativity for varied roasts
+        )
+        
+        roast_message = response.choices[0].message.content.strip()
+        logging.info(f"Generated roast for {player_name}: {roast_message}")
+        
+        # Send to conversation
+        client = Client(twilio_sid, twilio_token)
+        client.conversations.v1.conversations(conversation_sid).messages.create(
+            body=roast_message,
+            author=twilio_phone
+        )
+        
+        logging.info(f"Sent failure roast to league {league_id} for {player_name}")
+        
+    except Exception as e:
+        logging.error(f"Error sending failure roast: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
 def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, conn):
     """Save score to PostgreSQL database"""
     try:
@@ -310,6 +365,14 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             conn.commit()
             logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_num}")
             cursor.close()
+            
+            # PILOT: Auto-roast X/6 failures in League 4 only
+            if league_id == 4 and score == 7:  # X/6 = 7 in our system
+                try:
+                    send_failure_roast(player_name, league_id)
+                except Exception as e:
+                    logging.error(f"Failed to send roast message: {e}")
+            
             return "new"
             
     except Exception as e:
