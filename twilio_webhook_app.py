@@ -1301,6 +1301,103 @@ def check_league_seasons():
         import traceback
         return {'error': str(e), 'traceback': traceback.format_exc()}, 500
 
+@app.route('/send-message-to-league', methods=['POST'])
+def send_message_to_league():
+    """
+    Send a message to a league's Twilio conversation
+    
+    POST body:
+    {
+        "league_id": 1,
+        "message": "Your message here",
+        "use_ai": true,  # Optional: use AI to enhance the message
+        "context": "weekly_winner"  # Optional: context for AI (weekly_winner, season_winner, reminder, etc.)
+    }
+    """
+    try:
+        data = request.get_json()
+        league_id = data.get('league_id')
+        message = data.get('message')
+        use_ai = data.get('use_ai', False)
+        context = data.get('context', 'general')
+        
+        if not league_id or not message:
+            return jsonify({'error': 'league_id and message are required'}), 400
+        
+        # Map league_id to conversation SID
+        conversation_to_league = {
+            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # Warriorz
+            'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # PAL
+            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # The Party
+            'CH4438ff5531514178bb13c5c0e96d5579': 7,  # Belly Up
+        }
+        
+        # Reverse lookup to get conversation SID from league_id
+        conversation_sid = None
+        for sid, lid in conversation_to_league.items():
+            if lid == league_id:
+                conversation_sid = sid
+                break
+        
+        if not conversation_sid:
+            return jsonify({'error': f'No conversation found for league {league_id}'}), 404
+        
+        # Optionally enhance message with AI
+        final_message = message
+        if use_ai:
+            try:
+                import openai
+                openai.api_key = os.environ.get('OPENAI_API_KEY')
+                
+                # Create AI prompt based on context
+                prompts = {
+                    'weekly_winner': f"Enhance this Wordle league weekly winner announcement to be fun and celebratory (keep it under 160 chars): {message}",
+                    'season_winner': f"Enhance this Wordle league season winner announcement to be epic and congratulatory (keep it under 160 chars): {message}",
+                    'reminder': f"Enhance this Wordle reminder to be friendly and motivating (keep it under 160 chars): {message}",
+                    'general': f"Enhance this message for a Wordle league group chat to be fun and engaging (keep it under 160 chars): {message}"
+                }
+                
+                prompt = prompts.get(context, prompts['general'])
+                
+                response = openai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a fun, enthusiastic Wordle league announcer. Keep messages short, use emojis appropriately, and maintain a friendly competitive spirit."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=100,
+                    temperature=0.8
+                )
+                
+                final_message = response.choices[0].message.content.strip()
+                logging.info(f"AI enhanced message: {final_message}")
+                
+            except Exception as e:
+                logging.warning(f"AI enhancement failed, using original message: {e}")
+                # Fall back to original message if AI fails
+        
+        # Send message via Twilio Conversations API
+        from twilio.rest import Client
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        
+        message_response = client.conversations.conversations(conversation_sid).messages.create(
+            body=final_message
+        )
+        
+        return jsonify({
+            'success': True,
+            'league_id': league_id,
+            'conversation_sid': conversation_sid,
+            'message_sid': message_response.sid,
+            'original_message': message,
+            'final_message': final_message,
+            'ai_enhanced': use_ai
+        })
+        
+    except Exception as e:
+        import traceback
+        return {'error': str(e), 'traceback': traceback.format_exc()}, 500
+
 @app.route('/fix-nanna-score', methods=['POST'])
 def fix_nanna_score():
     """Fix Nanna's score to remove 'whew' from emoji pattern"""
