@@ -259,13 +259,16 @@ def get_todays_wordle_word():
         from datetime import datetime
         import pytz
         
-        # Get today's Wordle number
+        # Get today's Wordle number using the same reference as get_todays_wordle_number()
         pacific = pytz.timezone('America/Los_Angeles')
         today = datetime.now(pacific).date()
-        ref_date = date(2021, 6, 19)
-        ref_wordle = 0
+        # Use same reference as rest of app: Wordle #1503 = July 31, 2025
+        ref_date = date(2025, 7, 31)
+        ref_wordle = 1503
         days_since_ref = (today - ref_date).days
         todays_wordle_num = ref_wordle + days_since_ref
+        
+        logging.info(f"Fetching Wordle word for #{todays_wordle_num} (today: {today})")
         
         # Try Method 1: Wordle Unlimited API (has historical answers)
         try:
