@@ -107,8 +107,8 @@ def calculate_what_they_need(current_leader_total, player_total, player_days_pos
 def send_sunday_race_update(league_id):
     """Send the Sunday race update message"""
     try:
-        import openai
         from twilio.rest import Client
+        import openai
         
         # Get environment variables
         openai.api_key = os.environ.get('OPENAI_API_KEY')
