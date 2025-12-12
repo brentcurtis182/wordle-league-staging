@@ -270,7 +270,22 @@ def get_todays_wordle_word():
         
         logging.info(f"Fetching Wordle word for #{todays_wordle_num} (today: {today})")
         
-        # Try Method 1: Wordle Unlimited API (has historical answers)
+        # Try Method 1: NYT official API with today's date format
+        try:
+            # NYT API uses date format YYYY-MM-DD
+            date_str = today.strftime('%Y-%m-%d')
+            url = f"https://www.nytimes.com/svc/wordle/v2/{date_str}.json"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                word = data.get('solution', '').upper()
+                if word:
+                    logging.info(f"Got Wordle word from NYT date API: {word}")
+                    return word
+        except Exception as e:
+            logging.warning(f"NYT date API failed: {e}")
+        
+        # Try Method 2: NYT API with puzzle number
         try:
             url = f"https://www.nytimes.com/svc/wordle/v2/{todays_wordle_num}.json"
             response = requests.get(url, timeout=5)
@@ -278,38 +293,10 @@ def get_todays_wordle_word():
                 data = response.json()
                 word = data.get('solution', '').upper()
                 if word:
-                    logging.info(f"Got Wordle word from NYT API: {word}")
+                    logging.info(f"Got Wordle word from NYT number API: {word}")
                     return word
-        except:
-            pass
-        
-        # Try Method 2: Scrape NYT Wordle page
-        try:
-            response = requests.get('https://www.nytimes.com/games/wordle/index.html', timeout=10)
-            if response.status_code == 200:
-                # Look for the solution in the page source
-                # The word is typically in a JavaScript variable
-                import re
-                # Pattern to find solution in JS
-                match = re.search(r'solution["\']?\s*:\s*["\']([a-z]{5})["\']', response.text, re.IGNORECASE)
-                if match:
-                    word = match.group(1).upper()
-                    logging.info(f"Got Wordle word from scraping: {word}")
-                    return word
-        except:
-            pass
-        
-        # Try Method 3: WordleBot API (unofficial)
-        try:
-            response = requests.get(f'https://www.nytimes.com/svc/wordle/v2/{todays_wordle_num}.json', timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                word = data.get('solution', '').upper()
-                if word:
-                    logging.info(f"Got Wordle word from WordleBot: {word}")
-                    return word
-        except:
-            pass
+        except Exception as e:
+            logging.warning(f"NYT number API failed: {e}")
         
         logging.warning("Could not fetch today's Wordle word from any source")
         return None
