@@ -1,3 +1,0 @@
-# Force fresh pip install - cache bust v3
-[phases.install]
-cmds = ["python -m pip install --no-cache-dir -r requirements.txt"]
