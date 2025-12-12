@@ -541,16 +541,16 @@ def send_failure_roast(player_name, league_id):
             return
         
         # Generate AI roast message
-        prompt = f"Generate a playful, fun roast message for {player_name} who just failed today's Wordle (got X/6). DO NOT reveal or mention the Wordle word since other players haven't posted yet. Keep it under 160 characters. Use emojis. Be witty and flirty, not mean."
+        prompt = f"Roast {player_name} who just FAILED today's Wordle (X/6 - couldn't solve it in 6 tries!). Be savage but playful. Use creative insults, wordplay, and emojis. Mock their Wordle skills. Maybe suggest they need glasses, a dictionary, or a new brain. Keep it under 160 characters. DO NOT mention the actual Wordle word."
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a fun, playful Wordle league bot that roasts players who fail. Be witty and use emojis, but keep it lighthearted and fun. Never reveal the Wordle word."},
+                {"role": "system", "content": "You are a ruthlessly funny Wordle roast bot. Your job is to hilariously mock players who fail. Be creative, use puns, wordplay, and savage humor. Think comedy roast style - brutal but clearly joking. Use emojis for emphasis. Never be boring or generic."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=100,
-            temperature=0.9  # High creativity for varied roasts
+            temperature=0.95  # Maximum creativity
         )
         
         roast_message = response.choices[0].message.content.strip()
