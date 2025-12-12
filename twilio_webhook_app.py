@@ -855,6 +855,110 @@ def daily_reset_endpoint():
         logging.error(f"Daily reset error: {e}")
         return {'status': 'error', 'message': str(e)}, 500
 
+@app.route('/trigger-daily-loser-roast', methods=['GET', 'POST'])
+def trigger_daily_loser_roast():
+    """
+    Manually trigger the daily loser roast check for all leagues.
+    Checks if all players have posted, finds the worst scorer(s), and sends roast.
+    """
+    try:
+        # Get league_id from request, or check all leagues
+        if request.method == 'POST' and request.is_json:
+            league_ids = request.get_json().get('league_ids', [1, 3, 4, 7])
+        elif request.args.get('league_id'):
+            league_ids = [int(request.args.get('league_id'))]
+        else:
+            league_ids = [1, 3, 4, 7]  # All active leagues
+        
+        wordle_num = get_todays_wordle_number()
+        results = []
+        
+        conn = get_db_connection()
+        if not conn:
+            return {'status': 'error', 'message': 'Database connection failed'}, 500
+        
+        for league_id in league_ids:
+            try:
+                cursor = conn.cursor()
+                
+                # Count active players in league
+                cursor.execute("""
+                    SELECT COUNT(*) FROM players 
+                    WHERE league_id = %s AND active = TRUE
+                """, (league_id,))
+                total_players = cursor.fetchone()[0]
+                
+                # Count how many have posted today
+                cursor.execute("""
+                    SELECT COUNT(*) FROM scores s
+                    JOIN players p ON s.player_id = p.id
+                    WHERE p.league_id = %s AND s.wordle_number = %s
+                """, (league_id, wordle_num))
+                posted_count = cursor.fetchone()[0]
+                
+                if posted_count < total_players:
+                    results.append({
+                        'league_id': league_id,
+                        'status': 'waiting',
+                        'posted': posted_count,
+                        'total': total_players,
+                        'message': f'Only {posted_count}/{total_players} players posted'
+                    })
+                    cursor.close()
+                    continue
+                
+                # All players posted! Find worst score
+                cursor.execute("""
+                    SELECT p.name, s.score 
+                    FROM scores s
+                    JOIN players p ON s.player_id = p.id
+                    WHERE p.league_id = %s AND s.wordle_number = %s
+                    ORDER BY s.score DESC
+                    LIMIT 1
+                """, (league_id, wordle_num))
+                
+                worst_result = cursor.fetchone()
+                if not worst_result:
+                    results.append({'league_id': league_id, 'status': 'error', 'message': 'No scores found'})
+                    cursor.close()
+                    continue
+                
+                worst_score = worst_result[1]
+                
+                # Get all players with worst score
+                cursor.execute("""
+                    SELECT p.name 
+                    FROM scores s
+                    JOIN players p ON s.player_id = p.id
+                    WHERE p.league_id = %s AND s.wordle_number = %s AND s.score = %s
+                """, (league_id, wordle_num, worst_score))
+                
+                losers = [row[0] for row in cursor.fetchall()]
+                cursor.close()
+                
+                # Send the roast!
+                send_daily_loser_roast(losers, worst_score, league_id, wordle_num)
+                
+                results.append({
+                    'league_id': league_id,
+                    'status': 'roasted',
+                    'losers': losers,
+                    'worst_score': worst_score,
+                    'message': f'Roasted {", ".join(losers)} with score {worst_score}'
+                })
+                
+            except Exception as e:
+                results.append({'league_id': league_id, 'status': 'error', 'message': str(e)})
+        
+        conn.close()
+        return {'status': 'success', 'wordle_num': wordle_num, 'results': results}, 200
+        
+    except Exception as e:
+        logging.error(f"Trigger daily loser roast error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return {'status': 'error', 'message': str(e)}, 500
+
 @app.route('/fix-jeremy', methods=['POST'])
 def fix_jeremy():
     """Temporary endpoint to fix Jeremy's score for Wordle 1623"""
