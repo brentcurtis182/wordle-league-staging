@@ -388,14 +388,16 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
 def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
     """Send an AI-generated roast for the daily lowest scorer(s) with Wordle word puns"""
     try:
-        import openai
+        from openai import OpenAI
         from twilio.rest import Client
         
         # Get environment variables
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Initialize OpenAI client
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
         # Map league_id to conversation SID
         conversation_sids = {
@@ -427,7 +429,7 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         else:
             prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Use varied, contextually appropriate emojis (mix it up each time - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit the roast). Keep it under 200 characters. Be witty and fun!"
         
-        response = openai.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with wordplay and puns. Use varied, contextually appropriate emojis - mix it up each time to keep it fresh. Be witty but lighthearted."},
@@ -457,14 +459,16 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
 def send_perfect_score_congrats(player_name, score, league_id):
     """Send a playful congratulations message for 1/6 or 2/6 scores with whale emojis (cheating joke)"""
     try:
-        import openai
+        from openai import OpenAI
         from twilio.rest import Client
         
         # Get environment variables
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Initialize OpenAI client
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
         # Map league_id to conversation SID
         conversation_sids = {
@@ -482,7 +486,7 @@ def send_perfect_score_congrats(player_name, score, league_id):
         # Generate AI congratulations message with whale emoji (cheating joke)
         prompt = f"Generate a playful congratulations message for {player_name} who just got a {score}/6 on Wordle - an amazing and rare score! Make it sound like you're jokingly suspicious they might be cheating (but in a fun, lighthearted way). MUST include whale emojis 🐋 (it's an inside joke about cheating). DO NOT reveal the Wordle word. Keep it under 160 characters. Be fun and celebratory but with a wink about the 'suspiciously good' score."
         
-        response = openai.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a fun, playful Wordle league bot. Congratulate amazing scores but jokingly imply they might be cheating (it's an inside joke). Always use whale emojis 🐋. Be lighthearted and fun."},
@@ -512,14 +516,16 @@ def send_perfect_score_congrats(player_name, score, league_id):
 def send_failure_roast(player_name, league_id):
     """Send an AI-generated roast message when a player fails (X/6)"""
     try:
-        import openai
+        from openai import OpenAI
         from twilio.rest import Client
         
         # Get environment variables
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
+        # Initialize OpenAI client
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
         # Map league_id to conversation SID
         conversation_sids = {
@@ -537,7 +543,7 @@ def send_failure_roast(player_name, league_id):
         # Generate AI roast message
         prompt = f"Generate a playful, fun roast message for {player_name} who just failed today's Wordle (got X/6). DO NOT reveal or mention the Wordle word since other players haven't posted yet. Keep it under 160 characters. Use emojis. Be witty and flirty, not mean."
         
-        response = openai.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a fun, playful Wordle league bot that roasts players who fail. Be witty and use emojis, but keep it lighthearted and fun. Never reveal the Wordle word."},
