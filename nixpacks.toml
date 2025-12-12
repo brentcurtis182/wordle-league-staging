@@ -1,6 +1,3 @@
-# Force fresh pip install - cache bust v2
-[phases.setup]
-nixPkgs = ["python312"]
-
+# Force fresh pip install - cache bust v3
 [phases.install]
-cmds = ["pip install --no-cache-dir -r requirements.txt"]
+cmds = ["python -m pip install --no-cache-dir -r requirements.txt"]
