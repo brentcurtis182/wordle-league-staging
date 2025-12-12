@@ -428,14 +428,14 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         
         # Generate AI roast message
         if wordle_word:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Today's Wordle word was '{wordle_word}' - use this word creatively in puns and wordplay throughout the message. Use varied, contextually appropriate emojis (mix it up - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit). Keep it under 280 characters. Be witty, clever, and fun!"
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT highlight or emphasize the word with asterisks, caps, or quotes - just use it naturally in sentences so it's a fun Easter egg for those who notice. Use varied emojis. Keep it under 280 characters. Be witty and fun!"
         else:
             prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({worst_score}/6 or X/6). Use varied, contextually appropriate emojis (mix it up each time - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit the roast). Keep it under 200 characters. Be witty and fun!"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with wordplay and puns. Use varied, contextually appropriate emojis - mix it up each time to keep it fresh. Be witty but lighthearted."},
+                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with subtle wordplay. When given a Wordle word, weave it naturally into your message WITHOUT highlighting it - no asterisks, no caps, no quotes around the word. Make it an Easter egg that clever readers will catch. Be witty but lighthearted."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=150,
