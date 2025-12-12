@@ -414,13 +414,13 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
             losers_text = ", ".join(loser_names[:-1]) + f", and {loser_names[-1]}"
         
         # Generate AI roast message
-        # Format score correctly: 7 = X/6 (failed), otherwise show actual score
-        score_display = "X/6" if worst_score == 7 else f"{worst_score}/6"
+        # Format score for context: 7 = failed (X/6), otherwise actual score
+        score_display = "X/6 (failed)" if worst_score == 7 else f"{worst_score}/6"
         
         if wordle_word:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({score_display}). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT highlight or emphasize the word with asterisks, caps, or quotes - just use it naturally in sentences so it's a fun Easter egg for those who notice. Use varied emojis. Keep it under 280 characters. Be witty and fun!"
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today (they got {score_display}). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT state their score directly in the message - everyone already saw it. Do NOT highlight the Wordle word with asterisks, caps, or quotes - just use it naturally. Use varied emojis. Keep it under 280 characters. Be witty and fun!"
         else:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today ({score_display}). Use varied, contextually appropriate emojis (mix it up each time - could be 🔥😅💀🎯🤦‍♂️🐋 or others that fit the roast). Keep it under 200 characters. Be witty and fun!"
+            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today. Do NOT state their score directly - everyone already saw it. Use varied emojis. Keep it under 200 characters. Be witty and fun!"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
