@@ -25,9 +25,12 @@ logging.basicConfig(
 )
 
 def get_weekly_standings(league_id, week_start_wordle):
-    """Get current weekly standings for a league"""
+    """Get current weekly standings for a league - uses BEST 5 scores like weekly winner calc"""
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    MIN_GAMES_FOR_RANKING = 5  # Must have at least 5 games to be in the running
+    BEST_N_SCORES = 5  # Use best (lowest) 5 scores for ranking
     
     try:
         # Get all active players
@@ -61,26 +64,42 @@ def get_weekly_standings(league_id, week_start_wordle):
             
             scores = cursor.fetchall()
             score_dict = {w: s for w, s in scores}
+            score_values = [s for w, s in scores]
             
-            # Calculate total and check if posted today
-            total = sum(s for w, s in scores)
-            posted_today = todays_wordle in score_dict
+            # Calculate best 5 total (lowest scores are best)
             days_posted = len(scores)
+            posted_today = todays_wordle in score_dict
+            
+            # Sort scores ascending and take best 5
+            sorted_scores = sorted(score_values)
+            best_5_scores = sorted_scores[:BEST_N_SCORES]
+            best_5_total = sum(best_5_scores) if len(best_5_scores) >= MIN_GAMES_FOR_RANKING else None
             
             standings.append({
                 'player_id': player_id,
                 'name': player_name,
-                'total': total,
+                'best_5_total': best_5_total,
                 'days_posted': days_posted,
                 'posted_today': posted_today,
-                'scores': score_dict
+                'scores': score_dict,
+                'eligible': days_posted >= MIN_GAMES_FOR_RANKING
             })
         
         cursor.close()
         conn.close()
         
-        # Sort by total (lowest is best)
-        standings.sort(key=lambda x: x['total'])
+        # Separate eligible (5+ games) from ineligible
+        eligible = [s for s in standings if s['eligible']]
+        ineligible = [s for s in standings if not s['eligible']]
+        
+        # Sort eligible by best_5_total (lowest is best)
+        eligible.sort(key=lambda x: x['best_5_total'])
+        
+        # Sort ineligible by days_posted descending (most games first)
+        ineligible.sort(key=lambda x: x['days_posted'], reverse=True)
+        
+        # Combine: eligible first, then ineligible
+        standings = eligible + ineligible
         
         return standings, todays_wordle
         
@@ -90,28 +109,40 @@ def get_weekly_standings(league_id, week_start_wordle):
         conn.close()
         return [], None
 
-def calculate_what_they_need(current_leader_total, player_total, player_days_posted):
-    """Calculate what score a player needs to tie or win"""
-    # If they haven't posted today, they need one more score
-    if player_days_posted < 7:  # Assuming 7 days in a week
-        # What score would tie?
-        score_to_tie = current_leader_total - player_total
-        score_to_win = score_to_tie - 1
-        
-        return {
-            'to_tie': score_to_tie if score_to_tie >= 1 else None,
-            'to_win': score_to_win if score_to_win >= 1 else None
-        }
-    return None
+def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
+    """Calculate what score a player needs to tie or win
+    
+    Logic: If player has 5+ games, their best 5 is locked in.
+    If player has <5 games, they need more games to qualify.
+    If player has exactly 5 games and hasn't posted today, a new score could replace their worst.
+    """
+    if player_best_5 is None:
+        # Player doesn't have 5 games yet - can't calculate
+        return {'needs_more_games': True, 'games_needed': 5 - player_days_posted}
+    
+    # Player has 5+ games - calculate what they need
+    diff = player_best_5 - leader_best_5
+    
+    if diff <= 0:
+        # Already tied or winning
+        return {'already_winning': True}
+    
+    # They need to improve by 'diff' points
+    # A score of X would replace their worst score in best 5
+    return {
+        'points_behind': diff,
+        'to_tie': diff,  # Need to make up this many points
+        'to_win': diff + 1  # Need to beat by 1
+    }
 
 def send_sunday_race_update(league_id):
     """Send the Sunday race update message"""
     try:
+        from openai import OpenAI
         from twilio.rest import Client
-        import openai
         
         # Get environment variables
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
@@ -145,43 +176,57 @@ def send_sunday_race_update(league_id):
             logging.warning(f"No standings data for league {league_id}")
             return False
         
-        # Find current leader(s)
-        leader_total = standings[0]['total']
-        leaders = [s for s in standings if s['total'] == leader_total]
-        leader_names = [s['name'] for s in leaders]
+        # Find eligible players (5+ games) and their leader
+        eligible = [s for s in standings if s['eligible']]
         
-        # Find who hasn't posted today
-        not_posted = [s for s in standings if not s['posted_today']]
-        
-        # Build context for AI
-        if len(leader_names) == 1:
-            leader_text = f"{leader_names[0]} is in the lead with {leader_total} points"
-        elif len(leader_names) == 2:
-            leader_text = f"{leader_names[0]} and {leader_names[1]} are tied for the lead with {leader_total} points"
+        if not eligible:
+            logging.warning(f"No eligible players (5+ games) in league {league_id}")
+            # Still send a message about needing more games
+            prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly race. Keep playing to get in the running! Use emojis. Keep it under 200 characters."
         else:
-            leader_text = f"{', '.join(leader_names[:-1])}, and {leader_names[-1]} are all tied with {leader_total} points"
+            # Find current leader(s) among eligible players
+            leader_total = eligible[0]['best_5_total']
+            leaders = [s for s in eligible if s['best_5_total'] == leader_total]
+            leader_names = [s['name'] for s in leaders]
+            
+            # Build context for AI
+            if len(leader_names) == 1:
+                leader_text = f"{leader_names[0]} is leading with a best-5 total of {leader_total}"
+            elif len(leader_names) == 2:
+                leader_text = f"{leader_names[0]} and {leader_names[1]} are tied for the lead with {leader_total}"
+            else:
+                leader_text = f"{', '.join(leader_names[:-1])}, and {leader_names[-1]} are all tied with {leader_total}"
+            
+            # Find who hasn't posted today among eligible players
+            not_posted_eligible = [s for s in eligible if not s['posted_today'] and s['name'] not in leader_names]
+            
+            # Build "what they need" context for players who can still catch up
+            scenarios = []
+            for player in not_posted_eligible:
+                needs = calculate_what_they_need(leader_total, player['best_5_total'], player['days_posted'])
+                if needs and not needs.get('already_winning'):
+                    points_behind = needs.get('points_behind', 0)
+                    if points_behind > 0 and points_behind <= 6:  # Realistic catch-up range
+                        scenarios.append(f"{player['name']} is {points_behind} points behind")
+            
+            # Also mention players close to qualifying
+            almost_eligible = [s for s in standings if not s['eligible'] and s['days_posted'] >= 3]
+            if almost_eligible:
+                almost_names = [s['name'] for s in almost_eligible[:2]]  # Max 2
+                if almost_names:
+                    scenarios.append(f"{' and '.join(almost_names)} need{'s' if len(almost_names) == 1 else ''} more games to qualify")
+            
+            # Generate AI message
+            if scenarios:
+                scenario_text = ". ".join(scenarios)
+                prompt = f"It's Sunday morning Wordle race update! {leader_text} (lower is better - best 5 scores count). {scenario_text}. Make it exciting! Use emojis. Keep it under 280 characters."
+            else:
+                prompt = f"It's Sunday morning Wordle race update! {leader_text} (lower is better - best 5 scores count). The race is tight! Make it exciting and build anticipation for tomorrow's winner! Use emojis. Keep it under 200 characters."
         
-        # Build "what they need" context
-        scenarios = []
-        for player in not_posted:
-            needs = calculate_what_they_need(leader_total, player['total'], player['days_posted'])
-            if needs:
-                if needs['to_win'] and needs['to_win'] >= 1:
-                    scenarios.append(f"{player['name']} needs a {needs['to_win']} to win or a {needs['to_tie']} to tie")
-                elif needs['to_tie'] and needs['to_tie'] >= 1:
-                    scenarios.append(f"{player['name']} needs a {needs['to_tie']} to tie")
-        
-        # Generate AI message
-        if scenarios:
-            scenario_text = ". ".join(scenarios)
-            prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. {scenario_text}. Make it exciting and engaging! Use emojis. Keep it under 280 characters."
-        else:
-            prompt = f"It's Sunday morning! Generate an exciting weekly race update. {leader_text}. Everyone has posted today! Make it exciting and build anticipation for tomorrow's winner announcement! Use emojis. Keep it under 200 characters."
-        
-        response = openai.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. Build excitement and anticipation for the weekly race. Use emojis and be enthusiastic!"},
+                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it, X/6 is failed). Build excitement for the weekly race. Use emojis and be enthusiastic!"},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=150,
