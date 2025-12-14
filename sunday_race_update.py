@@ -136,7 +136,7 @@ def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
     }
 
 def send_sunday_race_update(league_id):
-    """Send the Sunday race update message"""
+    """Send the Sunday race update message with precise scenario analysis"""
     try:
         from openai import OpenAI
         from twilio.rest import Client
@@ -181,7 +181,6 @@ def send_sunday_race_update(league_id):
         
         if not eligible:
             logging.warning(f"No eligible players (5+ games) in league {league_id}")
-            # Still send a message about needing more games
             prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly race. Keep playing to get in the running! Use emojis. Keep it under 200 characters."
         else:
             # Find current leader(s) among eligible players
@@ -189,48 +188,110 @@ def send_sunday_race_update(league_id):
             leaders = [s for s in eligible if s['best_5_total'] == leader_total]
             leader_names = [s['name'] for s in leaders]
             
-            # Build context for AI
-            if len(leader_names) == 1:
-                leader_text = f"{leader_names[0]} is leading with a best-5 total of {leader_total}"
-            elif len(leader_names) == 2:
-                leader_text = f"{leader_names[0]} and {leader_names[1]} are tied for the lead with {leader_total}"
-            else:
-                leader_text = f"{', '.join(leader_names[:-1])}, and {leader_names[-1]} are all tied with {leader_total}"
+            # Check if all eligible players have posted today
+            all_eligible_posted = all(s['posted_today'] for s in eligible)
             
-            # Find who hasn't posted today among eligible players
-            not_posted_eligible = [s for s in eligible if not s['posted_today'] and s['name'] not in leader_names]
+            # Check players who haven't posted today but could still qualify or catch up
+            not_posted_today = [s for s in standings if not s['posted_today']]
             
-            # Build "what they need" context for players who can still catch up
+            # SCENARIO ANALYSIS
             scenarios = []
-            for player in not_posted_eligible:
-                needs = calculate_what_they_need(leader_total, player['best_5_total'], player['days_posted'])
-                if needs and not needs.get('already_winning'):
-                    points_behind = needs.get('points_behind', 0)
-                    if points_behind > 0 and points_behind <= 6:  # Realistic catch-up range
-                        scenarios.append(f"{player['name']} is {points_behind} points behind")
             
-            # Also mention players close to qualifying
-            almost_eligible = [s for s in standings if not s['eligible'] and s['days_posted'] >= 3]
-            if almost_eligible:
-                almost_names = [s['name'] for s in almost_eligible[:2]]  # Max 2
-                if almost_names:
-                    scenarios.append(f"{' and '.join(almost_names)} need{'s' if len(almost_names) == 1 else ''} more games to qualify")
+            # Scenario 1: Multiple leaders = they will share the win
+            if len(leaders) > 1 and all_eligible_posted:
+                leader_list = " and ".join(leader_names)
+                scenarios.append(f"{leader_list} are tied at {leader_total} and will share the win!")
             
-            # Generate AI message
-            if scenarios:
-                scenario_text = ". ".join(scenarios)
-                prompt = f"It's Sunday morning Wordle race update! {leader_text} (lower is better - best 5 scores count). {scenario_text}. Make it exciting! Use emojis. Keep it under 280 characters."
+            # Scenario 2: Single clear leader with everyone posted
+            elif len(leaders) == 1 and all_eligible_posted:
+                # Check if anyone not posted can still catch up
+                can_catch_up = []
+                for player in not_posted_today:
+                    if player['eligible']:
+                        # Already eligible, can they improve their best 5?
+                        diff = player['best_5_total'] - leader_total
+                        if diff > 0 and diff <= 6:
+                            # They need a score that improves their best 5 by 'diff' points
+                            # If their worst score in best 5 is W, they need a score of (W - diff) or better to tie
+                            sorted_scores = sorted(player['scores'].values())[:5]
+                            if sorted_scores:
+                                worst_best_5 = sorted_scores[-1]  # Highest of their best 5
+                                score_to_tie = worst_best_5 - diff
+                                if score_to_tie >= 1:
+                                    can_catch_up.append(f"{player['name']} needs a {score_to_tie} or better to tie")
+                    elif player['days_posted'] == 4:
+                        # Has 4 games, posting today would give them 5
+                        # Their best 5 would be their current 4 + today's score
+                        current_total = sum(sorted(player['scores'].values())[:4])
+                        score_to_tie = leader_total - current_total
+                        if 1 <= score_to_tie <= 6:
+                            can_catch_up.append(f"{player['name']} needs a {score_to_tie} to tie (would be their 5th game)")
+                        elif score_to_tie < 1:
+                            can_catch_up.append(f"{player['name']} can win with any score today (5th game)")
+                
+                if can_catch_up:
+                    scenarios.append(f"{leader_names[0]} leads at {leader_total}. " + ". ".join(can_catch_up))
+                else:
+                    scenarios.append(f"{leader_names[0]} is the clear winner at {leader_total}!")
+            
+            # Scenario 3: Race still open - not everyone has posted
             else:
-                prompt = f"It's Sunday morning Wordle race update! {leader_text} (lower is better - best 5 scores count). The race is tight! Make it exciting and build anticipation for tomorrow's winner! Use emojis. Keep it under 200 characters."
+                if len(leaders) == 1:
+                    leader_text = f"{leader_names[0]} leads at {leader_total}"
+                else:
+                    leader_text = f"{' and '.join(leader_names)} tied at {leader_total}"
+                
+                # Find who can still catch up or tie
+                catch_up_scenarios = []
+                for player in not_posted_today:
+                    if player['name'] in leader_names:
+                        continue  # Skip leaders
+                    
+                    if player['eligible']:
+                        # Already has 5+ games - can they improve?
+                        diff = player['best_5_total'] - leader_total
+                        if diff > 0:
+                            sorted_scores = sorted(player['scores'].values())[:5]
+                            if sorted_scores:
+                                worst_best_5 = sorted_scores[-1]
+                                score_to_tie = worst_best_5 - diff
+                                score_to_win = worst_best_5 - diff - 1
+                                if score_to_tie >= 1 and score_to_tie <= 6:
+                                    if score_to_win >= 1:
+                                        catch_up_scenarios.append(f"{player['name']} (at {player['best_5_total']}) needs a {score_to_win} to win or {score_to_tie} to tie")
+                                    else:
+                                        catch_up_scenarios.append(f"{player['name']} (at {player['best_5_total']}) needs a {score_to_tie} to tie")
+                    
+                    elif player['days_posted'] == 4:
+                        # Has 4 games - today would be their 5th
+                        current_4_total = sum(sorted(player['scores'].values())[:4])
+                        score_to_tie = leader_total - current_4_total
+                        score_to_win = score_to_tie - 1
+                        if 1 <= score_to_tie <= 6:
+                            if score_to_win >= 1:
+                                catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
+                            else:
+                                catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_tie} to tie")
+                        elif score_to_tie < 1:
+                            catch_up_scenarios.append(f"{player['name']} can take the lead with any score today!")
+                
+                if catch_up_scenarios:
+                    scenarios.append(f"{leader_text}. " + ". ".join(catch_up_scenarios[:3]))  # Max 3 scenarios
+                else:
+                    scenarios.append(f"{leader_text}. Race is heating up!")
+            
+            # Build final prompt
+            scenario_text = " ".join(scenarios)
+            prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 300 characters. Lower scores are better in Wordle."
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it, X/6 is failed). Build excitement for the weekly race. Use emojis and be enthusiastic!"},
+                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it). Convey the exact scenario given - don't change the numbers or names. Build excitement! Use emojis!"},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=150,
-            temperature=0.9
+            max_tokens=200,
+            temperature=0.8
         )
         
         race_message = response.choices[0].message.content.strip()
