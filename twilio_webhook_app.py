@@ -623,12 +623,41 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_num}")
             cursor.close()
             
+            # Check if this player is the last to post (for avoiding double-roast)
+            is_last_to_post = False
+            try:
+                check_cursor = conn.cursor()
+                # Count active players
+                check_cursor.execute("""
+                    SELECT COUNT(*) FROM players 
+                    WHERE league_id = %s AND active = TRUE
+                """, (league_id,))
+                total_players = check_cursor.fetchone()[0]
+                
+                # Count how many have posted (including this one we just saved)
+                check_cursor.execute("""
+                    SELECT COUNT(*) FROM scores s
+                    JOIN players p ON s.player_id = p.id
+                    WHERE p.league_id = %s AND s.wordle_number = %s
+                """, (league_id, wordle_num))
+                posted_count = check_cursor.fetchone()[0]
+                check_cursor.close()
+                
+                is_last_to_post = (posted_count >= total_players)
+                logging.info(f"Player {player_name} is_last_to_post: {is_last_to_post} ({posted_count}/{total_players})")
+            except Exception as e:
+                logging.error(f"Error checking if last to post: {e}")
+            
             # Auto-roast X/6 failures in all leagues
+            # BUT skip if this player is the last to post - they'll be roasted in the daily loser message
             if score == 7:  # X/6 = 7 in our system
-                try:
-                    send_failure_roast(player_name, league_id)
-                except Exception as e:
-                    logging.error(f"Failed to send roast message: {e}")
+                if is_last_to_post:
+                    logging.info(f"Skipping instant X/6 roast for {player_name} - they're last to post, will be included in daily loser roast")
+                else:
+                    try:
+                        send_failure_roast(player_name, league_id)
+                    except Exception as e:
+                        logging.error(f"Failed to send roast message: {e}")
             
             # Congratulate perfect scores (1/6 or 2/6) with whale emojis in all leagues
             if score in [1, 2]:
