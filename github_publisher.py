@@ -22,7 +22,7 @@ def get_github_credentials():
     
     return username, token, repo_name, branch
 
-def publish_to_github(html_content, file_path='league6/index.html', commit_message=None):
+def publish_to_github(html_content, file_path='league6/index.html', commit_message=None, max_retries=3):
     """
     Publish HTML content to GitHub Pages using GitHub API
     
@@ -30,10 +30,13 @@ def publish_to_github(html_content, file_path='league6/index.html', commit_messa
         html_content: The HTML string to publish
         file_path: Path in the repo (e.g., 'league6/index.html')
         commit_message: Optional commit message
+        max_retries: Number of retries on 409 conflict (default 3)
     
     Returns:
         bool: True if successful, False otherwise
     """
+    import time
+    
     try:
         username, token, repo_name, branch = get_github_credentials()
         
@@ -49,56 +52,67 @@ def publish_to_github(html_content, file_path='league6/index.html', commit_messa
             'Accept': 'application/vnd.github.v3+json'
         }
         
-        # Check if file exists to get its SHA (required for updates)
-        logging.info(f"Checking if {file_path} exists in {username}/{repo_name}...")
-        response = requests.get(
-            api_url,
-            headers=headers,
-            params={'ref': branch}
-        )
-        
-        sha = None
-        if response.status_code == 200:
-            sha = response.json().get('sha')
-            logging.info(f"File exists, SHA: {sha}")
-        elif response.status_code == 404:
-            logging.info(f"File does not exist, will create new file")
-        else:
-            logging.error(f"Error checking file: {response.status_code} - {response.text}")
-            return False
-        
-        # Encode content to base64
+        # Encode content to base64 (do this once)
         content_bytes = html_content.encode('utf-8')
         content_base64 = base64.b64encode(content_bytes).decode('utf-8')
         
-        # Prepare the request body
-        data = {
-            'message': commit_message,
-            'content': content_base64,
-            'branch': branch
-        }
+        for attempt in range(max_retries):
+            # Check if file exists to get its SHA (required for updates)
+            # Re-fetch SHA on each attempt to handle concurrent updates
+            logging.info(f"Checking if {file_path} exists in {username}/{repo_name}...")
+            response = requests.get(
+                api_url,
+                headers=headers,
+                params={'ref': branch}
+            )
+            
+            sha = None
+            if response.status_code == 200:
+                sha = response.json().get('sha')
+                logging.info(f"File exists, SHA: {sha}")
+            elif response.status_code == 404:
+                logging.info(f"File does not exist, will create new file")
+            else:
+                logging.error(f"Error checking file: {response.status_code} - {response.text}")
+                return False
+            
+            # Prepare the request body
+            data = {
+                'message': commit_message,
+                'content': content_base64,
+                'branch': branch
+            }
+            
+            if sha:
+                data['sha'] = sha
+            
+            # Make the API request
+            logging.info(f"Publishing to {file_path}... (attempt {attempt + 1}/{max_retries})")
+            response = requests.put(
+                api_url,
+                headers=headers,
+                json=data
+            )
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                logging.info(f"Successfully published to GitHub!")
+                logging.info(f"Commit SHA: {result['commit']['sha']}")
+                logging.info(f"View at: https://{username}.github.io/{repo_name}/{file_path}")
+                return True
+            elif response.status_code == 409:
+                # Conflict - SHA changed due to concurrent update, retry with fresh SHA
+                logging.warning(f"409 Conflict on {file_path} - SHA changed, retrying... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(0.5 * (attempt + 1))  # Exponential backoff: 0.5s, 1s, 1.5s
+                continue
+            else:
+                logging.error(f"Failed to publish: {response.status_code}")
+                logging.error(f"Response: {response.text}")
+                return False
         
-        if sha:
-            data['sha'] = sha
-        
-        # Make the API request
-        logging.info(f"Publishing to {file_path}...")
-        response = requests.put(
-            api_url,
-            headers=headers,
-            json=data
-        )
-        
-        if response.status_code in [200, 201]:
-            result = response.json()
-            logging.info(f"Successfully published to GitHub!")
-            logging.info(f"Commit SHA: {result['commit']['sha']}")
-            logging.info(f"View at: https://{username}.github.io/{repo_name}/{file_path}")
-            return True
-        else:
-            logging.error(f"Failed to publish: {response.status_code}")
-            logging.error(f"Response: {response.text}")
-            return False
+        # All retries exhausted
+        logging.error(f"Failed to publish {file_path} after {max_retries} attempts due to conflicts")
+        return False
             
     except Exception as e:
         logging.error(f"Error publishing to GitHub: {e}")
