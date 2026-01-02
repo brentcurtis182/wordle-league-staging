@@ -659,18 +659,18 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                     except Exception as e:
                         logging.error(f"Failed to send roast message: {e}")
             
-            # Congratulate perfect scores (1/6 or 2/6) with whale emojis in all leagues
-            if score in [1, 2]:
-                try:
-                    send_perfect_score_congrats(player_name, score, league_id)
-                except Exception as e:
-                    logging.error(f"Failed to send perfect score message: {e}")
+            # DISABLED: Perfect score congrats (1/6 or 2/6) - disabled to reduce MMS costs
+            # if score in [1, 2]:
+            #     try:
+            #         send_perfect_score_congrats(player_name, score, league_id)
+            #     except Exception as e:
+            #         logging.error(f"Failed to send perfect score message: {e}")
             
-            # Check if all players have posted, then roast lowest scorer(s) in all leagues
-            try:
-                check_and_roast_daily_losers(league_id, wordle_num, conn)
-            except Exception as e:
-                logging.error(f"Failed to check/send daily loser roast: {e}")
+            # DISABLED: Daily loser roast when all players posted - disabled to reduce MMS costs
+            # try:
+            #     check_and_roast_daily_losers(league_id, wordle_num, conn)
+            # except Exception as e:
+            #     logging.error(f"Failed to check/send daily loser roast: {e}")
             
             return "new"
             
