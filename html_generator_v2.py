@@ -22,29 +22,10 @@ def get_day_name(wordle_num):
 
 def transform_emoji_colors(emoji_pattern):
     """Transform Wordle emoji colors to our custom color scheme.
-    Green squares → Cyan, Yellow squares → Orange
-    Replaces emoji with colored Unicode block characters.
+    For now, just return the original pattern - emoji colors can't be easily changed.
     """
-    if not emoji_pattern:
-        return emoji_pattern
-    
-    # Use Unicode full block character (█) with CSS colors
-    cyan_block = '<span style="color: #00E8DA; font-size: 0.9em;">█</span>'
-    orange_block = '<span style="color: #FFA64D; font-size: 0.9em;">█</span>'
-    black_block = '<span style="color: #3a3a3c; font-size: 0.9em;">█</span>'
-    white_block = '<span style="color: #d7dadc; font-size: 0.9em;">█</span>'
-    
-    # Replace green squares with cyan
-    result = emoji_pattern.replace('🟩', cyan_block)
-    
-    # Replace yellow squares with orange
-    result = result.replace('🟨', orange_block)
-    
-    # Replace black/white squares for consistency
-    result = result.replace('⬛', black_block)
-    result = result.replace('⬜', white_block)
-    
-    return result
+    # Return original emojis unchanged - CSS can't style emoji colors
+    return emoji_pattern
 
 def generate_score_card_html(player_name, score_data):
     """Generate HTML for a single score card in Latest Scores tab"""
