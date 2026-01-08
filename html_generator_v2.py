@@ -171,7 +171,7 @@ def generate_weekly_totals_html(league_data):
         row_class = ''
         row_style = ''
         if stats['used_scores'] >= 5:
-            row_style = ' style="background-color: rgba(106, 170, 100, 0.15);"'
+            row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"'
         
         # Also highlight weekly winner
         if league_data['weekly_winner'] and player_name == league_data['weekly_winner']['name']:
@@ -290,7 +290,7 @@ def generate_season_stats_html(league_data):
     for i, stats in enumerate(league_data['all_time_stats']):
         # Only highlight first player WITH scores
         has_scores = stats["games_played"] > 0
-        row_class = ' class="highlight" style="background-color: rgba(106, 170, 100, 0.15);"' if i == 0 and has_scores else ''
+        row_class = ' class="highlight" style="background-color: rgba(0, 232, 218, 0.15);"' if i == 0 and has_scores else ''
         html += f'<tr{row_class}>\n'
         html += f'    <td><strong>{stats["name"]}</strong></td>\n'
         html += f'    <td>{stats["games_played"] if has_scores else "-"}</td>\n'
@@ -352,7 +352,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     }}
     
     .highlight {{
-        background-color: rgba(106, 170, 100, 0.2);
+        background-color: rgba(0, 232, 218, 0.2);
     }}
     
     /* Failed attempts column styling */

@@ -171,7 +171,7 @@ tr:nth-child(even) {
     background-color: #1a1a1b;
 }
 tr.highlight {
-    background-color: rgba(106, 170, 100, 0.2);
+    background-color: rgba(0, 232, 218, 0.2);
 }
 
 /* Tab navigation */
