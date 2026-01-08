@@ -417,9 +417,18 @@ def send_sunday_race_update(league_id, force_season_image=False):
         # Prepare standings data for image
         weekly_image_data = []
         for player in standings:
+            # Calculate current total from scores (sum of all scores, or best 5 if eligible)
+            if player['eligible'] and player['best_5_total']:
+                current_score = player['best_5_total']
+            elif player['days_posted'] > 0:
+                # Not eligible yet - show sum of their current scores
+                current_score = sum(sorted(player['scores'].values())[:5])
+            else:
+                current_score = None
+            
             weekly_image_data.append({
                 'name': player['name'],
-                'score': player['best_5_total'] if player['days_posted'] > 0 else 0,
+                'score': current_score,
                 'used': player['days_posted'],
                 'failed': player.get('failed_attempts', 0),
                 'thrown': player.get('thrown_out', []),

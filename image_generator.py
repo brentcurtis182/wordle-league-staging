@@ -84,24 +84,24 @@ def generate_weekly_image(league_name, standings_data, week_date_str=None):
         - thrown: list of thrown out scores
         - eligible: bool (has 5+ games)
     """
-    # Image dimensions - BIGGER for mobile readability
-    width = 420
-    row_height = 48
-    header_height = 75
-    padding = 15
+    # Image dimensions - MUCH BIGGER for mobile readability
+    width = 550
+    row_height = 60
+    header_height = 95
+    padding = 20
     num_players = len(standings_data)
-    height = header_height + (num_players * row_height) + padding * 2 + 30
+    height = header_height + (num_players * row_height) + padding * 2 + 40
     
     # Create image
     img = Image.new('RGB', (width, height), hex_to_rgb(COLORS['background']))
     draw = ImageDraw.Draw(img)
     
-    # Fonts - BIGGER
-    title_font = get_font(22, bold=True)
-    header_font = get_font(14, bold=True)
-    player_font = get_font(16, bold=True)
-    score_font = get_font(16)
-    small_font = get_font(12)
+    # Fonts - MUCH BIGGER for mobile
+    title_font = get_font(32, bold=True)
+    header_font = get_font(20, bold=True)
+    player_font = get_font(24, bold=True)
+    score_font = get_font(24)
+    small_font = get_font(16)
     
     # Draw card background
     draw_rounded_rect(draw, [8, 8, width - 8, height - 8], 12, 
@@ -113,51 +113,51 @@ def generate_weekly_image(league_name, standings_data, week_date_str=None):
         title = f"{league_name.upper()} - Week {week_date_str}"
     else:
         title = f"{league_name.upper()} - THIS WEEK"
-    draw.text((width // 2, 35), title, font=title_font, 
+    draw.text((width // 2, 45), title, font=title_font, 
               fill=hex_to_rgb(COLORS['primary']), anchor="mm")
     
     # Column positions - 3 columns only: Player, Score, Thrown Out
-    col_player = 25
-    col_score = 220
-    col_out = 320
+    col_player = 30
+    col_score = 250  # Centered more
+    col_out = 400
     
     # Column headers
-    y = 55
+    y = 70
     draw.text((col_player, y), "Player", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
     draw.text((col_score, y), "Score", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
     draw.text((col_out, y), "Thrown Out", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
     
     # Divider line
     y = header_height
-    draw.line([(20, y), (width - 20, y)], fill=hex_to_rgb(COLORS['border']), width=1)
+    draw.line([(25, y), (width - 25, y)], fill=hex_to_rgb(COLORS['border']), width=2)
     
     # Player rows
-    y = header_height + 8
+    y = header_height + 10
     for i, player in enumerate(standings_data):
         row_y = y + (i * row_height)
         
         # Highlight eligible players (5+ games) with cyan background
         if player.get('eligible', False):
             # Draw semi-transparent highlight
-            overlay = Image.new('RGBA', (width - 30, row_height - 6), hex_to_rgb(COLORS['primary']) + (40,))
-            img.paste(Image.blend(img.crop((15, row_y, width - 15, row_y + row_height - 6)).convert('RGBA'), 
-                                  overlay, 0.35).convert('RGB'), (15, row_y))
+            overlay = Image.new('RGBA', (width - 40, row_height - 8), hex_to_rgb(COLORS['primary']) + (45,))
+            img.paste(Image.blend(img.crop((20, row_y, width - 20, row_y + row_height - 8)).convert('RGBA'), 
+                                  overlay, 0.4).convert('RGB'), (20, row_y))
             draw = ImageDraw.Draw(img)  # Refresh draw object
         
         # Player name
         name = player.get('name', 'Unknown')
-        if len(name) > 14:
-            name = name[:13] + "…"
-        draw.text((col_player, row_y + 12), name, font=player_font, 
+        if len(name) > 12:
+            name = name[:11] + "…"
+        draw.text((col_player, row_y + 15), name, font=player_font, 
                   fill=hex_to_rgb(COLORS['text_primary']))
         
-        # Score
+        # Score - show current total even if not eligible
         score = player.get('score')
-        if score and score > 0:
-            draw.text((col_score + 25, row_y + 12), str(score), font=score_font,
+        if score is not None and score > 0:
+            draw.text((col_score + 30, row_y + 15), str(score), font=score_font,
                       fill=hex_to_rgb(COLORS['text_primary']))
         else:
-            draw.text((col_score + 25, row_y + 12), "-", font=score_font,
+            draw.text((col_score + 30, row_y + 15), "-", font=score_font,
                       fill=hex_to_rgb(COLORS['text_secondary']))
         
         # Thrown out
@@ -166,14 +166,14 @@ def generate_weekly_image(league_name, standings_data, week_date_str=None):
             thrown_text = ", ".join(str(s) for s in thrown[:3])
             if len(thrown) > 3:
                 thrown_text += "…"
-            draw.text((col_out + 20, row_y + 12), thrown_text, font=score_font,
+            draw.text((col_out, row_y + 15), thrown_text, font=score_font,
                       fill=hex_to_rgb(COLORS['text_secondary']))
         else:
-            draw.text((col_out + 35, row_y + 12), "-", font=score_font,
+            draw.text((col_out + 20, row_y + 15), "-", font=score_font,
                       fill=hex_to_rgb(COLORS['text_secondary']))
     
     # Footer
-    footer_y = height - 22
+    footer_y = height - 28
     draw.text((width // 2, footer_y), "Lower score = Better!", font=small_font,
               fill=hex_to_rgb(COLORS['text_secondary']), anchor="mm")
     
@@ -197,24 +197,24 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
     if not standings_data:
         return None  # No one has wins yet
     
-    # Image dimensions - BIGGER for mobile readability
-    width = 350
-    row_height = 48
-    header_height = 75
-    padding = 15
+    # Image dimensions - MUCH BIGGER for mobile readability
+    width = 450
+    row_height = 60
+    header_height = 95
+    padding = 20
     num_players = len(standings_data)
-    height = header_height + (num_players * row_height) + padding * 2 + 30
+    height = header_height + (num_players * row_height) + padding * 2 + 40
     
     # Create image
     img = Image.new('RGB', (width, height), hex_to_rgb(COLORS['background']))
     draw = ImageDraw.Draw(img)
     
-    # Fonts - BIGGER
-    title_font = get_font(22, bold=True)
-    header_font = get_font(14, bold=True)
-    player_font = get_font(16, bold=True)
-    wins_font = get_font(18, bold=True)
-    small_font = get_font(12)
+    # Fonts - MUCH BIGGER for mobile
+    title_font = get_font(32, bold=True)
+    header_font = get_font(20, bold=True)
+    player_font = get_font(24, bold=True)
+    wins_font = get_font(26, bold=True)
+    small_font = get_font(16)
     
     # Draw card background
     draw_rounded_rect(draw, [8, 8, width - 8, height - 8], 12,
@@ -223,21 +223,21 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
     
     # Title - simple, no emoji
     title = f"SEASON {season_number}"
-    draw.text((width // 2, 35), title, font=title_font,
+    draw.text((width // 2, 45), title, font=title_font,
               fill=hex_to_rgb(COLORS['primary']), anchor="mm")
     
     # Column headers
-    col_player = 25
-    col_wins = 280
-    y = 55
+    col_player = 30
+    col_wins = 300  # More centered
+    y = 70
     draw.text((col_player, y), "Player", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
-    draw.text((col_wins - 50, y), "Weekly Wins", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
+    draw.text((col_wins - 30, y), "Weekly Wins", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
     
     # Divider
-    draw.line([(20, header_height), (width - 20, header_height)], fill=hex_to_rgb(COLORS['border']), width=1)
+    draw.line([(25, header_height), (width - 25, header_height)], fill=hex_to_rgb(COLORS['border']), width=2)
     
     # Player rows
-    y = header_height + 8
+    y = header_height + 10
     for i, player in enumerate(standings_data):
         row_y = y + (i * row_height)
         name = player.get('name', 'Unknown')
@@ -245,24 +245,24 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
         
         # Highlight players with 3 wins (close to winning season)
         if wins >= 3:
-            overlay = Image.new('RGBA', (width - 30, row_height - 6), hex_to_rgb(COLORS['primary']) + (40,))
-            img.paste(Image.blend(img.crop((15, row_y, width - 15, row_y + row_height - 6)).convert('RGBA'), 
-                                  overlay, 0.35).convert('RGB'), (15, row_y))
+            overlay = Image.new('RGBA', (width - 40, row_height - 8), hex_to_rgb(COLORS['primary']) + (45,))
+            img.paste(Image.blend(img.crop((20, row_y, width - 20, row_y + row_height - 8)).convert('RGBA'), 
+                                  overlay, 0.4).convert('RGB'), (20, row_y))
             draw = ImageDraw.Draw(img)
         
         # Player name
-        if len(name) > 14:
-            name = name[:13] + "…"
-        draw.text((col_player, row_y + 12), name, font=player_font,
+        if len(name) > 12:
+            name = name[:11] + "…"
+        draw.text((col_player, row_y + 15), name, font=player_font,
                   fill=hex_to_rgb(COLORS['text_primary']))
         
         # Win count - centered in column
         wins_color = COLORS['primary'] if wins >= 3 else COLORS['text_primary']
-        draw.text((col_wins, row_y + 12), str(wins), font=wins_font,
+        draw.text((col_wins, row_y + 15), str(wins), font=wins_font,
                   fill=hex_to_rgb(wins_color))
     
     # Footer
-    footer_y = height - 22
+    footer_y = height - 28
     draw.text((width // 2, footer_y), "First to 4 wins takes the season!", font=small_font,
               fill=hex_to_rgb(COLORS['text_secondary']), anchor="mm")
     
