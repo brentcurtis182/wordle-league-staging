@@ -3103,6 +3103,210 @@ def index():
     """Root endpoint"""
     return {'message': 'Wordle League Twilio Webhook', 'status': 'running'}
 
+@app.route('/screenshot/weekly/<int:league_id>', methods=['GET'])
+def screenshot_weekly(league_id):
+    """Generate a screenshot-friendly weekly standings page"""
+    try:
+        from league_data_adapter import get_complete_league_data
+        import pytz
+        
+        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
+        league_name = league_names.get(league_id, f'League {league_id}')
+        
+        league_data = get_complete_league_data(league_id)
+        weekly_stats = league_data.get('weekly_stats', {})
+        
+        # Sort players: eligible first (5+ scores), then by score
+        sorted_players = sorted(
+            weekly_stats.items(),
+            key=lambda x: (
+                x[1]['used_scores'] < 5,
+                x[1]['best_5_total'] if x[1]['used_scores'] >= 5 else 999,
+                -x[1]['used_scores']
+            )
+        )
+        
+        # Build minimal HTML table
+        rows_html = ""
+        for player_name, stats in sorted_players:
+            bg_color = "rgba(106, 170, 100, 0.2)" if stats['used_scores'] >= 5 else "transparent"
+            total = stats['best_5_total'] if stats['used_scores'] > 0 else "-"
+            failed = stats['failed_attempts'] if stats['failed_attempts'] > 0 else "-"
+            thrown = ', '.join(str(s) for s in stats.get('thrown_out', [])) if stats.get('thrown_out') else "-"
+            
+            rows_html += f'''<tr style="background-color: {bg_color};">
+                <td style="font-weight: bold;">{player_name}</td>
+                <td style="text-align: center; font-weight: bold;">{total}</td>
+                <td style="text-align: center;">{stats['used_scores']}</td>
+                <td style="text-align: center; color: {'#ff5c5c' if failed != '-' else 'inherit'};">{failed}</td>
+                <td style="text-align: center;">{thrown}</td>
+            </tr>'''
+        
+        html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{league_name} - Weekly</title>
+    <style>
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #121213; 
+            color: white; 
+            margin: 0; 
+            padding: 10px;
+        }}
+        h2 {{ 
+            color: #6aaa64; 
+            margin: 5px 0 10px 0; 
+            font-size: 18px;
+            text-align: center;
+        }}
+        table {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 14px;
+        }}
+        th {{ 
+            background: #3a3a3c; 
+            padding: 8px 4px; 
+            text-align: center;
+            font-size: 12px;
+        }}
+        th:first-child {{ text-align: left; }}
+        td {{ 
+            padding: 8px 4px; 
+            border-bottom: 1px solid #3a3a3c;
+        }}
+        td:first-child {{ text-align: left; }}
+    </style>
+</head>
+<body>
+    <h2>{league_name} - This Week</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Score</th>
+                <th>Used</th>
+                <th>Failed</th>
+                <th>Thrown</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+</body>
+</html>'''
+        
+        return html, 200, {'Content-Type': 'text/html'}
+        
+    except Exception as e:
+        logging.error(f"Error generating weekly screenshot: {e}")
+        import traceback
+        traceback.print_exc()
+        return f'<html><body>Error: {str(e)}</body></html>', 500
+
+@app.route('/screenshot/season/<int:league_id>', methods=['GET'])
+def screenshot_season(league_id):
+    """Generate a screenshot-friendly season standings page"""
+    try:
+        from league_data_adapter import get_season_data
+        
+        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
+        league_name = league_names.get(league_id, f'League {league_id}')
+        
+        season_data = get_season_data(league_id)
+        current_season = season_data.get('current_season', 1)
+        standings = season_data.get('season_standings', {})
+        
+        # Sort by wins descending
+        sorted_standings = sorted(standings.items(), key=lambda x: x[1]['wins'], reverse=True)
+        
+        # Build rows
+        rows_html = ""
+        for player_name, data in sorted_standings:
+            wins = data['wins']
+            # Highlight players with 3+ wins (close to winning)
+            bg_color = "rgba(255, 215, 0, 0.2)" if wins >= 3 else "transparent"
+            star = " ⭐" if wins >= 3 else ""
+            
+            rows_html += f'''<tr style="background-color: {bg_color};">
+                <td style="font-weight: bold;">{player_name}{star}</td>
+                <td style="text-align: center; font-weight: bold; font-size: 18px;">{wins}</td>
+            </tr>'''
+        
+        html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{league_name} - Season {current_season}</title>
+    <style>
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #121213; 
+            color: white; 
+            margin: 0; 
+            padding: 10px;
+        }}
+        h2 {{ 
+            color: #6aaa64; 
+            margin: 5px 0 10px 0; 
+            font-size: 18px;
+            text-align: center;
+        }}
+        .subtitle {{
+            text-align: center;
+            font-size: 12px;
+            color: #818384;
+            margin-bottom: 10px;
+        }}
+        table {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 14px;
+        }}
+        th {{ 
+            background: #3a3a3c; 
+            padding: 8px 4px; 
+            text-align: center;
+            font-size: 12px;
+        }}
+        th:first-child {{ text-align: left; }}
+        td {{ 
+            padding: 10px 4px; 
+            border-bottom: 1px solid #3a3a3c;
+        }}
+        td:first-child {{ text-align: left; }}
+    </style>
+</head>
+<body>
+    <h2>{league_name} - Season {current_season}</h2>
+    <p class="subtitle">First to 4 weekly wins takes the season!</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Weekly Wins</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+</body>
+</html>'''
+        
+        return html, 200, {'Content-Type': 'text/html'}
+        
+    except Exception as e:
+        logging.error(f"Error generating season screenshot: {e}")
+        import traceback
+        traceback.print_exc()
+        return f'<html><body>Error: {str(e)}</body></html>', 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
