@@ -17,6 +17,9 @@ import pytz
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from season_management import get_weekly_wins_in_current_season
+
+WINS_FOR_SEASON_VICTORY = 4
 
 # Set up logging
 logging.basicConfig(
@@ -179,6 +182,12 @@ def send_sunday_race_update(league_id):
         # Find eligible players (5+ games) and their leader
         eligible = [s for s in standings if s['eligible']]
         
+        # Get current weekly wins for season clinching detection
+        weekly_wins, current_season = get_weekly_wins_in_current_season(league_id)
+        
+        # Find players who could clinch the season with a win this week (currently at 3 wins)
+        potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
+        
         if not eligible:
             logging.warning(f"No eligible players (5+ games) in league {league_id}")
             prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly race. Keep playing to get in the running! Use emojis. Keep it under 200 characters."
@@ -297,9 +306,35 @@ def send_sunday_race_update(league_id):
                 else:
                     scenarios.append(f"{leader_text}. Race is heating up!")
             
+            # Check if any current leader(s) could clinch the season
+            season_clinch_text = ""
+            leaders_who_could_clinch = [name for name in leader_names if name in potential_season_clinchers]
+            
+            if leaders_who_could_clinch:
+                if len(leaders_who_could_clinch) == 1:
+                    season_clinch_text = f" SEASON STAKES: If {leaders_who_could_clinch[0]} wins this week, they clinch Season {current_season}!"
+                else:
+                    clinchers_list = " or ".join(leaders_who_could_clinch)
+                    season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch Season {current_season}!"
+            else:
+                # Check if any contenders (not currently leading but in the hunt) could clinch
+                contenders_who_could_clinch = []
+                for player in standings:
+                    if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
+                        # Check if they're still in contention (eligible or have 4 games)
+                        if player['eligible'] or player['days_posted'] == 4:
+                            contenders_who_could_clinch.append(player['name'])
+                
+                if contenders_who_could_clinch:
+                    if len(contenders_who_could_clinch) == 1:
+                        season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} could clinch Season {current_season} with a win!"
+                    else:
+                        clinchers_list = " or ".join(contenders_who_could_clinch[:2])  # Max 2 to keep message short
+                        season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch Season {current_season} with a win!"
+            
             # Build final prompt
-            scenario_text = " ".join(scenarios)
-            prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 300 characters. Lower scores are better in Wordle."
+            scenario_text = " ".join(scenarios) + season_clinch_text
+            prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
