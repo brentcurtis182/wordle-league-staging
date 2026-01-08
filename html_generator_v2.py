@@ -20,6 +20,24 @@ def get_day_name(wordle_num):
     wordle_date = first_wordle_date + timedelta(days=wordle_num)
     return wordle_date.strftime("%a")
 
+def transform_emoji_colors(emoji_pattern):
+    """Transform Wordle emoji colors to our custom color scheme.
+    Green squares → Cyan, Yellow squares → Orange
+    Uses CSS-styled spans to replace the emoji colors.
+    """
+    if not emoji_pattern:
+        return emoji_pattern
+    
+    # Replace green squares with cyan-styled spans
+    # 🟩 (U+1F7E9) - green square
+    result = emoji_pattern.replace('🟩', '<span style="color: #00E8DA;">🟩</span>')
+    
+    # Replace yellow squares with orange-styled spans  
+    # 🟨 (U+1F7E8) - yellow square
+    result = result.replace('🟨', '<span style="color: #FFA64D;">🟨</span>')
+    
+    return result
+
 def generate_score_card_html(player_name, score_data):
     """Generate HTML for a single score card in Latest Scores tab"""
     score = score_data.get('score')
@@ -56,7 +74,9 @@ def generate_score_card_html(player_name, score_data):
             emoji_html = '<div class="emoji-pattern">'
             for row in emoji_rows:
                 if row.strip():  # Skip empty rows
-                    emoji_html += f'<div class="emoji-row">{row.strip()}</div>'
+                    # Transform emoji colors to our custom scheme
+                    transformed_row = transform_emoji_colors(row.strip())
+                    emoji_html += f'<div class="emoji-row">{transformed_row}</div>'
             emoji_html += '</div>'
         else:
             emoji_html = '<div class="emoji-pattern"></div>'
