@@ -23,18 +23,26 @@ def get_day_name(wordle_num):
 def transform_emoji_colors(emoji_pattern):
     """Transform Wordle emoji colors to our custom color scheme.
     Green squares → Cyan, Yellow squares → Orange
-    Uses CSS-styled spans to replace the emoji colors.
+    Replaces emoji with colored Unicode block characters.
     """
     if not emoji_pattern:
         return emoji_pattern
     
-    # Replace green squares with cyan-styled spans
-    # 🟩 (U+1F7E9) - green square
-    result = emoji_pattern.replace('🟩', '<span style="color: #00E8DA;">🟩</span>')
+    # Use Unicode full block character (█) with CSS colors
+    cyan_block = '<span style="color: #00E8DA; font-size: 0.9em;">█</span>'
+    orange_block = '<span style="color: #FFA64D; font-size: 0.9em;">█</span>'
+    black_block = '<span style="color: #3a3a3c; font-size: 0.9em;">█</span>'
+    white_block = '<span style="color: #d7dadc; font-size: 0.9em;">█</span>'
     
-    # Replace yellow squares with orange-styled spans  
-    # 🟨 (U+1F7E8) - yellow square
-    result = result.replace('🟨', '<span style="color: #FFA64D;">🟨</span>')
+    # Replace green squares with cyan
+    result = emoji_pattern.replace('🟩', cyan_block)
+    
+    # Replace yellow squares with orange
+    result = result.replace('🟨', orange_block)
+    
+    # Replace black/white squares for consistency
+    result = result.replace('⬛', black_block)
+    result = result.replace('⬜', white_block)
     
     return result
 
