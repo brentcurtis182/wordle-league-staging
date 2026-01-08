@@ -31,8 +31,8 @@ def generate_score_card_html(player_name, score_data):
     else:
         # Color code the score (1-3 green, 4-6 yellow, 7/X red)
         if score <= 3:
-            color = '#6aaa64'  # Green
-            bg_color = 'rgba(106, 170, 100, 0.15)'
+            color = '#00E8DA'  # Cyan
+            bg_color = 'rgba(0, 232, 218, 0.15)'
         elif score <= 6:
             color = '#c9b458'  # Yellow
             bg_color = 'rgba(201, 180, 88, 0.15)'
@@ -74,7 +74,7 @@ def generate_latest_scores_html(league_data):
     today_wordle = league_data['today_wordle']
     wordle_date = format_wordle_date(today_wordle)
     
-    html = f'<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #6aaa64; text-align: center;">Wordle #{today_wordle} - {wordle_date}</h2>\n'
+    html = f'<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #{today_wordle} - {wordle_date}</h2>\n'
     
     # Sort players: scores first (by numeric value), then No Score (alphabetically)
     # This matches the proven script logic
@@ -122,8 +122,8 @@ def generate_score_cell(score):
     
     if score == 7:  # Failed attempt (X)
         return '<td class="failed" style="color: #787c7e; font-weight: bold;">X</td>'
-    elif score <= 3:  # 1-3 green
-        return f'<td class="good" style="color: #6aaa64; font-weight: bold;">{score}</td>'
+    elif score <= 3:  # 1-3 cyan
+        return f'<td class="good" style="color: #00E8DA; font-weight: bold;">{score}</td>'
     elif score <= 6:  # 4-6 yellow
         return f'<td class="medium" style="color: #c9b458; font-weight: bold;">{score}</td>'
     else:
@@ -235,7 +235,7 @@ def generate_season_stats_html(league_data):
     season_winners = season_data.get('season_winners', [])
     
     html = '<div class="season-container" style="margin-bottom: 30px;">\n'
-    html += f'<h3 style="margin-bottom: 10px; color: #6aaa64;">Season {current_season}</h3>\n'
+    html += f'<h3 style="margin-bottom: 10px; color: #00E8DA;">Season {current_season}</h3>\n'
     html += '<table class="season-table">\n'
     html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
     html += '<tbody>\n'
@@ -272,11 +272,11 @@ def generate_season_stats_html(league_data):
         for season_num in sorted(seasons_dict.keys(), reverse=True):
             winners = seasons_dict[season_num]
             if len(winners) == 1:
-                html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winners[0]}</p>\n'
+                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px;">Season {season_num} Winner: {winners[0]}</p>\n'
             else:
                 # Multiple winners (tie)
                 winner_list = ' and '.join(winners) if len(winners) == 2 else ', '.join(winners[:-1]) + ', and ' + winners[-1]
-                html += f'<p class="season-winner-message" style="color: #6aaa64; font-weight: bold; margin-top: 10px;">Season {season_num} Winners: {winner_list}</p>\n'
+                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px;">Season {season_num} Winners: {winner_list}</p>\n'
     
     html += '</div>\n'
     

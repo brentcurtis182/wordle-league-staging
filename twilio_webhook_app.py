@@ -3151,7 +3151,7 @@ def screenshot_weekly(league_id):
         # Build minimal HTML table
         rows_html = ""
         for player_name, stats in sorted_players:
-            bg_color = "rgba(106, 170, 100, 0.2)" if stats['used_scores'] >= 5 else "transparent"
+            bg_color = "rgba(0, 232, 218, 0.2)" if stats['used_scores'] >= 5 else "transparent"
             total = stats['best_5_total'] if stats['used_scores'] > 0 else "-"
             failed = stats['failed_attempts'] if stats['failed_attempts'] > 0 else "-"
             thrown = ', '.join(str(s) for s in stats.get('thrown_out', [])) if stats.get('thrown_out') else "-"
@@ -3179,7 +3179,7 @@ def screenshot_weekly(league_id):
             padding: 10px;
         }}
         h2 {{ 
-            color: #6aaa64; 
+            color: #00E8DA; 
             margin: 5px 0 10px 0; 
             font-size: 18px;
             text-align: center;
@@ -3252,7 +3252,7 @@ def screenshot_season(league_id):
             wins = data['wins']
             # Highlight players with 3+ wins (close to winning)
             bg_color = "rgba(255, 215, 0, 0.2)" if wins >= 3 else "transparent"
-            star = " ⭐" if wins >= 3 else ""
+            star = " " if wins >= 3 else ""
             
             rows_html += f'''<tr style="background-color: {bg_color};">
                 <td style="font-weight: bold;">{player_name}{star}</td>
@@ -3274,7 +3274,7 @@ def screenshot_season(league_id):
             padding: 10px;
         }}
         h2 {{ 
-            color: #6aaa64; 
+            color: #00E8DA; 
             margin: 5px 0 10px 0; 
             font-size: 18px;
             text-align: center;
