@@ -3109,8 +3109,11 @@ def test_sunday_update(league_id):
     try:
         from sunday_race_update import send_sunday_race_update
         
-        logging.info(f"Triggering test Sunday race update for league {league_id}")
-        success = send_sunday_race_update(league_id)
+        # Check if force_season param is set
+        force_season = request.args.get('force_season', 'false').lower() == 'true'
+        
+        logging.info(f"Triggering test Sunday race update for league {league_id} (force_season={force_season})")
+        success = send_sunday_race_update(league_id, force_season_image=force_season)
         
         if success:
             return {'status': 'success', 'message': f'Sunday race update sent to league {league_id}'}, 200

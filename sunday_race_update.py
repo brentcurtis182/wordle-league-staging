@@ -168,8 +168,13 @@ def upload_image_to_twilio(image_bytes, twilio_sid, twilio_token, chat_service_s
         logging.error(f"Error uploading image to Twilio: {e}")
         return None
 
-def send_sunday_race_update(league_id):
-    """Send the Sunday race update message with precise scenario analysis"""
+def send_sunday_race_update(league_id, force_season_image=False):
+    """Send the Sunday race update message with precise scenario analysis
+    
+    Args:
+        league_id: The league to send the update to
+        force_season_image: If True, always send season image (for testing)
+    """
     try:
         from openai import OpenAI
         from twilio.rest import Client
@@ -433,8 +438,8 @@ def send_sunday_race_update(league_id):
         except Exception as img_error:
             logging.error(f"Failed to generate/upload weekly image: {img_error}")
         
-        # Generate season image ONLY if there are potential season clinchers
-        if potential_season_clinchers:
+        # Generate season image ONLY if there are potential season clinchers (or force_season_image for testing)
+        if potential_season_clinchers or force_season_image:
             try:
                 # Get season standings for image
                 season_image_data = [
