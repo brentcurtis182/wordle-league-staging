@@ -389,7 +389,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     
     .emoji-row {{
         white-space: nowrap;
-        height: 1.3em;
+        height: 1.4em;
         margin: 0;
         padding: 0;
         display: block;
@@ -398,9 +398,9 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     /* Custom branded Wordle blocks - unique 3D tiles */
     .wl-block {{
         display: inline-block;
-        width: 0.85em;
-        height: 0.85em;
-        margin: 0.5px;
+        width: 1.1em;
+        height: 1.1em;
+        margin: 1px;
         border-radius: 3px;
         vertical-align: middle;
         border: 1px solid rgba(0,0,0,0.2);
@@ -421,9 +421,9 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
         border-color: #2a2a2c;
     }}
     .wl-light {{
-        background: linear-gradient(135deg, #888c8e 0%, #787c7e 50%, #686c6e 100%);
-        box-shadow: inset 0 1px 2px rgba(255,255,255,0.3), inset 0 -2px 3px rgba(0,0,0,0.15);
-        border-color: #686c6e;
+        background: linear-gradient(135deg, #ffffff 0%, #e8e8e8 50%, #d8d8d8 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -2px 3px rgba(0,0,0,0.1);
+        border-color: #c8c8c8;
     }}
     
     .emoji-container {{
