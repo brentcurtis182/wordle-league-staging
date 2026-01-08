@@ -417,12 +417,13 @@ def send_sunday_race_update(league_id, force_season_image=False):
         # Prepare standings data for image
         weekly_image_data = []
         for player in standings:
-            # Calculate current total from scores (sum of all scores, or best 5 if eligible)
-            if player['eligible'] and player['best_5_total']:
-                current_score = player['best_5_total']
-            elif player['days_posted'] > 0:
-                # Not eligible yet - show sum of their current scores
-                current_score = sum(sorted(player['scores'].values())[:5])
+            # Calculate current total - best N scores where N = min(days_posted, 5)
+            if player['days_posted'] > 0:
+                # Sort scores ascending (best first) and sum the best ones
+                sorted_scores = sorted(player['scores'].values())
+                # Take best min(days_posted, 5) scores
+                num_to_use = min(player['days_posted'], 5)
+                current_score = sum(sorted_scores[:num_to_use])
             else:
                 current_score = None
             
@@ -448,6 +449,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
             logging.error(f"Failed to generate/upload weekly image: {img_error}")
         
         # Generate season image ONLY if there are potential season clinchers (or force_season_image for testing)
+        logging.info(f"Season image check: potential_clinchers={potential_season_clinchers}, force={force_season_image}, weekly_wins={weekly_wins}")
         if potential_season_clinchers or force_season_image:
             try:
                 # Get season standings for image
@@ -456,7 +458,9 @@ def send_sunday_race_update(league_id, force_season_image=False):
                     for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True)
                 ]
                 
+                logging.info(f"Generating season image with data: {season_image_data}")
                 season_img = generate_season_image(league_name, current_season, season_image_data)
+                logging.info(f"Season image result: {season_img is not None}")
                 if season_img:  # Will be None if no one has wins
                     season_bytes = image_to_bytes(season_img)
                     season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)

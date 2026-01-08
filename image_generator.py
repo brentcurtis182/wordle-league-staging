@@ -29,10 +29,20 @@ def hex_to_rgb(hex_color):
 
 def get_font(size, bold=False):
     """Get a font - tries multiple paths for cross-platform support"""
+    import os
+    
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
     font_paths = [
-        # Linux (Railway)
+        # Bundled font in same directory (preferred)
+        os.path.join(script_dir, "Marcellus-Regular.ttf"),
+        os.path.join(script_dir, "fonts", "Marcellus-Regular.ttf"),
+        # Linux (Railway) - try multiple locations
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf" if bold else "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
         # Windows
         "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
@@ -42,11 +52,14 @@ def get_font(size, bold=False):
     
     for font_path in font_paths:
         try:
-            return ImageFont.truetype(font_path, size)
-        except:
+            font = ImageFont.truetype(font_path, size)
+            logging.info(f"Loaded font: {font_path} at size {size}")
+            return font
+        except Exception as e:
             continue
     
-    # Ultimate fallback
+    # Ultimate fallback - but log a warning
+    logging.warning(f"Could not load any truetype font at size {size}, using default bitmap font")
     return ImageFont.load_default()
 
 def draw_rounded_rect(draw, coords, radius, fill=None, outline=None, width=1):
