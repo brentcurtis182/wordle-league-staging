@@ -109,12 +109,12 @@ def generate_weekly_image(league_name, standings_data, week_date_str=None):
     img = Image.new('RGB', (width, height), hex_to_rgb(COLORS['background']))
     draw = ImageDraw.Draw(img)
     
-    # Fonts - MUCH BIGGER for mobile
-    title_font = get_font(32, bold=True)
-    header_font = get_font(20, bold=True)
-    player_font = get_font(24, bold=True)
-    score_font = get_font(24)
-    small_font = get_font(16)
+    # Fonts - EVEN BIGGER for mobile
+    title_font = get_font(38, bold=True)
+    header_font = get_font(24, bold=True)
+    player_font = get_font(30, bold=True)
+    score_font = get_font(30)
+    small_font = get_font(18)
     
     # Draw card background
     draw_rounded_rect(draw, [8, 8, width - 8, height - 8], 12, 
@@ -205,9 +205,12 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
         highlight_names = []
     
     # Filter out players with 0 wins
+    original_count = len(standings_data)
     standings_data = [p for p in standings_data if p.get('wins', 0) > 0]
+    logging.info(f"Season image: {original_count} players, {len(standings_data)} with wins")
     
     if not standings_data:
+        logging.info("Season image: No players with wins, returning None")
         return None  # No one has wins yet
     
     # Image dimensions - MUCH BIGGER for mobile readability
@@ -222,12 +225,12 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
     img = Image.new('RGB', (width, height), hex_to_rgb(COLORS['background']))
     draw = ImageDraw.Draw(img)
     
-    # Fonts - MUCH BIGGER for mobile
-    title_font = get_font(32, bold=True)
-    header_font = get_font(20, bold=True)
-    player_font = get_font(24, bold=True)
-    wins_font = get_font(26, bold=True)
-    small_font = get_font(16)
+    # Fonts - EVEN BIGGER for mobile
+    title_font = get_font(38, bold=True)
+    header_font = get_font(24, bold=True)
+    player_font = get_font(30, bold=True)
+    wins_font = get_font(32, bold=True)
+    small_font = get_font(18)
     
     # Draw card background
     draw_rounded_rect(draw, [8, 8, width - 8, height - 8], 12,

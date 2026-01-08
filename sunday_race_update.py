@@ -419,11 +419,14 @@ def send_sunday_race_update(league_id, force_season_image=False):
         for player in standings:
             # Calculate current total - best N scores where N = min(days_posted, 5)
             if player['days_posted'] > 0:
-                # Sort scores ascending (best first) and sum the best ones
-                sorted_scores = sorted(player['scores'].values())
+                # Get just the score values (not wordle numbers)
+                score_values = list(player['scores'].values())
+                # Sort scores ascending (best/lowest first) and sum the best ones
+                sorted_scores = sorted(score_values)
                 # Take best min(days_posted, 5) scores
                 num_to_use = min(player['days_posted'], 5)
                 current_score = sum(sorted_scores[:num_to_use])
+                logging.info(f"Player {player['name']}: scores={score_values}, sorted={sorted_scores}, using {num_to_use}, total={current_score}")
             else:
                 current_score = None
             
