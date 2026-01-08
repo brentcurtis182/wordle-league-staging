@@ -34,8 +34,8 @@ def generate_score_card_html(player_name, score_data):
             color = '#00E8DA'  # Cyan
             bg_color = 'rgba(0, 232, 218, 0.15)'
         elif score <= 6:
-            color = '#c9b458'  # Yellow
-            bg_color = 'rgba(201, 180, 88, 0.15)'
+            color = '#FFA64D'  # Orange
+            bg_color = 'rgba(255, 166, 77, 0.15)'
         else:  # 7 or X
             color = '#787c7e'  # Grey
             bg_color = 'rgba(120, 124, 126, 0.15)'
@@ -124,8 +124,8 @@ def generate_score_cell(score):
         return '<td class="failed" style="color: #787c7e; font-weight: bold;">X</td>'
     elif score <= 3:  # 1-3 cyan
         return f'<td class="good" style="color: #00E8DA; font-weight: bold;">{score}</td>'
-    elif score <= 6:  # 4-6 yellow
-        return f'<td class="medium" style="color: #c9b458; font-weight: bold;">{score}</td>'
+    elif score <= 6:  # 4-6 orange
+        return f'<td class="medium" style="color: #FFA64D; font-weight: bold;">{score}</td>'
     else:
         return f'<td class="bad" style="color: #ff5c5c; font-weight: bold;">{score}</td>'
 
