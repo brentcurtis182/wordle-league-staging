@@ -221,13 +221,23 @@ def send_sunday_race_update(league_id):
                                     can_catch_up.append(f"{player['name']} needs a {score_to_tie} or better to tie")
                     elif player['days_posted'] == 4:
                         # Has 4 games, posting today would give them 5
-                        # Their best 5 would be their current 4 + today's score
+                        # Their final best-5 total will be: current_4_total + today's_score
                         current_total = sum(sorted(player['scores'].values())[:4])
                         score_to_tie = leader_total - current_total
-                        if 1 <= score_to_tie <= 6:
-                            can_catch_up.append(f"{player['name']} needs a {score_to_tie} to tie (would be their 5th game)")
-                        elif score_to_tie < 1:
-                            can_catch_up.append(f"{player['name']} can win with any score today (5th game)")
+                        score_to_win = score_to_tie - 1
+                        
+                        if score_to_win >= 1 and score_to_win <= 6:
+                            # Can win with a realistic score
+                            can_catch_up.append(f"{player['name']} (4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
+                        elif score_to_tie >= 1 and score_to_tie <= 6:
+                            # Can tie but not win outright
+                            can_catch_up.append(f"{player['name']} (4 games) needs a {score_to_tie} to tie")
+                        elif score_to_tie > 6:
+                            # Mathematically eliminated - would need 7+ to tie
+                            can_catch_up.append(f"{player['name']} (4 games) is out of contention")
+                        elif score_to_tie <= 0:
+                            # Already ahead once they post any valid score
+                            can_catch_up.append(f"{player['name']} (4 games at {current_total}) takes the lead with any score!")
                 
                 if can_catch_up:
                     scenarios.append(f"{leader_names[0]} leads at {leader_total}. " + ". ".join(can_catch_up))
@@ -264,16 +274,23 @@ def send_sunday_race_update(league_id):
                     
                     elif player['days_posted'] == 4:
                         # Has 4 games - today would be their 5th
+                        # Their final best-5 total will be: current_4_total + today's_score
                         current_4_total = sum(sorted(player['scores'].values())[:4])
                         score_to_tie = leader_total - current_4_total
                         score_to_win = score_to_tie - 1
-                        if 1 <= score_to_tie <= 6:
-                            if score_to_win >= 1:
-                                catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
-                            else:
-                                catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_tie} to tie")
-                        elif score_to_tie < 1:
-                            catch_up_scenarios.append(f"{player['name']} can take the lead with any score today!")
+                        
+                        if score_to_win >= 1 and score_to_win <= 6:
+                            # Can win with a realistic score
+                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
+                        elif score_to_tie >= 1 and score_to_tie <= 6:
+                            # Can tie but not win outright (would need 0 or negative to win)
+                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_tie} to tie")
+                        elif score_to_tie > 6:
+                            # Would need a 7+ to even tie - mathematically eliminated
+                            catch_up_scenarios.append(f"{player['name']} (4 games played) is out of contention")
+                        # If score_to_tie <= 0, they're already ahead once they post any score (1-6)
+                        elif score_to_tie <= 0:
+                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) takes the lead with any score today!")
                 
                 if catch_up_scenarios:
                     scenarios.append(f"{leader_text}. " + ". ".join(catch_up_scenarios[:3]))  # Max 3 scenarios
