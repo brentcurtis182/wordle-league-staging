@@ -22,10 +22,54 @@ def get_day_name(wordle_num):
 
 def transform_emoji_colors(emoji_pattern):
     """Transform Wordle emoji colors to our custom color scheme.
-    For now, just return the original pattern - emoji colors can't be easily changed.
+    Replaces emoji squares with styled CSS boxes that have a 3D effect.
     """
-    # Return original emojis unchanged - CSS can't style emoji colors
-    return emoji_pattern
+    if not emoji_pattern:
+        return emoji_pattern
+    
+    # CSS for 3D-looking blocks - using box-shadow for depth effect
+    # Size matches typical emoji rendering, with rounded corners and inset shadow
+    cyan_block = '<span class="wl-block wl-cyan"></span>'
+    orange_block = '<span class="wl-block wl-orange"></span>'
+    dark_block = '<span class="wl-block wl-dark"></span>'
+    light_block = '<span class="wl-block wl-light"></span>'
+    
+    # Replace each emoji with our custom block
+    result = emoji_pattern.replace('🟩', cyan_block)
+    result = result.replace('🟨', orange_block)
+    result = result.replace('⬛', dark_block)
+    result = result.replace('⬜', light_block)
+    
+    return result
+
+def get_emoji_block_styles():
+    """Return CSS styles for custom emoji blocks."""
+    return '''
+    .wl-block {
+        display: inline-block;
+        width: 1.1em;
+        height: 1.1em;
+        margin: 1px;
+        border-radius: 3px;
+        vertical-align: middle;
+    }
+    .wl-cyan {
+        background: linear-gradient(145deg, #00E8DA, #00c4b8);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.15);
+    }
+    .wl-orange {
+        background: linear-gradient(145deg, #FFA64D, #e89440);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.15);
+    }
+    .wl-dark {
+        background: linear-gradient(145deg, #3a3a3c, #2d2d2f);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -2px 0 rgba(0,0,0,0.2);
+    }
+    .wl-light {
+        background: linear-gradient(145deg, #787c7e, #6a6d6f);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.15);
+    }
+    '''
 
 def generate_score_card_html(player_name, score_data):
     """Generate HTML for a single score card in Latest Scores tab"""
@@ -337,19 +381,49 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     .emoji-pattern {{
         margin-left: 15px;
         font-size: 0.8rem;
-        line-height: 1.1;
+        line-height: 1.2;
         display: inline-block;
         letter-spacing: 0;
-        font-family: monospace;
         text-align: right;
     }}
     
     .emoji-row {{
         white-space: nowrap;
-        height: 1.1em;
+        height: 1.3em;
         margin: 0;
         padding: 0;
         display: block;
+    }}
+    
+    /* Custom branded Wordle blocks - unique 3D tiles */
+    .wl-block {{
+        display: inline-block;
+        width: 0.85em;
+        height: 0.85em;
+        margin: 0.5px;
+        border-radius: 3px;
+        vertical-align: middle;
+        border: 1px solid rgba(0,0,0,0.2);
+    }}
+    .wl-cyan {{
+        background: linear-gradient(135deg, #00E8DA 0%, #00d4c8 50%, #00c4b8 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(0,232,218,0.3);
+        border-color: #00c4b8;
+    }}
+    .wl-orange {{
+        background: linear-gradient(135deg, #FFB366 0%, #FFA64D 50%, #e89440 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(255,166,77,0.3);
+        border-color: #e89440;
+    }}
+    .wl-dark {{
+        background: linear-gradient(135deg, #4a4a4c 0%, #3a3a3c 50%, #2a2a2c 100%);
+        box-shadow: inset 0 1px 1px rgba(255,255,255,0.08), inset 0 -2px 3px rgba(0,0,0,0.2);
+        border-color: #2a2a2c;
+    }}
+    .wl-light {{
+        background: linear-gradient(135deg, #888c8e 0%, #787c7e 50%, #686c6e 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.3), inset 0 -2px 3px rgba(0,0,0,0.15);
+        border-color: #686c6e;
     }}
     
     .emoji-container {{
