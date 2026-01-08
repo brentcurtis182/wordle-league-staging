@@ -10,6 +10,8 @@ Sends an exciting weekly race update to all leagues showing:
 import os
 import sys
 import logging
+import requests
+import base64
 from datetime import datetime, date, timedelta
 import pytz
 
@@ -18,8 +20,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
 from season_management import get_weekly_wins_in_current_season
+from image_generator import generate_weekly_image, generate_season_image, image_to_bytes
 
 WINS_FOR_SEASON_VICTORY = 4
+
+# Twilio MCS (Media Content Service) for uploading images
+TWILIO_MCS_URL = "https://mcs.us1.twilio.com/v1/Services/{service_sid}/Media"
 
 # Set up logging
 logging.basicConfig(
@@ -137,6 +143,30 @@ def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
         'to_tie': diff,  # Need to make up this many points
         'to_win': diff + 1  # Need to beat by 1
     }
+
+def upload_image_to_twilio(image_bytes, twilio_sid, twilio_token, chat_service_sid):
+    """Upload an image to Twilio MCS and return the Media SID"""
+    try:
+        url = TWILIO_MCS_URL.format(service_sid=chat_service_sid)
+        
+        response = requests.post(
+            url,
+            auth=(twilio_sid, twilio_token),
+            data=image_bytes,
+            headers={'Content-Type': 'image/png'}
+        )
+        
+        if response.status_code == 201:
+            media_data = response.json()
+            media_sid = media_data.get('sid')
+            logging.info(f"Uploaded image to Twilio MCS: {media_sid}")
+            return media_sid
+        else:
+            logging.error(f"Failed to upload image to Twilio MCS: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        logging.error(f"Error uploading image to Twilio: {e}")
+        return None
 
 def send_sunday_race_update(league_id):
     """Send the Sunday race update message with precise scenario analysis"""
@@ -367,14 +397,82 @@ def send_sunday_race_update(league_id):
         race_message = response.choices[0].message.content.strip()
         logging.info(f"Generated Sunday race update for league {league_id}: {race_message}")
         
-        # Send to conversation
+        # Get Chat Service SID for MCS uploads (extract from conversation)
         client = Client(twilio_sid, twilio_token)
-        client.conversations.v1.conversations(conversation_sid).messages.create(
-            body=race_message,
-            author=twilio_phone
-        )
+        conversation = client.conversations.v1.conversations(conversation_sid).fetch()
+        chat_service_sid = conversation.chat_service_sid
         
-        logging.info(f"Sent Sunday race update to league {league_id}")
+        # Generate weekly standings image
+        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
+        league_name = league_names.get(league_id, f'League {league_id}')
+        
+        # Format week date string (e.g., "Jan 05")
+        week_date_str = week_start.strftime("%b %d")
+        
+        # Prepare standings data for image
+        weekly_image_data = []
+        for player in standings:
+            weekly_image_data.append({
+                'name': player['name'],
+                'score': player['best_5_total'] if player['days_posted'] > 0 else 0,
+                'used': player['days_posted'],
+                'failed': player.get('failed_attempts', 0),
+                'thrown': player.get('thrown_out', []),
+                'eligible': player['eligible']
+            })
+        
+        # Generate and upload weekly image
+        media_sids = []
+        try:
+            weekly_img = generate_weekly_image(league_name, weekly_image_data, week_date_str)
+            weekly_bytes = image_to_bytes(weekly_img)
+            weekly_media_sid = upload_image_to_twilio(weekly_bytes, twilio_sid, twilio_token, chat_service_sid)
+            if weekly_media_sid:
+                media_sids.append(weekly_media_sid)
+                logging.info(f"Weekly image uploaded: {weekly_media_sid}")
+        except Exception as img_error:
+            logging.error(f"Failed to generate/upload weekly image: {img_error}")
+        
+        # Generate season image ONLY if there are potential season clinchers
+        if potential_season_clinchers:
+            try:
+                # Get season standings for image
+                season_image_data = [
+                    {'name': name, 'wins': wins}
+                    for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True)
+                ]
+                
+                season_img = generate_season_image(league_name, current_season, season_image_data)
+                if season_img:  # Will be None if no one has wins
+                    season_bytes = image_to_bytes(season_img)
+                    season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)
+                    if season_media_sid:
+                        media_sids.append(season_media_sid)
+                        logging.info(f"Season image uploaded (stakes are high!): {season_media_sid}")
+            except Exception as img_error:
+                logging.error(f"Failed to generate/upload season image: {img_error}")
+        
+        # Send message with images if available
+        if media_sids:
+            # Send each image as a separate message, then the text
+            for media_sid in media_sids:
+                client.conversations.v1.conversations(conversation_sid).messages.create(
+                    media_sid=media_sid,
+                    author=twilio_phone
+                )
+            # Send text message after images
+            client.conversations.v1.conversations(conversation_sid).messages.create(
+                body=race_message,
+                author=twilio_phone
+            )
+        else:
+            # No images, just send text
+            client.conversations.v1.conversations(conversation_sid).messages.create(
+                body=race_message,
+                author=twilio_phone
+            )
+        
+        logging.info(f"Sent Sunday race update to league {league_id} with {len(media_sids)} image(s)")
         return True
         
     except Exception as e:
