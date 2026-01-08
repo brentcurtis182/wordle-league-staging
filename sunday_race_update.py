@@ -310,27 +310,45 @@ def send_sunday_race_update(league_id):
             season_clinch_text = ""
             leaders_who_could_clinch = [name for name in leader_names if name in potential_season_clinchers]
             
-            if leaders_who_could_clinch:
-                if len(leaders_who_could_clinch) == 1:
-                    season_clinch_text = f" SEASON STAKES: If {leaders_who_could_clinch[0]} wins this week, they clinch Season {current_season}!"
-                else:
-                    clinchers_list = " or ".join(leaders_who_could_clinch)
-                    season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch Season {current_season}!"
-            else:
-                # Check if any contenders (not currently leading but in the hunt) could clinch
-                contenders_who_could_clinch = []
+            # Special scenario: Multiple players at 3 wins could create a multi-way season tie!
+            if len(potential_season_clinchers) >= 2:
+                # Check if multiple 3-win players are in contention this week
+                clinchers_in_contention = []
                 for player in standings:
-                    if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
-                        # Check if they're still in contention (eligible or have 4 games)
-                        if player['eligible'] or player['days_posted'] == 4:
-                            contenders_who_could_clinch.append(player['name'])
+                    if player['name'] in potential_season_clinchers:
+                        if player['eligible'] or player['days_posted'] >= 4:
+                            clinchers_in_contention.append(player['name'])
                 
-                if contenders_who_could_clinch:
-                    if len(contenders_who_could_clinch) == 1:
-                        season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} could clinch Season {current_season} with a win!"
+                # Epic scenario: 3+ players at 3 wins all in contention = potential multi-way season tie!
+                if len(clinchers_in_contention) >= 3:
+                    names_list = ", ".join(clinchers_in_contention[:-1]) + f" and {clinchers_in_contention[-1]}"
+                    season_clinch_text = f" EPIC SEASON STAKES: {names_list} ALL have 3 wins! A tie this week could mean SHARED Season {current_season} champions!"
+                elif len(clinchers_in_contention) == 2:
+                    season_clinch_text = f" SEASON STAKES: {clinchers_in_contention[0]} and {clinchers_in_contention[1]} both have 3 wins - winner takes Season {current_season}, or they could share it!"
+            
+            # If no multi-way tie scenario, fall back to single clincher logic
+            if not season_clinch_text:
+                if leaders_who_could_clinch:
+                    if len(leaders_who_could_clinch) == 1:
+                        season_clinch_text = f" SEASON STAKES: If {leaders_who_could_clinch[0]} wins this week, they clinch Season {current_season}!"
                     else:
-                        clinchers_list = " or ".join(contenders_who_could_clinch[:2])  # Max 2 to keep message short
-                        season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch Season {current_season} with a win!"
+                        clinchers_list = " or ".join(leaders_who_could_clinch)
+                        season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch Season {current_season}!"
+                else:
+                    # Check if any contenders (not currently leading but in the hunt) could clinch
+                    contenders_who_could_clinch = []
+                    for player in standings:
+                        if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
+                            # Check if they're still in contention (eligible or have 4 games)
+                            if player['eligible'] or player['days_posted'] == 4:
+                                contenders_who_could_clinch.append(player['name'])
+                    
+                    if contenders_who_could_clinch:
+                        if len(contenders_who_could_clinch) == 1:
+                            season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} could clinch Season {current_season} with a win!"
+                        else:
+                            clinchers_list = " or ".join(contenders_who_could_clinch[:2])  # Max 2 to keep message short
+                            season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch Season {current_season} with a win!"
             
             # Build final prompt
             scenario_text = " ".join(scenarios) + season_clinch_text
