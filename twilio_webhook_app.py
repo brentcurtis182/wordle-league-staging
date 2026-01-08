@@ -3103,6 +3103,25 @@ def index():
     """Root endpoint"""
     return {'message': 'Wordle League Twilio Webhook', 'status': 'running'}
 
+@app.route('/test-sunday-update/<int:league_id>', methods=['POST'])
+def test_sunday_update(league_id):
+    """Test endpoint to trigger Sunday race update with images for a specific league"""
+    try:
+        from sunday_race_update import send_sunday_race_update
+        
+        logging.info(f"Triggering test Sunday race update for league {league_id}")
+        success = send_sunday_race_update(league_id)
+        
+        if success:
+            return {'status': 'success', 'message': f'Sunday race update sent to league {league_id}'}, 200
+        else:
+            return {'status': 'error', 'message': 'Failed to send update'}, 500
+    except Exception as e:
+        logging.error(f"Error in test Sunday update: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'status': 'error', 'message': str(e)}, 500
+
 @app.route('/screenshot/weekly/<int:league_id>', methods=['GET'])
 def screenshot_weekly(league_id):
     """Generate a screenshot-friendly weekly standings page"""
