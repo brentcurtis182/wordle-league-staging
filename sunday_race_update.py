@@ -76,13 +76,22 @@ def get_weekly_standings(league_id, week_start_wordle):
             score_values = [s for w, s in scores]
             
             # Calculate best 5 total (lowest scores are best)
+            # IMPORTANT: Exclude failed attempts (score 7) from best 5 calculation
             days_posted = len(scores)
             posted_today = todays_wordle in score_dict
+            failed_attempts = sum(1 for s in score_values if s == 7)
+            non_fail_scores = [s for s in score_values if s != 7]
             
-            # Sort scores ascending and take best 5
-            sorted_scores = sorted(score_values)
+            # Sort non-fail scores ascending and take best 5
+            sorted_scores = sorted(non_fail_scores)
             best_5_scores = sorted_scores[:BEST_N_SCORES]
-            best_5_total = sum(best_5_scores) if len(best_5_scores) >= MIN_GAMES_FOR_RANKING else None
+            
+            # Calculate thrown out scores (scores beyond best 5)
+            thrown_out = sorted_scores[BEST_N_SCORES:] if len(sorted_scores) > BEST_N_SCORES else []
+            
+            # Only eligible if they have 5+ non-fail scores
+            eligible = len(non_fail_scores) >= MIN_GAMES_FOR_RANKING
+            best_5_total = sum(best_5_scores) if eligible else None
             
             standings.append({
                 'player_id': player_id,
@@ -91,7 +100,9 @@ def get_weekly_standings(league_id, week_start_wordle):
                 'days_posted': days_posted,
                 'posted_today': posted_today,
                 'scores': score_dict,
-                'eligible': days_posted >= MIN_GAMES_FOR_RANKING
+                'eligible': eligible,
+                'failed_attempts': failed_attempts,
+                'thrown_out': thrown_out
             })
         
         cursor.close()
@@ -124,6 +135,46 @@ def get_weekly_standings(league_id, week_start_wordle):
         cursor.close()
         conn.close()
         return [], None
+
+def get_score_difficulty_text(score_needed):
+    """Return realistic language based on how difficult the score needed is"""
+    if score_needed == 1:
+        return "needs a near-impossible 1 (hail mary!)"
+    elif score_needed == 2:
+        return "needs an amazing 2"
+    elif score_needed == 3:
+        return "needs a solid 3"
+    elif score_needed == 4:
+        return "needs a 4"
+    elif score_needed == 5:
+        return "needs a 5"
+    elif score_needed == 6:
+        return "needs a 6 (just barely!)"
+    else:
+        return f"needs a {score_needed}"
+
+def get_catch_up_text(player_name, score_to_win, score_to_tie, current_total=None, games_count=None):
+    """Generate catch-up scenario text with realistic language"""
+    context = ""
+    if current_total is not None and games_count is not None:
+        context = f" (at {current_total} with {games_count} games)"
+    elif current_total is not None:
+        context = f" (at {current_total})"
+    
+    if score_to_win >= 1 and score_to_win <= 6:
+        win_text = get_score_difficulty_text(score_to_win)
+        if score_to_tie >= 1 and score_to_tie <= 6 and score_to_tie != score_to_win:
+            tie_text = get_score_difficulty_text(score_to_tie).replace("needs ", "")
+            return f"{player_name}{context} {win_text} to win or {tie_text} to tie"
+        return f"{player_name}{context} {win_text} to win"
+    elif score_to_tie >= 1 and score_to_tie <= 6:
+        tie_text = get_score_difficulty_text(score_to_tie)
+        return f"{player_name}{context} {tie_text} to tie"
+    elif score_to_tie > 6:
+        return f"{player_name}{context} is mathematically eliminated"
+    elif score_to_tie <= 0:
+        return f"{player_name}{context} takes the lead with any score today!"
+    return None
 
 def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
     """Calculate what score a player needs to tie or win
@@ -257,41 +308,49 @@ def send_sunday_race_update(league_id, force_season_image=False):
             elif len(leaders) == 1 and all_eligible_posted:
                 # Check if anyone not posted can still catch up
                 can_catch_up = []
+                eliminated = []
                 for player in not_posted_today:
                     if player['eligible']:
                         # Already eligible, can they improve their best 5?
                         diff = player['best_5_total'] - leader_total
-                        if diff > 0 and diff <= 6:
-                            # They need a score that improves their best 5 by 'diff' points
-                            # If their worst score in best 5 is W, they need a score of (W - diff) or better to tie
-                            sorted_scores = sorted(player['scores'].values())[:5]
+                        if diff > 0:
+                            # Get non-fail scores for calculation
+                            non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                            sorted_scores = sorted(non_fail_scores)[:5]
                             if sorted_scores:
                                 worst_best_5 = sorted_scores[-1]  # Highest of their best 5
                                 score_to_tie = worst_best_5 - diff
-                                if score_to_tie >= 1:
-                                    can_catch_up.append(f"{player['name']} needs a {score_to_tie} or better to tie")
-                    elif player['days_posted'] == 4:
-                        # Has 4 games, posting today would give them 5
-                        # Their final best-5 total will be: current_4_total + today's_score
-                        current_total = sum(sorted(player['scores'].values())[:4])
-                        score_to_tie = leader_total - current_total
-                        score_to_win = score_to_tie - 1
+                                score_to_win = worst_best_5 - diff - 1
+                                text = get_catch_up_text(player['name'], score_to_win, score_to_tie, player['best_5_total'])
+                                if text:
+                                    if "eliminated" in text:
+                                        eliminated.append(player['name'])
+                                    else:
+                                        can_catch_up.append(text)
+                    elif player['days_posted'] >= 4:
+                        # Has 4+ games, check if they can still qualify with non-fail scores
+                        non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                        non_fail_count = len(non_fail_scores)
                         
-                        if score_to_win >= 1 and score_to_win <= 6:
-                            # Can win with a realistic score
-                            can_catch_up.append(f"{player['name']} (4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
-                        elif score_to_tie >= 1 and score_to_tie <= 6:
-                            # Can tie but not win outright
-                            can_catch_up.append(f"{player['name']} (4 games) needs a {score_to_tie} to tie")
-                        elif score_to_tie > 6:
-                            # Mathematically eliminated - would need 7+ to tie
-                            can_catch_up.append(f"{player['name']} (4 games) is out of contention")
-                        elif score_to_tie <= 0:
-                            # Already ahead once they post any valid score
-                            can_catch_up.append(f"{player['name']} (4 games at {current_total}) takes the lead with any score!")
+                        if non_fail_count == 4:
+                            # Has exactly 4 non-fail scores, today would be their 5th
+                            current_total = sum(sorted(non_fail_scores)[:4])
+                            score_to_tie = leader_total - current_total
+                            score_to_win = score_to_tie - 1
+                            text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
+                            if text:
+                                if "eliminated" in text:
+                                    eliminated.append(player['name'])
+                                else:
+                                    can_catch_up.append(text)
+                        elif non_fail_count < 4:
+                            # Too many fails, can't qualify
+                            eliminated.append(player['name'])
                 
                 if can_catch_up:
                     scenarios.append(f"{leader_names[0]} leads at {leader_total}. " + ". ".join(can_catch_up))
+                elif eliminated:
+                    scenarios.append(f"{leader_names[0]} is the clear winner at {leader_total}! {', '.join(eliminated)} eliminated.")
                 else:
                     scenarios.append(f"{leader_names[0]} is the clear winner at {leader_total}!")
             
@@ -304,6 +363,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
                 
                 # Find who can still catch up or tie
                 catch_up_scenarios = []
+                eliminated = []
                 for player in not_posted_today:
                     if player['name'] in leader_names:
                         continue  # Skip leaders
@@ -312,41 +372,51 @@ def send_sunday_race_update(league_id, force_season_image=False):
                         # Already has 5+ games - can they improve?
                         diff = player['best_5_total'] - leader_total
                         if diff > 0:
-                            sorted_scores = sorted(player['scores'].values())[:5]
+                            # Get non-fail scores for calculation
+                            non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                            sorted_scores = sorted(non_fail_scores)[:5]
                             if sorted_scores:
                                 worst_best_5 = sorted_scores[-1]
                                 score_to_tie = worst_best_5 - diff
                                 score_to_win = worst_best_5 - diff - 1
-                                if score_to_tie >= 1 and score_to_tie <= 6:
-                                    if score_to_win >= 1:
-                                        catch_up_scenarios.append(f"{player['name']} (at {player['best_5_total']}) needs a {score_to_win} to win or {score_to_tie} to tie")
+                                text = get_catch_up_text(player['name'], score_to_win, score_to_tie, player['best_5_total'])
+                                if text:
+                                    if "eliminated" in text:
+                                        eliminated.append(player['name'])
                                     else:
-                                        catch_up_scenarios.append(f"{player['name']} (at {player['best_5_total']}) needs a {score_to_tie} to tie")
+                                        catch_up_scenarios.append(text)
+                        elif diff <= 0:
+                            # Already tied or ahead - shouldn't happen but handle it
+                            pass
                     
-                    elif player['days_posted'] == 4:
-                        # Has 4 games - today would be their 5th
-                        # Their final best-5 total will be: current_4_total + today's_score
-                        current_4_total = sum(sorted(player['scores'].values())[:4])
-                        score_to_tie = leader_total - current_4_total
-                        score_to_win = score_to_tie - 1
+                    elif player['days_posted'] >= 4:
+                        # Has 4+ games, check if they can still qualify with non-fail scores
+                        non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                        non_fail_count = len(non_fail_scores)
                         
-                        if score_to_win >= 1 and score_to_win <= 6:
-                            # Can win with a realistic score
-                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_win} to win or {score_to_tie} to tie")
-                        elif score_to_tie >= 1 and score_to_tie <= 6:
-                            # Can tie but not win outright (would need 0 or negative to win)
-                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) needs a {score_to_tie} to tie")
-                        elif score_to_tie > 6:
-                            # Would need a 7+ to even tie - mathematically eliminated
-                            catch_up_scenarios.append(f"{player['name']} (4 games played) is out of contention")
-                        # If score_to_tie <= 0, they're already ahead once they post any score (1-6)
-                        elif score_to_tie <= 0:
-                            catch_up_scenarios.append(f"{player['name']} (at {current_4_total} with 4 games) takes the lead with any score today!")
+                        if non_fail_count == 4:
+                            # Has exactly 4 non-fail scores, today would be their 5th
+                            current_total = sum(sorted(non_fail_scores)[:4])
+                            score_to_tie = leader_total - current_total
+                            score_to_win = score_to_tie - 1
+                            text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
+                            if text:
+                                if "eliminated" in text:
+                                    eliminated.append(player['name'])
+                                else:
+                                    catch_up_scenarios.append(text)
+                        elif non_fail_count < 4:
+                            # Too many fails, can't qualify this week
+                            eliminated.append(player['name'])
                 
+                # Build scenario text
+                scenario_parts = [leader_text]
                 if catch_up_scenarios:
-                    scenarios.append(f"{leader_text}. " + ". ".join(catch_up_scenarios[:3]))  # Max 3 scenarios
-                else:
-                    scenarios.append(f"{leader_text}. Race is heating up!")
+                    scenario_parts.append(". ".join(catch_up_scenarios[:3]))  # Max 3 catch-up scenarios
+                if eliminated:
+                    scenario_parts.append(f"{', '.join(eliminated)} eliminated")
+                
+                scenarios.append(". ".join(scenario_parts))
             
             # Check if any current leader(s) could clinch the season
             season_clinch_text = ""
@@ -399,11 +469,20 @@ def send_sunday_race_update(league_id, force_season_image=False):
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it). Convey the exact scenario given - don't change the numbers or names. Build excitement! Use emojis!"},
+                {"role": "system", "content": """You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+
+IMPORTANT RULES:
+1. Convey the EXACT scenario given - don't change numbers, names, or math
+2. A score of 1 is nearly impossible (hail mary), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
+3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
+4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
+5. Focus on players who realistically CAN still win or tie
+6. Include SEASON STAKES info if provided - this is important context about clinching the season!
+7. Use emojis for excitement!"""},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=200,
-            temperature=0.8
+            temperature=0.7
         )
         
         race_message = response.choices[0].message.content.strip()
