@@ -872,6 +872,80 @@ def health():
     """Health check endpoint"""
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
 
+@app.route('/recent-messages/<int:league_id>', methods=['GET'])
+def recent_messages(league_id):
+    """Get recent messages from a league's Twilio conversation for quick checking"""
+    try:
+        from twilio.rest import Client
+        
+        conversation_sids = {
+            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
+            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
+        }
+        
+        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
+        
+        conversation_sid = conversation_sids.get(league_id)
+        if not conversation_sid:
+            return f"<h2>League {league_id} not found</h2>", 404
+        
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        
+        # Fetch last 20 messages (most recent first)
+        messages = client.conversations.v1.conversations(conversation_sid).messages.list(limit=20, order='desc')
+        
+        # Build HTML response
+        html = f"""
+        <html>
+        <head>
+            <title>Recent Messages - {league_names.get(league_id, f'League {league_id}')}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #1a1a1b; color: #d7dadc; }}
+                h1 {{ color: #00E8DA; }}
+                .message {{ background: #272729; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #00E8DA; }}
+                .message.wordle {{ border-left-color: #FFA64D; }}
+                .author {{ font-weight: bold; color: #00E8DA; }}
+                .time {{ color: #818384; font-size: 0.85em; }}
+                .body {{ margin-top: 8px; white-space: pre-wrap; }}
+                a {{ color: #00E8DA; }}
+            </style>
+        </head>
+        <body>
+            <h1>📱 Recent Messages - {league_names.get(league_id, f'League {league_id}')}</h1>
+            <p><a href="/recent-messages/1">League 1</a> | <a href="/recent-messages/3">League 3</a> | <a href="/recent-messages/4">League 4</a> | <a href="/recent-messages/7">League 7</a></p>
+            <p style="color: #818384;">Showing last 20 messages (newest first)</p>
+        """
+        
+        for msg in messages:
+            # Check if it's a Wordle score
+            is_wordle = msg.body and msg.body.strip().startswith('Wordle')
+            msg_class = 'message wordle' if is_wordle else 'message'
+            
+            # Format timestamp
+            time_str = msg.date_created.strftime('%Y-%m-%d %H:%M:%S') if msg.date_created else 'Unknown'
+            
+            # Get author (phone number or participant identity)
+            author = msg.author or 'Unknown'
+            
+            html += f"""
+            <div class="{msg_class}">
+                <span class="author">{author}</span>
+                <span class="time"> - {time_str}</span>
+                <div class="body">{msg.body or '[No body]'}</div>
+            </div>
+            """
+        
+        html += "</body></html>"
+        return html, 200
+        
+    except Exception as e:
+        logging.error(f"Error fetching recent messages: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"<h2>Error: {str(e)}</h2>", 500
+
 @app.route('/daily-reset', methods=['GET', 'POST'])
 def daily_reset_endpoint():
     """
