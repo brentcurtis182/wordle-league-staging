@@ -20,6 +20,34 @@ logging.basicConfig(
 
 app = Flask(__name__)
 
+def run_pipeline_with_retry(league_id, max_retries=3):
+    """Run the update pipeline with retry logic and exponential backoff"""
+    import time
+    from update_pipeline import run_update_pipeline
+    
+    for attempt in range(max_retries):
+        try:
+            logging.info(f"[Pipeline] Attempt {attempt + 1}/{max_retries} for league {league_id}...")
+            result_data = run_update_pipeline(league_id)
+            
+            if result_data.get('success'):
+                logging.info(f"[Pipeline] ✅ Completed successfully for league {league_id}")
+                return True
+            else:
+                logging.error(f"[Pipeline] ❌ Failed for league {league_id}: {result_data.get('errors')}")
+                
+        except Exception as e:
+            logging.error(f"[Pipeline] ❌ Error on attempt {attempt + 1} for league {league_id}: {e}")
+        
+        # Exponential backoff: 2s, 4s, 8s
+        if attempt < max_retries - 1:
+            wait_time = 2 ** (attempt + 1)
+            logging.info(f"[Pipeline] Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+    
+    logging.error(f"[Pipeline] ❌ All {max_retries} attempts failed for league {league_id}")
+    return False
+
 # Twilio credentials
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
@@ -793,20 +821,11 @@ def webhook():
         if result == "new":
             logging.info(f"✅ Score recorded! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Trigger full update pipeline in background (async)
+            # Trigger full update pipeline in background (async) with retry logic
             try:
                 import threading
                 def run_pipeline_async():
-                    try:
-                        from update_pipeline import run_update_pipeline
-                        logging.info(f"[Async] Triggering update pipeline for league {league_id}...")
-                        result_data = run_update_pipeline(league_id)
-                        if result_data.get('success'):
-                            logging.info(f"[Async] Pipeline completed successfully for league {league_id}")
-                        else:
-                            logging.error(f"[Async] Pipeline failed for league {league_id}: {result_data.get('errors')}")
-                    except Exception as e:
-                        logging.error(f"[Async] Pipeline error for league {league_id}: {e}")
+                    run_pipeline_with_retry(league_id, max_retries=3)
                 
                 thread = threading.Thread(target=run_pipeline_async, daemon=True)
                 thread.start()
@@ -818,20 +837,11 @@ def webhook():
         elif result == "updated":
             logging.info(f"✅ Score updated! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
-            # Also trigger full update in background
+            # Also trigger full update in background with retry logic
             try:
                 import threading
                 def run_pipeline_async():
-                    try:
-                        from update_pipeline import run_update_pipeline
-                        logging.info(f"[Async] Triggering update pipeline for league {league_id}...")
-                        result_data = run_update_pipeline(league_id)
-                        if result_data.get('success'):
-                            logging.info(f"[Async] Pipeline completed successfully for league {league_id}")
-                        else:
-                            logging.error(f"[Async] Pipeline failed for league {league_id}: {result_data.get('errors')}")
-                    except Exception as e:
-                        logging.error(f"[Async] Pipeline error for league {league_id}: {e}")
+                    run_pipeline_with_retry(league_id, max_retries=3)
                 
                 thread = threading.Thread(target=run_pipeline_async, daemon=True)
                 thread.start()
