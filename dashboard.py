@@ -438,7 +438,7 @@ def get_league_wix_url(league_id):
     wix_paths = {
         1: 'wordle-warriorz',
         3: 'pal',
-        4: 'party',
+        4: 'pickle-party',
         7: 'bellyup'
     }
     return wix_paths.get(league_id, f'league{league_id}')
