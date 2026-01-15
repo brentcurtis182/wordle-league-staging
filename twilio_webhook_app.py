@@ -1113,75 +1113,98 @@ def health():
 @app.route('/auth/login', methods=['GET', 'POST'])
 def auth_login():
     """Login page and handler"""
-    from auth import login_user, validate_session
-    from dashboard import render_login_page
-    
-    # Check if already logged in
-    session_token = request.cookies.get('session_token')
-    if session_token and validate_session(session_token):
-        return redirect('/dashboard')
-    
-    if request.method == 'GET':
-        success = request.args.get('registered')
-        return render_login_page(success='Account created! Please sign in.' if success else None)
-    
-    # POST - handle login
-    email = request.form.get('email', '').strip()
-    password = request.form.get('password', '')
-    
-    if not email or not password:
-        return render_login_page(error='Please enter email and password')
-    
-    result = login_user(email, password)
-    
-    if result['success']:
-        response = make_response(redirect('/dashboard'))
-        response.set_cookie('session_token', result['session_token'], 
-                          max_age=30*24*60*60,  # 30 days
-                          httponly=True,
-                          samesite='Lax')
-        return response
-    else:
-        return render_login_page(error=result['error'])
+    try:
+        from auth import login_user, validate_session
+        from dashboard import render_login_page
+        
+        # Check if already logged in - but handle errors gracefully
+        session_token = request.cookies.get('session_token')
+        try:
+            if session_token and validate_session(session_token):
+                return redirect('/dashboard')
+        except Exception as e:
+            logging.error(f"Session validation error: {e}")
+            # Clear the bad cookie and continue to login page
+            pass
+        
+        if request.method == 'GET':
+            success = request.args.get('registered')
+            return render_login_page(success='Account created! Please sign in.' if success else None)
+        
+        # POST - handle login
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        
+        if not email or not password:
+            return render_login_page(error='Please enter email and password')
+        
+        result = login_user(email, password)
+        
+        if result['success']:
+            response = make_response(redirect('/dashboard'))
+            response.set_cookie('session_token', result['session_token'], 
+                              max_age=30*24*60*60,  # 30 days
+                              httponly=True,
+                              samesite='Lax')
+            return response
+        else:
+            return render_login_page(error=result['error'])
+    except Exception as e:
+        logging.error(f"Login route error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        from dashboard import render_login_page
+        return render_login_page(error='An unexpected error occurred. Please try again.')
 
 @app.route('/auth/register', methods=['GET', 'POST'])
 def auth_register():
     """Registration page and handler"""
-    from auth import register_user, validate_session
-    from dashboard import render_register_page
-    
-    # Check if already logged in
-    session_token = request.cookies.get('session_token')
-    if session_token and validate_session(session_token):
-        return redirect('/dashboard')
-    
-    if request.method == 'GET':
-        return render_register_page()
-    
-    # POST - handle registration
-    first_name = request.form.get('first_name', '').strip()
-    last_name = request.form.get('last_name', '').strip()
-    email = request.form.get('email', '').strip()
-    password = request.form.get('password', '')
-    confirm_password = request.form.get('confirm_password', '')
-    phone = request.form.get('phone', '').strip()
-    sms_consent = request.form.get('sms_consent') == '1'
-    
-    if not first_name or not last_name or not email or not password:
-        return render_register_page(error='First name, last name, email, and password are required')
-    
-    if len(password) < 8:
-        return render_register_page(error='Password must be at least 8 characters')
-    
-    if password != confirm_password:
-        return render_register_page(error='Passwords do not match')
-    
-    result = register_user(email, password, first_name, last_name, phone, sms_consent)
-    
-    if result['success']:
-        return redirect('/auth/login?registered=1')
-    else:
-        return render_register_page(error=result['error'])
+    try:
+        from auth import register_user, validate_session
+        from dashboard import render_register_page
+        
+        # Check if already logged in - handle errors gracefully
+        session_token = request.cookies.get('session_token')
+        try:
+            if session_token and validate_session(session_token):
+                return redirect('/dashboard')
+        except Exception as e:
+            logging.error(f"Session validation error in register: {e}")
+            pass
+        
+        if request.method == 'GET':
+            return render_register_page()
+        
+        # POST - handle registration
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        phone = request.form.get('phone', '').strip()
+        sms_consent = request.form.get('sms_consent') == '1'
+        
+        if not first_name or not last_name or not email or not password:
+            return render_register_page(error='First name, last name, email, and password are required')
+        
+        if len(password) < 8:
+            return render_register_page(error='Password must be at least 8 characters')
+        
+        if password != confirm_password:
+            return render_register_page(error='Passwords do not match')
+        
+        result = register_user(email, password, first_name, last_name, phone, sms_consent)
+        
+        if result['success']:
+            return redirect('/auth/login?registered=1')
+        else:
+            return render_register_page(error=result['error'])
+    except Exception as e:
+        logging.error(f"Register route error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        from dashboard import render_register_page
+        return render_register_page(error='An unexpected error occurred. Please try again.')
 
 @app.route('/auth/logout')
 def auth_logout():
