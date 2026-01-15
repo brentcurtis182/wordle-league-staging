@@ -690,6 +690,24 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 gap: 12px;
                 justify-content: flex-end;
             }}
+            .toast {{
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%) translateY(100px);
+                background: {COLORS['success']};
+                color: #000;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                opacity: 0;
+                transition: all 0.3s ease;
+                z-index: 10000;
+            }}
+            .toast.show {{
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }}
         </style>
     </head>
     <body>
@@ -1443,28 +1461,75 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const severity = pendingConfigChanges.severity;
                 const enabledCount = pendingConfigChanges.enabledCount;
                 
-                // Save severity for this message type
-                originalAISettings[messageType + '_severity'] = severity;
-                
-                // Update the label on the main page
-                document.getElementById(messageType + '_tone_label').textContent = severityNames[severity - 1];
-                
-                // Save player settings
+                // Build player settings for this message type
+                const playerSettingsToSave = {{}};
                 players.forEach(player => {{
                     const enabled = document.getElementById('player_' + player.id + '_enabled').checked;
                     const severityVal = document.getElementById('player_' + player.id + '_severity').value;
-                    messagePlayerSettings[messageType + '_' + player.id] = {{
+                    playerSettingsToSave[messageType + '_' + player.id] = {{
                         enabled: enabled,
                         severity: severityVal ? parseInt(severityVal) : null
                     }};
                 }});
                 
-                // Update players label
-                const playersLabel = enabledCount === players.length ? 'All' : enabledCount + '/' + players.length;
-                document.getElementById(messageType + '_players_label').textContent = playersLabel;
-                
+                // Show loading
                 closeMessageConfigConfirm();
                 closeMessageConfig();
+                showLoading('Saving message settings...');
+                
+                // Save directly to database via AJAX
+                fetch('/dashboard/league/{league['id']}/message-config', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json'
+                    }},
+                    body: JSON.stringify({{
+                        message_type: messageType,
+                        severity: severity,
+                        player_settings: playerSettingsToSave
+                    }})
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    hideLoading();
+                    if (data.success) {{
+                        // Update local state
+                        originalAISettings[messageType + '_severity'] = severity;
+                        document.getElementById(messageType + '_tone_label').textContent = severityNames[severity - 1];
+                        
+                        // Update player settings in memory
+                        Object.assign(messagePlayerSettings, playerSettingsToSave);
+                        
+                        // Update players label
+                        const playersLabel = enabledCount === players.length ? 'All' : enabledCount + '/' + players.length;
+                        document.getElementById(messageType + '_players_label').textContent = playersLabel;
+                        
+                        // Show success toast
+                        showToast('Message settings saved!');
+                    }} else {{
+                        alert('Error saving settings: ' + (data.error || 'Unknown error'));
+                    }}
+                }})
+                .catch(error => {{
+                    hideLoading();
+                    alert('Error saving settings: ' + error);
+                }});
+            }}
+            
+            function showToast(message) {{
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {{
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }}, 2500);
+            }}
+            
+            function hideLoading() {{
+                document.getElementById('loadingOverlay').classList.remove('active');
             }}
             
             function saveAISettings() {{

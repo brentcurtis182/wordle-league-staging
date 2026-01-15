@@ -1582,6 +1582,70 @@ def dashboard_ai_settings(league_id):
         logging.error(traceback.format_exc())
         return redirect(f'/dashboard/league/{league_id}?error=Failed to update AI settings')
 
+@app.route('/dashboard/league/<int:league_id>/message-config', methods=['POST'])
+def dashboard_message_config(league_id):
+    """Save message config (severity and player settings) for a specific message type"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    data = request.get_json()
+    message_type = data.get('message_type')
+    severity = data.get('severity', 2)
+    player_settings = data.get('player_settings', {})
+    
+    if not message_type:
+        return jsonify({'success': False, 'error': 'Missing message_type'}), 400
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Update league-level severity for this message type
+        severity_column = f"ai_{message_type}_severity"
+        cursor.execute(f"""
+            UPDATE leagues 
+            SET {severity_column} = %s
+            WHERE id = %s
+        """, (severity, league_id))
+        
+        # Update player-specific settings
+        for key, settings in player_settings.items():
+            # key format: "message_type_player_id"
+            parts = key.rsplit('_', 1)
+            if len(parts) == 2:
+                msg_type = parts[0]
+                player_id = int(parts[1])
+                enabled = settings.get('enabled', True)
+                severity_override = settings.get('severity') if settings.get('severity') else None
+                
+                # Upsert player settings
+                cursor.execute("""
+                    INSERT INTO ai_player_settings (league_id, player_id, message_type, enabled, severity_override, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (league_id, player_id, message_type) 
+                    DO UPDATE SET enabled = EXCLUDED.enabled, severity_override = EXCLUDED.severity_override, updated_at = CURRENT_TIMESTAMP
+                """, (league_id, player_id, msg_type, enabled, severity_override))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Updated message config for league {league_id}, type={message_type}, severity={severity}")
+        return jsonify({'success': True})
+    except Exception as e:
+        logging.error(f"Error updating message config: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/setup-ai-severity-column', methods=['POST'])
 def setup_ai_severity_column():
     """One-time migration to add AI message severity column to leagues table"""
