@@ -199,12 +199,29 @@ def login_user(email, password):
 def validate_session(session_token):
     """Validate a session token and return user info"""
     if not session_token:
+        logging.info("validate_session: No session token provided")
         return None
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # First check if session exists at all
+        cursor.execute("""
+            SELECT s.user_id, s.is_valid, s.expires_at, u.is_active, u.id, u.email, u.first_name, u.last_name
+            FROM user_sessions s
+            LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.session_token = %s
+        """, (session_token,))
+        
+        debug_result = cursor.fetchone()
+        if debug_result:
+            logging.info(f"validate_session: Found session - user_id={debug_result[0]}, is_valid={debug_result[1]}, expires_at={debug_result[2]}, user_is_active={debug_result[3]}")
+        else:
+            logging.warning(f"validate_session: No session found for token {session_token[:20]}...")
+            return None
+        
+        # Now do the actual validation
         cursor.execute("""
             SELECT u.id, u.email, u.first_name, u.last_name
             FROM user_sessions s
@@ -220,11 +237,16 @@ def validate_session(session_token):
             first_name = result[2] or ''
             last_name = result[3] or ''
             full_name = f"{first_name} {last_name}".strip() or result[1]  # Fall back to email
+            logging.info(f"validate_session: Valid session for user {result[1]}")
             return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name}
+        
+        logging.warning(f"validate_session: Session exists but validation failed")
         return None
         
     except Exception as e:
         logging.error(f"Error validating session: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return None
     finally:
         cursor.close()
