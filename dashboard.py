@@ -827,6 +827,20 @@ def render_league_management(user, league, players, message=None, error=None):
             </div>
         </div>
         
+        <!-- AI Settings Confirmation Modal -->
+        <div class="modal-overlay" id="aiSettingsModal">
+            <div class="modal">
+                <h3>🤖 Update AI Messaging?</h3>
+                <p id="aiSettingsModalText">Are you sure you want to update your AI messaging settings?</p>
+                <div id="aiSettingsChanges" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.9em;"></div>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 16px;">Note: AI messaging features may incur additional costs.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeAISettingsModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmAISettings()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Loading Overlay -->
         <div class="modal-overlay" id="loadingOverlay">
             <div class="loading-spinner">
@@ -1019,13 +1033,55 @@ def render_league_management(user, league, players, message=None, error=None):
             }}
             
             // AI Settings functions
+            const originalAISettings = {{
+                perfect: {str(league.get('ai_perfect_score_congrats', False)).lower()},
+                failure: {str(league.get('ai_failure_roast', True)).lower()},
+                sunday: {str(league.get('ai_sunday_race_update', True)).lower()},
+                daily: {str(league.get('ai_daily_loser_roast', False)).lower()}
+            }};
+            
             function saveAISettings() {{
+                // Build changes summary
+                const changes = [];
+                const perfect = document.getElementById('ai_perfect_score').checked;
+                const failure = document.getElementById('ai_failure_roast').checked;
+                const sunday = document.getElementById('ai_sunday_race').checked;
+                const daily = document.getElementById('ai_daily_loser').checked;
+                
+                if (perfect !== originalAISettings.perfect) {{
+                    changes.push('🎯 Perfect Score Congrats: ' + (perfect ? 'ON' : 'OFF'));
+                }}
+                if (failure !== originalAISettings.failure) {{
+                    changes.push('🔥 Failure Roast: ' + (failure ? 'ON' : 'OFF'));
+                }}
+                if (sunday !== originalAISettings.sunday) {{
+                    changes.push('📊 Sunday Race Update: ' + (sunday ? 'ON' : 'OFF'));
+                }}
+                if (daily !== originalAISettings.daily) {{
+                    changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
+                }}
+                
+                if (changes.length === 0) {{
+                    alert('No changes to save.');
+                    return;
+                }}
+                
+                document.getElementById('aiSettingsChanges').innerHTML = changes.join('<br>');
+                document.getElementById('aiSettingsModal').classList.add('active');
+            }}
+            
+            function closeAISettingsModal() {{
+                document.getElementById('aiSettingsModal').classList.remove('active');
+            }}
+            
+            function confirmAISettings() {{
                 // Get checkbox values
                 document.getElementById('aiPerfectScoreInput').value = document.getElementById('ai_perfect_score').checked ? 'true' : 'false';
                 document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
                 document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
                 document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
                 
+                closeAISettingsModal();
                 showLoading('Saving AI settings...');
                 document.getElementById('aiSettingsForm').submit();
             }}
@@ -1036,6 +1092,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     closeSaveModal();
                     closeRemoveModal();
                     closeRenameModal();
+                    closeAISettingsModal();
                 }}
             }});
             
@@ -1048,6 +1105,9 @@ def render_league_management(user, league, players, message=None, error=None):
             }});
             document.getElementById('renameModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeRenameModal();
+            }});
+            document.getElementById('aiSettingsModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeAISettingsModal();
             }});
         </script>
     </body>
