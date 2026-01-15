@@ -8,7 +8,7 @@ import os
 import re
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, request, jsonify, redirect, make_response
+from flask import Flask, request, jsonify, redirect, make_response, send_from_directory
 from twilio.twiml.messaging_response import MessagingResponse
 import psycopg2
 
@@ -1210,6 +1210,11 @@ def dashboard_league(league_id):
     error = request.args.get('error')
     
     return render_league_management(user, league, players, message=message, error=error)
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files like images"""
+    return send_from_directory('.', filename)
 
 @app.route('/dashboard/league/<int:league_id>/rename', methods=['POST'])
 def dashboard_rename_league(league_id):

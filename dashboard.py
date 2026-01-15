@@ -55,6 +55,18 @@ def get_base_styles():
             color: {COLORS['accent']};
         }}
         .logo .orange {{ color: #FFA64D; }}
+        .header-logo {{
+            height: 50px;
+            width: auto;
+        }}
+        .logo-header {{
+            text-align: center;
+            margin-bottom: 10px;
+        }}
+        .logo-img {{
+            height: 120px;
+            width: auto;
+        }}
         .nav-links a {{
             color: {COLORS['text']};
             text-decoration: none;
@@ -264,7 +276,7 @@ def render_login_page(error=None, success=None):
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>🎯 WordPlay<span class="orange">League.com</span></h1>
+                <div class="logo-header"><img src="/static/wordplayLOGO.png" alt="WordPlayLeague.com" class="logo-img"></div>
                 <p class="subtitle">Sign in to manage your leagues</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -373,7 +385,7 @@ def render_register_page(error=None):
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>🎯 WordPlay<span class="orange">League.com</span></h1>
+                <div class="logo-header"><img src="/static/wordplayLOGO.png" alt="WordPlayLeague.com" class="logo-img"></div>
                 <p class="subtitle">Sign Up</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -481,7 +493,7 @@ def render_dashboard(user, leagues, message=None, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">🎯 WordPlay<span class="orange">League.com</span></div>
+                <div class="logo"><img src="/static/wordplayLOGO.png" alt="WordPlayLeague.com" class="header-logo"></div>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
@@ -680,7 +692,7 @@ def render_league_management(user, league, players, message=None, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">🎯 WordPlay<span class="orange">League.com</span></div>
+                <div class="logo"><img src="/static/wordplayLOGO.png" alt="WordPlayLeague.com" class="header-logo"></div>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
