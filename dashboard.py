@@ -740,7 +740,7 @@ def render_league_management(user, league, players, message=None, error=None):
             <div class="modal">
                 <h3>💾 Save Changes?</h3>
                 <p id="saveModalText">Are you sure you want to save changes to this player?</p>
-                <div class="modal-actions">
+                <div class="modal-actions" id="saveModalActions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeSaveModal()">Cancel</button>
                     <button type="button" class="btn btn-primary btn-small" onclick="confirmSave()">Yes, Save</button>
                 </div>
@@ -752,12 +752,44 @@ def render_league_management(user, league, players, message=None, error=None):
             <div class="modal">
                 <h3>⚠️ Remove Player?</h3>
                 <p id="removeModalText">Are you sure you want to remove this player from the league? Their historical scores will be preserved.</p>
-                <div class="modal-actions">
+                <div class="modal-actions" id="removeModalActions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeRemoveModal()">Cancel</button>
                     <button type="button" class="btn btn-danger btn-small" onclick="confirmRemove()">Yes, Remove</button>
                 </div>
             </div>
         </div>
+        
+        <!-- Loading Overlay -->
+        <div class="modal-overlay" id="loadingOverlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p id="loadingText">Saving changes...</p>
+            </div>
+        </div>
+        
+        <style>
+            .loading-spinner {{
+                text-align: center;
+                color: {COLORS['text']};
+            }}
+            .spinner {{
+                width: 50px;
+                height: 50px;
+                border: 4px solid {COLORS['bg_card']};
+                border-top: 4px solid {COLORS['accent']};
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px auto;
+            }}
+            @keyframes spin {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+            .loading-spinner p {{
+                font-size: 1.1em;
+                margin: 0;
+            }}
+        </style>
         
         <!-- Hidden forms for submission -->
         <form id="editPlayerForm" method="POST" action="/dashboard/league/{league['id']}/edit-player" style="display:none;">
@@ -799,6 +831,11 @@ def render_league_management(user, league, players, message=None, error=None):
                 currentEditPlayerId = null;
             }}
             
+            function showLoading(message) {{
+                document.getElementById('loadingText').textContent = message || 'Saving changes...';
+                document.getElementById('loadingOverlay').classList.add('active');
+            }}
+            
             function confirmSave() {{
                 if (currentEditPlayerId) {{
                     const form = document.getElementById('form-' + currentEditPlayerId);
@@ -808,6 +845,11 @@ def render_league_management(user, league, players, message=None, error=None):
                     document.getElementById('editPlayerId').value = currentEditPlayerId;
                     document.getElementById('editPlayerName').value = name;
                     document.getElementById('editPlayerPhone').value = phone;
+                    
+                    // Close modal and show loading
+                    closeSaveModal();
+                    showLoading('Saving changes...');
+                    
                     document.getElementById('editPlayerForm').submit();
                 }}
             }}
@@ -827,6 +869,11 @@ def render_league_management(user, league, players, message=None, error=None):
             function confirmRemove() {{
                 if (currentRemovePlayerId) {{
                     document.getElementById('removePlayerId').value = currentRemovePlayerId;
+                    
+                    // Close modal and show loading
+                    closeRemoveModal();
+                    showLoading('Removing player...');
+                    
                     document.getElementById('removePlayerForm').submit();
                 }}
             }}
