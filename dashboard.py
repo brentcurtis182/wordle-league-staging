@@ -868,7 +868,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {'✓ Active' if league.get('conversation_sid') else '⚠ Inactive'}
                     </span>
-                    {f'<a href="https://app.wordplayleague.com/league/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">wordplayleague.com/{league["slug"]}</a>' if league.get('slug') else ''}
+                    {f'<a href="https://app.wordplayleague.com/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
             </div>
             
