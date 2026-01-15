@@ -477,6 +477,38 @@ def get_player_ai_settings(league_id, player_id, message_type):
         logging.error(f"Error getting player AI settings: {e}")
         return (True, None)
 
+def get_all_player_ai_settings(league_id):
+    """Get all player AI settings for a league, returns dict keyed by 'message_type_player_id'"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT player_id, message_type, enabled, severity_override 
+            FROM ai_player_settings 
+            WHERE league_id = %s
+        """, (league_id,))
+        
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        settings = {}
+        for row in results:
+            player_id, message_type, enabled, severity_override = row
+            key = f"{message_type}_{player_id}"
+            settings[key] = {
+                'enabled': enabled,
+                'severity': severity_override
+            }
+        return settings
+        
+    except Exception as e:
+        logging.error(f"Error getting all player AI settings: {e}")
+        return {}
+
 def get_severity_prompt(severity, message_type):
     """Get the appropriate prompt modifier based on severity level"""
     if message_type == 'roast':
@@ -1206,10 +1238,11 @@ def dashboard_league(league_id):
         return redirect('/dashboard?error=League not found')
     
     players = get_league_players(league_id)
+    player_ai_settings = get_all_player_ai_settings(league_id)
     message = request.args.get('message')
     error = request.args.get('error')
     
-    return render_league_management(user, league, players, message=message, error=error)
+    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error)
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):

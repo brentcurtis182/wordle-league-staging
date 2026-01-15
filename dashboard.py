@@ -521,8 +521,11 @@ def render_dashboard(user, leagues, message=None, error=None):
     """
 
 
-def render_league_management(user, league, players, message=None, error=None):
+def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None):
     """Render the league management page"""
+    
+    if player_ai_settings is None:
+        player_ai_settings = {}
     
     # Pre-compute AI settings checkbox states
     ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
@@ -1294,7 +1297,7 @@ def render_league_management(user, league, players, message=None, error=None):
             
             // Message config state
             let currentMessageType = null;
-            let messagePlayerSettings = {{}};
+            let messagePlayerSettings = {str(player_ai_settings).replace('True', 'true').replace('False', 'false').replace('None', 'null')};
             
             function openMessageConfig(messageType, title) {{
                 currentMessageType = messageType;
