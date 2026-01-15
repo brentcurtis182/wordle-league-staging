@@ -23,6 +23,7 @@ COLORS = {
     'text_muted': '#818384',
     'success': '#4CAF50',
     'error': '#f44336',
+    'border': '#333',
 }
 
 def get_base_styles():
@@ -862,7 +863,7 @@ def render_league_management(user, league, players, message=None, error=None):
                 gap: 12px;
             }}
             .ai-toggle-item {{
-                background: {COLORS['bg_main']};
+                background: {COLORS['bg_dark']};
                 padding: 12px 16px;
                 border-radius: 8px;
                 border: 1px solid {COLORS['border']};
