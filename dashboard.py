@@ -291,18 +291,18 @@ def render_login_page(error=None, success=None):
 
 
 def render_register_page(error=None):
-    """Render the registration page"""
+    """Render the registration page with Twilio compliance fields"""
     return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Register - Wordplay League</title>
+        <title>Sign Up - Wordplay League</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             {get_base_styles()}
             .auth-container {{
-                max-width: 400px;
-                margin: 80px auto;
+                max-width: 480px;
+                margin: 40px auto;
                 padding: 20px;
             }}
             .auth-card {{
@@ -327,20 +327,64 @@ def render_register_page(error=None):
                 color: {COLORS['text_muted']};
             }}
             .auth-footer a {{ color: {COLORS['accent']}; }}
+            .name-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }}
+            .consent-group {{
+                margin: 24px 0;
+                padding: 16px;
+                background: {COLORS['bg_dark']};
+                border-radius: 8px;
+                border: 1px solid #333;
+            }}
+            .consent-group .legal-text {{
+                font-size: 0.85em;
+                color: {COLORS['text_muted']};
+                line-height: 1.5;
+                margin-bottom: 16px;
+            }}
+            .consent-group .legal-text a {{
+                color: {COLORS['accent']};
+            }}
+            .checkbox-wrapper {{
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+            }}
+            .checkbox-wrapper input[type="checkbox"] {{
+                width: 20px;
+                height: 20px;
+                margin-top: 2px;
+                accent-color: {COLORS['accent']};
+            }}
+            .checkbox-wrapper label {{
+                font-size: 0.9em;
+                color: {COLORS['text']};
+                line-height: 1.4;
+                cursor: pointer;
+            }}
         </style>
     </head>
     <body>
         <div class="auth-container">
             <div class="auth-card">
                 <h1>🎯 Wordplay League</h1>
-                <p class="subtitle">Create your account</p>
+                <p class="subtitle">Sign Up</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
                 
                 <form method="POST" action="/auth/register">
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input type="text" name="name" required placeholder="Your name">
+                    <div class="name-row">
+                        <div class="form-group">
+                            <label>First Name</label>
+                            <input type="text" name="first_name" required placeholder="First name">
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" name="last_name" required placeholder="Last name">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Email</label>
@@ -354,11 +398,33 @@ def render_register_page(error=None):
                         <label>Confirm Password</label>
                         <input type="password" name="confirm_password" required placeholder="••••••••">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" name="phone" placeholder="(858) 555-1234">
+                    </div>
+                    
+                    <div class="consent-group">
+                        <p class="legal-text">
+                            By providing your mobile phone number and creating an account, you agree to receive 
+                            automated text messages from Wordplay League at the number you provide. These messages 
+                            may include score confirmations, league standings, and other information related to your 
+                            Wordplay League participation. Message and data rates may apply. Reply STOP to cancel, 
+                            HELP for help. See our <a href="/terms">Text Messaging Terms</a> and <a href="/privacy">Privacy Policy</a>.
+                        </p>
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" name="sms_consent" id="sms_consent" value="1">
+                            <label for="sms_consent">
+                                I agree to receive automated text messages from Wordplay League at the phone number 
+                                I provided, including score confirmations and league standings. Message and data rates may apply.
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Sign Up</button>
                 </form>
                 
                 <div class="auth-footer">
-                    Already have an account? <a href="/auth/login">Sign in</a>
+                    Already a member? <a href="/auth/login">Log In</a>
                 </div>
             </div>
         </div>

@@ -41,12 +41,26 @@ def create_auth_tables():
                 id SERIAL PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
-                name VARCHAR(100),
+                first_name VARCHAR(100),
+                last_name VARCHAR(100),
+                phone VARCHAR(20),
+                sms_consent BOOLEAN DEFAULT FALSE,
+                sms_consent_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
                 is_active BOOLEAN DEFAULT TRUE
             )
         """)
+        
+        # Add new columns if they don't exist (for existing tables)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN DEFAULT FALSE")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_consent_date TIMESTAMP")
+        except:
+            pass  # Columns may already exist
         
         # Create user_leagues table (links users to leagues they manage)
         cursor.execute("""
@@ -84,7 +98,7 @@ def create_auth_tables():
         cursor.close()
         conn.close()
 
-def register_user(email, password, name=None):
+def register_user(email, password, first_name=None, last_name=None, phone=None, sms_consent=False):
     """Register a new user"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -97,11 +111,18 @@ def register_user(email, password, name=None):
         
         # Hash password and create user
         password_hash = generate_password_hash(password)
+        
+        # Clean phone number
+        if phone:
+            import re
+            phone = re.sub(r'\D', '', phone)
+        
         cursor.execute("""
-            INSERT INTO users (email, password_hash, name)
-            VALUES (%s, %s, %s)
+            INSERT INTO users (email, password_hash, first_name, last_name, phone, sms_consent, sms_consent_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (email.lower(), password_hash, name))
+        """, (email.lower(), password_hash, first_name, last_name, phone, sms_consent, 
+              datetime.now() if sms_consent else None))
         
         user_id = cursor.fetchone()[0]
         conn.commit()
@@ -185,7 +206,7 @@ def validate_session(session_token):
     
     try:
         cursor.execute("""
-            SELECT u.id, u.email, u.name
+            SELECT u.id, u.email, u.first_name, u.last_name
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
             WHERE s.session_token = %s 
@@ -196,7 +217,10 @@ def validate_session(session_token):
         
         result = cursor.fetchone()
         if result:
-            return {'id': result[0], 'email': result[1], 'name': result[2]}
+            first_name = result[2] or ''
+            last_name = result[3] or ''
+            full_name = f"{first_name} {last_name}".strip() or result[1]  # Fall back to email
+            return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name}
         return None
         
     except Exception as e:

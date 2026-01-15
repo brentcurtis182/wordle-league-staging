@@ -926,13 +926,16 @@ def auth_register():
         return render_register_page()
     
     # POST - handle registration
-    name = request.form.get('name', '').strip()
+    first_name = request.form.get('first_name', '').strip()
+    last_name = request.form.get('last_name', '').strip()
     email = request.form.get('email', '').strip()
     password = request.form.get('password', '')
     confirm_password = request.form.get('confirm_password', '')
+    phone = request.form.get('phone', '').strip()
+    sms_consent = request.form.get('sms_consent') == '1'
     
-    if not name or not email or not password:
-        return render_register_page(error='All fields are required')
+    if not first_name or not last_name or not email or not password:
+        return render_register_page(error='First name, last name, email, and password are required')
     
     if len(password) < 8:
         return render_register_page(error='Password must be at least 8 characters')
@@ -940,7 +943,7 @@ def auth_register():
     if password != confirm_password:
         return render_register_page(error='Passwords do not match')
     
-    result = register_user(email, password, name)
+    result = register_user(email, password, first_name, last_name, phone, sms_consent)
     
     if result['success']:
         return redirect('/auth/login?registered=1')
