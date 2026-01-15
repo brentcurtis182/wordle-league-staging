@@ -690,13 +690,11 @@ def render_league_management(user, league, players, message=None, error=None):
             <!-- Rename League Section -->
             <div class="card section">
                 <h2>📝 League Settings</h2>
-                <form method="POST" action="/dashboard/league/{league['id']}/rename">
-                    <div class="form-group">
-                        <label>League Display Name</label>
-                        <input type="text" name="display_name" value="{league['display_name']}" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </form>
+                <div class="form-group">
+                    <label>League Display Name</label>
+                    <input type="text" id="leagueDisplayName" value="{league['display_name']}" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="showRenameModal()">Save Changes</button>
             </div>
             
             <!-- Players Section -->
@@ -759,6 +757,18 @@ def render_league_management(user, league, players, message=None, error=None):
             </div>
         </div>
         
+        <!-- Rename League Confirmation Modal -->
+        <div class="modal-overlay" id="renameModal">
+            <div class="modal">
+                <h3>📝 Rename League?</h3>
+                <p id="renameModalText">Are you sure you want to rename this league?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeRenameModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmRename()">Yes, Rename</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Loading Overlay -->
         <div class="modal-overlay" id="loadingOverlay">
             <div class="loading-spinner">
@@ -799,6 +809,9 @@ def render_league_management(user, league, players, message=None, error=None):
         </form>
         <form id="removePlayerForm" method="POST" action="/dashboard/league/{league['id']}/remove-player" style="display:none;">
             <input type="hidden" name="player_id" id="removePlayerId">
+        </form>
+        <form id="renameLeagueForm" method="POST" action="/dashboard/league/{league['id']}/rename" style="display:none;">
+            <input type="hidden" name="display_name" id="renameDisplayName">
         </form>
         
         <script>
@@ -878,11 +891,39 @@ def render_league_management(user, league, players, message=None, error=None):
                 }}
             }}
             
+            // Rename league functions
+            function showRenameModal() {{
+                const newName = document.getElementById('leagueDisplayName').value.trim();
+                if (!newName) {{
+                    alert('Please enter a league name');
+                    return;
+                }}
+                document.getElementById('renameModalText').textContent = 
+                    'Are you sure you want to rename this league to "' + newName + '"?';
+                document.getElementById('renameModal').classList.add('active');
+            }}
+            
+            function closeRenameModal() {{
+                document.getElementById('renameModal').classList.remove('active');
+            }}
+            
+            function confirmRename() {{
+                const newName = document.getElementById('leagueDisplayName').value.trim();
+                document.getElementById('renameDisplayName').value = newName;
+                
+                // Close modal and show loading
+                closeRenameModal();
+                showLoading('Renaming league...');
+                
+                document.getElementById('renameLeagueForm').submit();
+            }}
+            
             // Close modals on escape key
             document.addEventListener('keydown', function(e) {{
                 if (e.key === 'Escape') {{
                     closeSaveModal();
                     closeRemoveModal();
+                    closeRenameModal();
                 }}
             }});
             
@@ -892,6 +933,9 @@ def render_league_management(user, league, players, message=None, error=None):
             }});
             document.getElementById('removeModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeRemoveModal();
+            }});
+            document.getElementById('renameModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeRenameModal();
             }});
         </script>
     </body>
