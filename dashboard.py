@@ -464,7 +464,7 @@ def render_dashboard(user, leagues, message=None, error=None):
     for league in leagues:
         wix_path = get_league_wix_url(league['id'])
         is_active = league.get('conversation_sid') is not None
-        status_color = '#2ECC71' if is_active else COLORS['orange']
+        status_color = '#2ECC71' if is_active else COLORS['accent_orange']
         status_text = '✓ Active' if is_active else '⚠ Inactive'
         league_cards += f"""
         <div class="league-card">
@@ -579,10 +579,10 @@ def render_create_league(user, error=None):
                 padding: 16px;
                 border-radius: 8px;
                 margin-top: 20px;
-                border-left: 4px solid {COLORS['orange']};
+                border-left: 4px solid {COLORS['accent_orange']};
             }}
             .status-info h4 {{
-                color: {COLORS['orange']};
+                color: {COLORS['accent_orange']};
                 margin: 0 0 8px 0;
             }}
             .status-info p {{
@@ -865,7 +865,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <h2>⚙️ {league['display_name']}</h2>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                     <span style="color: {COLORS['text_muted']};">League ID: {league['id']}</span>
-                    <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
+                    <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {'✓ Active' if league.get('conversation_sid') else '⚠ Inactive'}
                     </span>
                     {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
