@@ -61,9 +61,13 @@ def handle_500(error):
 @app.errorhandler(Exception)
 def handle_exception(error):
     """Catch-all exception handler"""
-    logging.error(f"Unhandled exception: {error}")
+    logging.error(f"Unhandled exception: {type(error).__name__}: {error}")
     import traceback
-    logging.error(traceback.format_exc())
+    tb = traceback.format_exc()
+    logging.error(tb)
+    
+    # Include error details in page for debugging
+    error_details = f"{type(error).__name__}: {str(error)[:200]}"
     
     response = make_response(f'''
     <!DOCTYPE html>
@@ -73,11 +77,13 @@ def handle_exception(error):
         body {{ font-family: sans-serif; background: #1a1a1b; color: #d7dadc; padding: 40px; text-align: center; }}
         a {{ color: #00E8DA; }}
         .btn {{ display: inline-block; padding: 12px 24px; background: #00E8DA; color: #1a1a1b; text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+        .error-details {{ background: #272729; padding: 15px; border-radius: 8px; margin: 20px auto; max-width: 600px; text-align: left; font-family: monospace; font-size: 12px; color: #f44336; }}
     </style>
     </head>
     <body>
         <h1>Something went wrong</h1>
         <p>We've cleared your session. Please try again.</p>
+        <div class="error-details">{error_details}</div>
         <a href="/auth/login" class="btn">Go to Login</a>
     </body>
     </html>
