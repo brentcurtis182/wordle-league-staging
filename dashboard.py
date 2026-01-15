@@ -433,17 +433,28 @@ def render_register_page(error=None):
     """
 
 
+def get_league_wix_url(league_id):
+    """Get the correct Wix URL path for a league"""
+    wix_paths = {
+        1: 'wordle-warriorz',
+        3: 'pal',
+        4: 'party',
+        7: 'bellyup'
+    }
+    return wix_paths.get(league_id, f'league{league_id}')
+
 def render_dashboard(user, leagues, message=None, error=None):
     """Render the main dashboard"""
     league_cards = ""
     for league in leagues:
+        wix_path = get_league_wix_url(league['id'])
         league_cards += f"""
         <div class="league-card">
             <h3>{league['display_name']}</h3>
             <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
-                <a href="https://www.wordplayleague.com/{league['name'].lower()}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                <a href="https://www.wordplayleague.com/{wix_path}" target="_blank" class="btn btn-secondary btn-small">View</a>
             </div>
         </div>
         """
@@ -500,15 +511,32 @@ def render_league_management(user, league, players, message=None, error=None):
     player_rows = ""
     for player in players:
         player_rows += f"""
-        <div class="player-item">
-            <div>
-                <div class="name">{player['name']}</div>
-                <div class="phone">{player['phone']}</div>
+        <div class="player-item" id="player-{player['id']}">
+            <!-- Read-only view -->
+            <div class="player-view" id="view-{player['id']}">
+                <div class="player-info">
+                    <div class="name">{player['name']}</div>
+                    <div class="phone">{player['phone'] or 'No phone'}</div>
+                </div>
+                <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
+                    ✏️
+                </button>
             </div>
-            <form method="POST" action="/dashboard/league/{league['id']}/remove-player" style="margin: 0;">
-                <input type="hidden" name="player_id" value="{player['id']}">
-                <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Remove {player['name']} from this league?')">Remove</button>
-            </form>
+            <!-- Edit mode (hidden by default) -->
+            <div class="player-edit" id="edit-{player['id']}" style="display: none;">
+                <form id="form-{player['id']}" class="edit-form">
+                    <input type="hidden" name="player_id" value="{player['id']}">
+                    <div class="edit-fields">
+                        <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name">
+                        <input type="tel" name="phone" value="{player['phone'] or ''}" class="edit-input" placeholder="Phone">
+                    </div>
+                    <div class="edit-actions">
+                        <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{player['name']}')">Save</button>
+                        <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')">Remove</button>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
+                    </div>
+                </form>
+            </div>
         </div>
         """
     
@@ -533,6 +561,110 @@ def render_league_management(user, league, players, message=None, error=None):
             }}
             .back-link:hover {{ text-decoration: underline; }}
             .section {{ margin-bottom: 30px; }}
+            
+            /* Player item styles */
+            .player-item {{
+                background: {COLORS['bg_dark']};
+                border-radius: 8px;
+                margin-bottom: 8px;
+                padding: 12px 16px;
+            }}
+            .player-view {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            .player-info {{
+                flex: 1;
+            }}
+            .player-info .name {{
+                font-weight: 500;
+                color: {COLORS['text']};
+            }}
+            .player-info .phone {{
+                color: {COLORS['text_muted']};
+                font-size: 0.9em;
+            }}
+            .btn-icon {{
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                font-size: 1.2em;
+                padding: 8px;
+                border-radius: 6px;
+                transition: background 0.2s;
+            }}
+            .btn-icon:hover {{
+                background: {COLORS['bg_card']};
+            }}
+            .player-edit {{
+                padding: 8px 0;
+            }}
+            .edit-form {{
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }}
+            .edit-fields {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }}
+            .edit-input {{
+                padding: 10px 12px;
+                border-radius: 6px;
+                border: 1px solid #444;
+                background: {COLORS['bg_card']};
+                color: {COLORS['text']};
+                font-size: 0.95em;
+            }}
+            .edit-input:focus {{
+                outline: none;
+                border-color: {COLORS['accent']};
+            }}
+            .edit-actions {{
+                display: flex;
+                gap: 10px;
+            }}
+            
+            /* Modal styles */
+            .modal-overlay {{
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.75);
+                z-index: 1000;
+                align-items: center;
+                justify-content: center;
+            }}
+            .modal-overlay.active {{
+                display: flex;
+            }}
+            .modal {{
+                background: {COLORS['bg_card']};
+                border-radius: 12px;
+                padding: 30px;
+                max-width: 400px;
+                width: 90%;
+                border: 1px solid #444;
+            }}
+            .modal h3 {{
+                color: {COLORS['text']};
+                margin-bottom: 16px;
+            }}
+            .modal p {{
+                color: {COLORS['text_muted']};
+                margin-bottom: 24px;
+                line-height: 1.5;
+            }}
+            .modal-actions {{
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+            }}
         </style>
     </head>
     <body>
@@ -597,11 +729,124 @@ def render_league_management(user, league, players, message=None, error=None):
             <div class="card">
                 <h2>🔗 Public League Page</h2>
                 <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
-                <a href="https://www.wordplayleague.com/{league['name'].lower()}" target="_blank" class="btn btn-secondary">
+                <a href="https://www.wordplayleague.com/{get_league_wix_url(league['id'])}" target="_blank" class="btn btn-secondary">
                     View Public Page →
                 </a>
             </div>
         </div>
+        
+        <!-- Save Confirmation Modal -->
+        <div class="modal-overlay" id="saveModal">
+            <div class="modal">
+                <h3>💾 Save Changes?</h3>
+                <p id="saveModalText">Are you sure you want to save changes to this player?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeSaveModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmSave()">Yes, Save</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Remove Confirmation Modal -->
+        <div class="modal-overlay" id="removeModal">
+            <div class="modal">
+                <h3>⚠️ Remove Player?</h3>
+                <p id="removeModalText">Are you sure you want to remove this player from the league? Their historical scores will be preserved.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeRemoveModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-small" onclick="confirmRemove()">Yes, Remove</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hidden forms for submission -->
+        <form id="editPlayerForm" method="POST" action="/dashboard/league/{league['id']}/edit-player" style="display:none;">
+            <input type="hidden" name="player_id" id="editPlayerId">
+            <input type="hidden" name="name" id="editPlayerName">
+            <input type="hidden" name="phone" id="editPlayerPhone">
+        </form>
+        <form id="removePlayerForm" method="POST" action="/dashboard/league/{league['id']}/remove-player" style="display:none;">
+            <input type="hidden" name="player_id" id="removePlayerId">
+        </form>
+        
+        <script>
+            let currentEditPlayerId = null;
+            let currentRemovePlayerId = null;
+            
+            function enterEditMode(playerId) {{
+                // Hide view, show edit
+                document.getElementById('view-' + playerId).style.display = 'none';
+                document.getElementById('edit-' + playerId).style.display = 'block';
+            }}
+            
+            function cancelEdit(playerId) {{
+                // Show view, hide edit
+                document.getElementById('view-' + playerId).style.display = 'flex';
+                document.getElementById('edit-' + playerId).style.display = 'none';
+            }}
+            
+            function showSaveModal(playerId, playerName) {{
+                currentEditPlayerId = playerId;
+                const form = document.getElementById('form-' + playerId);
+                const newName = form.querySelector('input[name="name"]').value;
+                document.getElementById('saveModalText').textContent = 
+                    'Are you sure you want to save changes to ' + newName + '?';
+                document.getElementById('saveModal').classList.add('active');
+            }}
+            
+            function closeSaveModal() {{
+                document.getElementById('saveModal').classList.remove('active');
+                currentEditPlayerId = null;
+            }}
+            
+            function confirmSave() {{
+                if (currentEditPlayerId) {{
+                    const form = document.getElementById('form-' + currentEditPlayerId);
+                    const name = form.querySelector('input[name="name"]').value;
+                    const phone = form.querySelector('input[name="phone"]').value;
+                    
+                    document.getElementById('editPlayerId').value = currentEditPlayerId;
+                    document.getElementById('editPlayerName').value = name;
+                    document.getElementById('editPlayerPhone').value = phone;
+                    document.getElementById('editPlayerForm').submit();
+                }}
+            }}
+            
+            function showRemoveModal(playerId, playerName) {{
+                currentRemovePlayerId = playerId;
+                document.getElementById('removeModalText').textContent = 
+                    'Are you sure you want to remove ' + playerName + ' from the league? Their historical scores will be preserved.';
+                document.getElementById('removeModal').classList.add('active');
+            }}
+            
+            function closeRemoveModal() {{
+                document.getElementById('removeModal').classList.remove('active');
+                currentRemovePlayerId = null;
+            }}
+            
+            function confirmRemove() {{
+                if (currentRemovePlayerId) {{
+                    document.getElementById('removePlayerId').value = currentRemovePlayerId;
+                    document.getElementById('removePlayerForm').submit();
+                }}
+            }}
+            
+            // Close modals on escape key
+            document.addEventListener('keydown', function(e) {{
+                if (e.key === 'Escape') {{
+                    closeSaveModal();
+                    closeRemoveModal();
+                }}
+            }});
+            
+            // Close modals on overlay click
+            document.getElementById('saveModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeSaveModal();
+            }});
+            document.getElementById('removeModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeRemoveModal();
+            }});
+        </script>
     </body>
     </html>
     """

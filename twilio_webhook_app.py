@@ -1116,6 +1116,66 @@ def dashboard_add_player(league_id):
         logging.error(f"Error adding player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to add player')
 
+@app.route('/dashboard/league/<int:league_id>/edit-player', methods=['POST'])
+def dashboard_edit_player(league_id):
+    """Edit a player's name and/or phone number"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    player_id = request.form.get('player_id')
+    new_name = request.form.get('name', '').strip()
+    new_phone = request.form.get('phone', '').strip()
+    
+    if not player_id or not new_name:
+        return redirect(f'/dashboard/league/{league_id}?error=Player ID and name are required')
+    
+    # Clean phone number
+    new_phone = re.sub(r'\D', '', new_phone)
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get current player info
+        cursor.execute("SELECT name, phone_number FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return redirect(f'/dashboard/league/{league_id}?error=Player not found')
+        
+        old_name, old_phone = result
+        
+        # Update player
+        cursor.execute("""
+            UPDATE players SET name = %s, phone_number = %s WHERE id = %s AND league_id = %s
+        """, (new_name, new_phone if new_phone else None, player_id, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Clear phone mappings cache
+        global _phone_mappings_cache_time
+        _phone_mappings_cache_time = None
+        
+        # Regenerate HTML to reflect changes
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+        
+        logging.info(f"Updated player {old_name} -> {new_name} in league {league_id}")
+        return redirect(f'/dashboard/league/{league_id}?message=Player {new_name} updated successfully')
+    except Exception as e:
+        logging.error(f"Error updating player: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to update player')
+
 @app.route('/dashboard/league/<int:league_id>/remove-player', methods=['POST'])
 def dashboard_remove_player(league_id):
     """Remove a player from a league (soft delete)"""
