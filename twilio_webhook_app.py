@@ -53,45 +53,56 @@ def run_pipeline_with_retry(league_id, max_retries=3):
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 
-# Phone number to player/league mappings
-PHONE_MAPPINGS = {
-    # League 1: Warriorz
-    1: {
-        "18587359353": "Brent",
-        "17603341190": "Malia",
-        "17608462302": "Evan",
-        "13109263555": "Joanna",
-        "19492304472": "Nanna",
-    },
-    # League 3: PAL
-    3: {
-        "18587359353": "Vox",
-        "17604206113": "Fuzwuz",
-        "17605830059": "Pants",
-        "14698345364": "Starslider",
-    },
-    # League 4: Party
-    4: {
-        "18587359353": "Brent",
-        "19165416576": "Dustin",
-        "17609082401": "Jess",
-        "17609082000": "Matt",
-        "17606725317": "Meghan",
-        "17608156131": "Rob",
-        "16503468822": "Jason",
-        "16198713458": "Patty",
-        "17609949392": "Dani",
-    },
-    # League 7: BellyUp
-    7: {
-        "18587359353": "Brent",
-        "18587751124": "Jeremy",
-        "15134781947": "Henry",
-        "19285812935": "Mikaila",
-        "12675910330": "Pete",
-        "16032546373": "Meredith",
-    }
-}
+# Phone mappings are now loaded from database dynamically
+# This cache is refreshed periodically to avoid constant DB queries
+_phone_mappings_cache = {}
+_phone_mappings_cache_time = None
+PHONE_MAPPINGS_CACHE_SECONDS = 60  # Refresh cache every 60 seconds
+
+def get_phone_mappings_from_db():
+    """Load phone-to-player mappings from database for all leagues"""
+    global _phone_mappings_cache, _phone_mappings_cache_time
+    
+    from datetime import datetime
+    
+    # Return cached version if still valid
+    if _phone_mappings_cache_time and (datetime.now() - _phone_mappings_cache_time).seconds < PHONE_MAPPINGS_CACHE_SECONDS:
+        return _phone_mappings_cache
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            logging.error("Could not connect to database for phone mappings")
+            return _phone_mappings_cache  # Return stale cache if available
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT league_id, phone_number, name 
+            FROM players 
+            WHERE active = TRUE AND phone_number IS NOT NULL
+            ORDER BY league_id, name
+        """)
+        
+        mappings = {}
+        for row in cursor.fetchall():
+            league_id, phone, name = row
+            if league_id not in mappings:
+                mappings[league_id] = {}
+            # Store phone without formatting
+            clean_phone = ''.join(c for c in phone if c.isdigit())
+            mappings[league_id][clean_phone] = name
+        
+        cursor.close()
+        conn.close()
+        
+        _phone_mappings_cache = mappings
+        _phone_mappings_cache_time = datetime.now()
+        logging.info(f"Refreshed phone mappings cache: {len(mappings)} leagues")
+        return mappings
+        
+    except Exception as e:
+        logging.error(f"Error loading phone mappings from DB: {e}")
+        return _phone_mappings_cache  # Return stale cache on error
 
 def get_db_connection():
     """Get PostgreSQL database connection"""
@@ -130,26 +141,29 @@ def get_player_from_phone(phone_number, league_id):
     if not phone_number:
         return None
     
+    # Get current phone mappings from database
+    phone_mappings = get_phone_mappings_from_db()
+    
     # Normalize phone number by removing non-digits
     digits_only = ''.join(c for c in phone_number if c.isdigit())
     
     # Try with and without leading 1 (country code)
-    if league_id in PHONE_MAPPINGS:
+    if league_id in phone_mappings:
         # Try direct match with digits
-        if digits_only in PHONE_MAPPINGS[league_id]:
-            return PHONE_MAPPINGS[league_id][digits_only]
+        if digits_only in phone_mappings[league_id]:
+            return phone_mappings[league_id][digits_only]
         
         # Try adding leading 1 if it's missing and length is 10
         if len(digits_only) == 10:
             with_country_code = "1" + digits_only
-            if with_country_code in PHONE_MAPPINGS[league_id]:
-                return PHONE_MAPPINGS[league_id][with_country_code]
+            if with_country_code in phone_mappings[league_id]:
+                return phone_mappings[league_id][with_country_code]
         
         # Try without leading 1 if it has one and length is 11
         if len(digits_only) == 11 and digits_only[0] == "1":
             without_country_code = digits_only[1:]
-            if without_country_code in PHONE_MAPPINGS[league_id]:
-                return PHONE_MAPPINGS[league_id][without_country_code]
+            if without_country_code in phone_mappings[league_id]:
+                return phone_mappings[league_id][without_country_code]
     
     return None
 
@@ -1088,7 +1102,15 @@ def dashboard_add_player(league_id):
         cursor.close()
         conn.close()
         
-        logging.info(f"Added player {name} ({phone}) to league {league_id}")
+        # Clear phone mappings cache so new player is recognized immediately
+        global _phone_mappings_cache_time
+        _phone_mappings_cache_time = None
+        
+        # Regenerate HTML so player shows up on the league page
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+        
+        logging.info(f"Added player {name} ({phone}) to league {league_id} - HTML regenerated")
         return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
     except Exception as e:
         logging.error(f"Error adding player: {e}")
@@ -1132,11 +1154,15 @@ def dashboard_remove_player(league_id):
         cursor.close()
         conn.close()
         
+        # Clear phone mappings cache so removed player is no longer recognized
+        global _phone_mappings_cache_time
+        _phone_mappings_cache_time = None
+        
         # Regenerate HTML
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
         
-        logging.info(f"Removed player {player_name} from league {league_id}")
+        logging.info(f"Removed player {player_name} from league {league_id} - HTML regenerated")
         return redirect(f'/dashboard/league/{league_id}?message=Player {player_name} removed')
     except Exception as e:
         logging.error(f"Error removing player: {e}")

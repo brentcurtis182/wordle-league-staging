@@ -443,7 +443,7 @@ def render_dashboard(user, leagues, message=None, error=None):
             <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
-                <a href="https://wordplayleague.com/leagues/{league['name'].lower()}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                <a href="https://www.wordplayleague.com/{league['name'].lower()}" target="_blank" class="btn btn-secondary btn-small">View</a>
             </div>
         </div>
         """
@@ -597,7 +597,7 @@ def render_league_management(user, league, players, message=None, error=None):
             <div class="card">
                 <h2>🔗 Public League Page</h2>
                 <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
-                <a href="https://wordplayleague.com/leagues/{league['name'].lower()}" target="_blank" class="btn btn-secondary">
+                <a href="https://www.wordplayleague.com/{league['name'].lower()}" target="_blank" class="btn btn-secondary">
                     View Public Page →
                 </a>
             </div>
