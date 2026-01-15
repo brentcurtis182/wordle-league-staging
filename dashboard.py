@@ -744,7 +744,7 @@ def render_league_management(user, league, players, message=None, error=None):
                             <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked}>
                             <span class="toggle-text">
                                 <strong>🎯 Perfect Score Congrats</strong>
-                                <small>Celebrate 1/6 or 2/6 scores with playful "cheating" jokes and whale emojis</small>
+                                <small>Celebrate amazing 1/6 or 2/6 scores with fun, enthusiastic messages</small>
                             </span>
                         </label>
                     </div>

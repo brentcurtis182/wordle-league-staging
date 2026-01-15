@@ -557,7 +557,7 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         logging.error(traceback.format_exc())
 
 def send_perfect_score_congrats(player_name, score, league_id):
-    """Send a playful congratulations message for 1/6 or 2/6 scores with whale emojis (cheating joke)"""
+    """Send a congratulations message for 1/6 or 2/6 scores"""
     try:
         from openai import OpenAI
         from twilio.rest import Client
@@ -583,13 +583,13 @@ def send_perfect_score_congrats(player_name, score, league_id):
             logging.error(f"No conversation SID for league {league_id}")
             return
         
-        # Generate AI congratulations message with whale emoji (cheating joke)
-        prompt = f"Generate a playful congratulations message for {player_name} who just got a {score}/6 on Wordle - an amazing and rare score! Make it sound like you're jokingly suspicious they might be cheating (but in a fun, lighthearted way). MUST include whale emojis 🐋 (it's an inside joke about cheating). DO NOT reveal the Wordle word. Keep it under 160 characters. Be fun and celebratory but with a wink about the 'suspiciously good' score."
+        # Generate AI congratulations message
+        prompt = f"Generate a fun, enthusiastic congratulations message for {player_name} who just got a {score}/6 on Wordle - an incredible score! Celebrate their achievement with excitement and energy. Use fun emojis like 🎯🔥⭐🏆. DO NOT reveal the Wordle word. Keep it under 160 characters. Be genuinely celebratory!"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a fun, playful Wordle league bot. Congratulate amazing scores but jokingly imply they might be cheating (it's an inside joke). Always use whale emojis 🐋. Be lighthearted and fun."},
+                {"role": "system", "content": "You are an enthusiastic Wordle league bot. Celebrate amazing scores with genuine excitement and fun emojis. Be energetic and positive!"},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=100,
