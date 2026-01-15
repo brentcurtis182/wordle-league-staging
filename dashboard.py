@@ -409,7 +409,7 @@ def render_register_page(error=None):
                             automated text messages from Wordplay League at the number you provide. These messages 
                             may include score confirmations, league standings, and other information related to your 
                             Wordplay League participation. Message and data rates may apply. Reply STOP to cancel, 
-                            HELP for help. See our <a href="/terms">Text Messaging Terms</a> and <a href="/privacy">Privacy Policy</a>.
+                            HELP for help. See our <a href="https://www.wordplayleague.com/sms-terms" target="_blank">Text Messaging Terms</a> and <a href="https://www.wordplayleague.com/privacy-policy" target="_blank">Privacy Policy</a>.
                         </p>
                         <div class="checkbox-wrapper">
                             <input type="checkbox" name="sms_consent" id="sms_consent" value="1">
