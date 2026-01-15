@@ -988,9 +988,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card">
                 <h2>🔗 Public League Page</h2>
                 <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
-                <div style="background: {COLORS['bg_dark']}; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-family: monospace; color: {COLORS['accent']};">
-                    {f'app.wordplayleague.com/{league["slug"]}' if league.get('slug') else f'wordplayleague.com/{get_league_wix_url(league["id"])}'}
-                </div>
                 <a href="{f'https://app.wordplayleague.com/{league["slug"]}' if league.get('slug') else f'https://www.wordplayleague.com/{get_league_wix_url(league["id"])}'}" target="_blank" class="btn btn-secondary">
                     View Public Page →
                 </a>
