@@ -1843,16 +1843,29 @@ def get_league_info(league_id):
     cursor = conn.cursor()
     
     try:
-        cursor.execute("""
-            SELECT id, name, display_name, twilio_conversation_sid,
-                   ai_perfect_score_congrats, ai_failure_roast, 
-                   ai_sunday_race_update, ai_daily_loser_roast,
-                   ai_message_severity,
-                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
-                   slug
-            FROM leagues
-            WHERE id = %s
-        """, (league_id,))
+        # Try with slug column first
+        try:
+            cursor.execute("""
+                SELECT id, name, display_name, twilio_conversation_sid,
+                       ai_perfect_score_congrats, ai_failure_roast, 
+                       ai_sunday_race_update, ai_daily_loser_roast,
+                       ai_message_severity,
+                       ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
+                       slug
+                FROM leagues
+                WHERE id = %s
+            """, (league_id,))
+        except:
+            # Fallback without slug if column doesn't exist
+            cursor.execute("""
+                SELECT id, name, display_name, twilio_conversation_sid,
+                       ai_perfect_score_congrats, ai_failure_roast, 
+                       ai_sunday_race_update, ai_daily_loser_roast,
+                       ai_message_severity,
+                       ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
+                FROM leagues
+                WHERE id = %s
+            """, (league_id,))
         
         row = cursor.fetchone()
         if row:
