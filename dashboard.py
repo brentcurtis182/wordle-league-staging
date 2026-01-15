@@ -54,7 +54,7 @@ def get_base_styles():
             font-weight: bold;
             color: {COLORS['accent']};
         }}
-        .logo span {{ color: {COLORS['accent_orange']}; }}
+        .logo .orange {{ color: #FFA64D; }}
         .nav-links a {{
             color: {COLORS['text']};
             text-decoration: none;
@@ -227,7 +227,7 @@ def render_login_page(error=None, success=None):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Login - Wordplay League</title>
+        <title>Login - WordPlayLeague.com</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             {get_base_styles()}
@@ -258,12 +258,13 @@ def render_login_page(error=None, success=None):
                 color: {COLORS['text_muted']};
             }}
             .auth-footer a {{ color: {COLORS['accent']}; }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>🎯 Wordplay League</h1>
+                <h1>🎯 WordPlay<span class="orange">League.com</span></h1>
                 <p class="subtitle">Sign in to manage your leagues</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -297,7 +298,7 @@ def render_register_page(error=None):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Sign Up - Wordplay League</title>
+        <title>Sign Up - WordPlayLeague.com</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             {get_base_styles()}
@@ -366,12 +367,13 @@ def render_register_page(error=None):
                 line-height: 1.4;
                 cursor: pointer;
             }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>🎯 Wordplay League</h1>
+                <h1>🎯 WordPlay<span class="orange">League.com</span></h1>
                 <p class="subtitle">Sign Up</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -472,14 +474,14 @@ def render_dashboard(user, leagues, message=None, error=None):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Dashboard - Wordplay League</title>
+        <title>Dashboard - WordPlayLeague.com</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>{get_base_styles()}</style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">🎯 Wordplay <span>League</span></div>
+                <div class="logo">🎯 WordPlay<span class="orange">League.com</span></div>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
@@ -678,7 +680,7 @@ def render_league_management(user, league, players, message=None, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">🎯 Wordplay <span>League</span></div>
+                <div class="logo">🎯 WordPlay<span class="orange">League.com</span></div>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
@@ -833,7 +835,6 @@ def render_league_management(user, league, players, message=None, error=None):
                 <h3>🤖 Update AI Messaging?</h3>
                 <p id="aiSettingsModalText">Are you sure you want to update your AI messaging settings?</p>
                 <div id="aiSettingsChanges" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.9em;"></div>
-                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 16px;">Note: AI messaging features may incur additional costs.</p>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeAISettingsModal()">Cancel</button>
                     <button type="button" class="btn btn-primary btn-small" onclick="confirmAISettings()">Yes, Update</button>
