@@ -412,15 +412,30 @@ def is_ai_message_enabled(league_id, message_type):
         }
         return defaults.get(message_type, False)
 
-def get_ai_message_severity(league_id):
-    """Get the AI message severity setting for a league (1=savage, 2=spicy, 3=playful, 4=gentle)"""
+def get_ai_message_severity(league_id, message_type=None):
+    """Get the AI message severity setting for a league (1=savage, 2=spicy, 3=playful, 4=gentle)
+    
+    message_type can be: 'perfect_score', 'failure_roast', 'daily_loser'
+    If message_type is provided, returns the per-message severity, otherwise returns global.
+    """
     try:
         conn = get_db_connection()
         if not conn:
             return 2  # Default to spicy
         
         cursor = conn.cursor()
-        cursor.execute("SELECT ai_message_severity FROM leagues WHERE id = %s", (league_id,))
+        
+        if message_type:
+            column_map = {
+                'perfect_score': 'ai_perfect_score_severity',
+                'failure_roast': 'ai_failure_roast_severity',
+                'daily_loser': 'ai_daily_loser_severity'
+            }
+            column = column_map.get(message_type, 'ai_message_severity')
+            cursor.execute(f"SELECT {column} FROM leagues WHERE id = %s", (league_id,))
+        else:
+            cursor.execute("SELECT ai_message_severity FROM leagues WHERE id = %s", (league_id,))
+        
         result = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -432,6 +447,35 @@ def get_ai_message_severity(league_id):
     except Exception as e:
         logging.error(f"Error getting AI message severity: {e}")
         return 2
+
+def get_player_ai_settings(league_id, player_id, message_type):
+    """Get AI settings for a specific player and message type
+    
+    Returns: (enabled, severity_override) where severity_override is None if using default
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return (True, None)
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT enabled, severity_override 
+            FROM ai_player_settings 
+            WHERE league_id = %s AND player_id = %s AND message_type = %s
+        """, (league_id, player_id, message_type))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            return (result[0], result[1])
+        return (True, None)  # Default: enabled, use league severity
+        
+    except Exception as e:
+        logging.error(f"Error getting player AI settings: {e}")
+        return (True, None)
 
 def get_severity_prompt(severity, message_type):
     """Get the appropriate prompt modifier based on severity level"""
@@ -566,8 +610,8 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         # Format score for context: 7 = failed (X/6), otherwise actual score
         score_display = "X/6 (failed)" if worst_score == 7 else f"{worst_score}/6"
         
-        # Get severity setting for this league
-        severity = get_ai_message_severity(league_id)
+        # Get per-message severity setting for this league
+        severity = get_ai_message_severity(league_id, 'daily_loser')
         severity_instruction = get_severity_prompt(severity, 'roast')
         
         if wordle_word:
@@ -629,8 +673,8 @@ def send_perfect_score_congrats(player_name, score, league_id):
             logging.error(f"No conversation SID for league {league_id}")
             return
         
-        # Get severity setting for this league
-        severity = get_ai_message_severity(league_id)
+        # Get per-message severity setting for this league
+        severity = get_ai_message_severity(league_id, 'perfect_score')
         severity_instruction = get_severity_prompt(severity, 'congrats')
         
         # Generate AI congratulations message
@@ -690,8 +734,8 @@ def send_failure_roast(player_name, league_id):
             logging.error(f"No conversation SID for league {league_id}")
             return
         
-        # Get severity setting for this league
-        severity = get_ai_message_severity(league_id)
+        # Get per-message severity setting for this league
+        severity = get_ai_message_severity(league_id, 'failure_roast')
         severity_instruction = get_severity_prompt(severity, 'roast')
         
         # Generate AI roast message
