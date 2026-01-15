@@ -738,61 +738,71 @@ def render_league_management(user, league, players, message=None, error=None):
                 <h2>🤖 AI Automated Messaging</h2>
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 16px;">Control which AI-generated messages are sent to this league's group chat.</p>
                 
-                <!-- Severity Slider -->
-                <div class="severity-section">
-                    <label class="severity-label">
-                        <strong>Message Tone:</strong>
-                        <span id="severityLabel" class="severity-value">{['Savage 🔥', 'Spicy 🌶️', 'Playful 😄', 'Gentle 💚'][league.get('ai_message_severity', 2) - 1]}</span>
-                    </label>
-                    <input type="range" id="ai_severity" min="1" max="4" value="{league.get('ai_message_severity', 2)}" class="severity-slider" oninput="updateSeverityLabel(this.value)">
-                    <div class="severity-scale">
-                        <span>Savage</span>
-                        <span>Spicy</span>
-                        <span>Playful</span>
-                        <span>Gentle</span>
-                    </div>
-                </div>
-                
                 <div class="ai-toggle-list">
                     <div class="ai-toggle-item">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked}>
-                            <span class="toggle-text">
-                                <strong>🎯 Perfect Score Congrats</strong>
-                                <small>Celebrate amazing 1/6 or 2/6 scores with fun, enthusiastic messages</small>
-                            </span>
-                        </label>
+                        <div class="ai-toggle-header">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked}>
+                                <span class="toggle-text">
+                                    <strong>🎯 Perfect Score Congrats</strong>
+                                    <small>Celebrate amazing 1/6 or 2/6 scores</small>
+                                </span>
+                            </label>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('perfect_score', '🎯 Perfect Score Congrats')">Edit ✏️</button>
+                        </div>
+                        <div class="ai-toggle-meta">
+                            <span>Tone: <strong id="perfect_score_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_perfect_score_severity', 2) - 1]}</strong></span>
+                            <span>Players: <strong id="perfect_score_players_label">All</strong></span>
+                        </div>
                     </div>
                     
                     <div class="ai-toggle-item">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="ai_failure_roast" {ai_failure_checked}>
-                            <span class="toggle-text">
-                                <strong>🔥 Failure Roast</strong>
-                                <small>Roast players who fail with X/6 (tone based on slider above)</small>
-                            </span>
-                        </label>
+                        <div class="ai-toggle-header">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="ai_failure_roast" {ai_failure_checked}>
+                                <span class="toggle-text">
+                                    <strong>🔥 Failure Roast</strong>
+                                    <small>Roast players who fail with X/6</small>
+                                </span>
+                            </label>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('failure_roast', '🔥 Failure Roast')">Edit ✏️</button>
+                        </div>
+                        <div class="ai-toggle-meta">
+                            <span>Tone: <strong id="failure_roast_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_failure_roast_severity', 2) - 1]}</strong></span>
+                            <span>Players: <strong id="failure_roast_players_label">All</strong></span>
+                        </div>
                     </div>
                     
                     <div class="ai-toggle-item">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="ai_sunday_race" {ai_sunday_checked}>
-                            <span class="toggle-text">
-                                <strong>📊 Sunday Race Update</strong>
-                                <small>10am Sunday summary showing who can still win the week</small>
-                                <span class="tone-na">Tone: N/A (informational)</span>
-                            </span>
-                        </label>
+                        <div class="ai-toggle-header">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="ai_sunday_race" {ai_sunday_checked}>
+                                <span class="toggle-text">
+                                    <strong>📊 Sunday Race Update</strong>
+                                    <small>10am Sunday summary showing who can still win</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="ai-toggle-meta">
+                            <span class="tone-na">Tone: N/A (informational)</span>
+                        </div>
                     </div>
                     
                     <div class="ai-toggle-item">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="ai_daily_loser" {ai_daily_checked}>
-                            <span class="toggle-text">
-                                <strong>😈 Daily Loser Roast</strong>
-                                <small>When all players post, roast the worst scorer using the Wordle word</small>
-                            </span>
-                        </label>
+                        <div class="ai-toggle-header">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="ai_daily_loser" {ai_daily_checked}>
+                                <span class="toggle-text">
+                                    <strong>😈 Daily Loser Roast</strong>
+                                    <small>Roast the worst scorer when all post</small>
+                                </span>
+                            </label>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('daily_loser', '😈 Daily Loser Roast')">Edit ✏️</button>
+                        </div>
+                        <div class="ai-toggle-meta">
+                            <span>Tone: <strong id="daily_loser_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_daily_loser_severity', 2) - 1]}</strong></span>
+                            <span>Players: <strong id="daily_loser_players_label">All</strong></span>
+                        </div>
                     </div>
                 </div>
                 
@@ -854,6 +864,40 @@ def render_league_management(user, league, players, message=None, error=None):
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeAISettingsModal()">Cancel</button>
                     <button type="button" class="btn btn-primary btn-small" onclick="confirmAISettings()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Config Modal -->
+        <div class="modal-overlay" id="messageConfigModal">
+            <div class="modal config-modal">
+                <h3 id="messageConfigTitle">Configure Message</h3>
+                
+                <div class="config-section">
+                    <h4>Default Tone for All Players</h4>
+                    <div class="severity-section" style="margin-bottom: 0;">
+                        <input type="range" id="configSeverity" min="1" max="4" value="2" class="severity-slider" oninput="updateConfigSeverityLabel(this.value)">
+                        <div class="severity-scale">
+                            <span>Savage</span>
+                            <span>Spicy</span>
+                            <span>Playful</span>
+                            <span>Gentle</span>
+                        </div>
+                        <p style="text-align: center; margin-top: 8px; color: {COLORS['accent']}; font-weight: 600;" id="configSeverityLabel">Spicy 🌶️</p>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h4>Player Settings</h4>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 12px;">Uncheck to exclude from this message. Use dropdown to override tone.</p>
+                    <div class="player-config-list" id="playerConfigList">
+                        <!-- Players will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeMessageConfig()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="saveMessageConfig()">Save</button>
                 </div>
             </div>
         </div>
@@ -949,7 +993,61 @@ def render_league_management(user, league, players, message=None, error=None):
                 font-size: 0.75em;
                 color: {COLORS['text_muted']};
                 font-style: italic;
-                margin-top: 4px;
+            }}
+            .ai-toggle-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 12px;
+            }}
+            .ai-toggle-meta {{
+                display: flex;
+                gap: 20px;
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: 1px solid {COLORS['border']};
+                font-size: 0.85em;
+                color: {COLORS['text_muted']};
+            }}
+            .ai-toggle-meta strong {{
+                color: {COLORS['accent']};
+            }}
+            .config-modal {{
+                max-width: 600px;
+                max-height: 80vh;
+                overflow-y: auto;
+            }}
+            .config-section {{
+                margin-bottom: 20px;
+            }}
+            .config-section h4 {{
+                margin-bottom: 12px;
+                color: {COLORS['text']};
+            }}
+            .player-config-list {{
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }}
+            .player-config-item {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                background: {COLORS['bg_dark']};
+                border-radius: 6px;
+            }}
+            .player-config-item .player-name {{
+                flex: 1;
+                font-weight: 500;
+            }}
+            .player-config-item select {{
+                padding: 6px 10px;
+                border-radius: 4px;
+                border: 1px solid {COLORS['border']};
+                background: {COLORS['bg_card']};
+                color: {COLORS['text']};
+                font-size: 0.9em;
             }}
             .severity-section {{
                 background: {COLORS['bg_dark']};
@@ -1131,16 +1229,96 @@ def render_league_management(user, league, players, message=None, error=None):
             
             // AI Settings functions
             const severityLabels = ['Savage 🔥', 'Spicy 🌶️', 'Playful 😄', 'Gentle 💚'];
+            const severityNames = ['Savage', 'Spicy', 'Playful', 'Gentle'];
             const originalAISettings = {{
                 perfect: {str(league.get('ai_perfect_score_congrats', False)).lower()},
                 failure: {str(league.get('ai_failure_roast', True)).lower()},
                 sunday: {str(league.get('ai_sunday_race_update', True)).lower()},
                 daily: {str(league.get('ai_daily_loser_roast', False)).lower()},
-                severity: {league.get('ai_message_severity', 2)}
+                severity: {league.get('ai_message_severity', 2)},
+                perfect_score_severity: {league.get('ai_perfect_score_severity', 2)},
+                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)},
+                daily_loser_severity: {league.get('ai_daily_loser_severity', 2)}
             }};
             
-            function updateSeverityLabel(value) {{
-                document.getElementById('severityLabel').textContent = severityLabels[value - 1];
+            // Player data for config modal
+            const players = {str([{'id': p['id'], 'name': p['name']} for p in players])};
+            
+            // Message config state
+            let currentMessageType = null;
+            let messagePlayerSettings = {{}};
+            
+            function openMessageConfig(messageType, title) {{
+                currentMessageType = messageType;
+                document.getElementById('messageConfigTitle').textContent = 'Configure: ' + title;
+                
+                // Set severity slider to current value
+                const severityKey = messageType + '_severity';
+                const currentSeverity = originalAISettings[severityKey] || 2;
+                document.getElementById('configSeverity').value = currentSeverity;
+                updateConfigSeverityLabel(currentSeverity);
+                
+                // Build player list
+                const playerList = document.getElementById('playerConfigList');
+                playerList.innerHTML = '';
+                
+                players.forEach(player => {{
+                    const settings = messagePlayerSettings[messageType + '_' + player.id] || {{enabled: true, severity: null}};
+                    const div = document.createElement('div');
+                    div.className = 'player-config-item';
+                    div.innerHTML = `
+                        <input type="checkbox" id="player_${{player.id}}_enabled" ${{settings.enabled ? 'checked' : ''}}>
+                        <span class="player-name">${{player.name}}</span>
+                        <select id="player_${{player.id}}_severity">
+                            <option value="" ${{settings.severity === null ? 'selected' : ''}}>Default</option>
+                            <option value="1" ${{settings.severity === 1 ? 'selected' : ''}}>Savage 🔥</option>
+                            <option value="2" ${{settings.severity === 2 ? 'selected' : ''}}>Spicy 🌶️</option>
+                            <option value="3" ${{settings.severity === 3 ? 'selected' : ''}}>Playful 😄</option>
+                            <option value="4" ${{settings.severity === 4 ? 'selected' : ''}}>Gentle 💚</option>
+                        </select>
+                    `;
+                    playerList.appendChild(div);
+                }});
+                
+                document.getElementById('messageConfigModal').classList.add('active');
+            }}
+            
+            function closeMessageConfig() {{
+                document.getElementById('messageConfigModal').classList.remove('active');
+                currentMessageType = null;
+            }}
+            
+            function updateConfigSeverityLabel(value) {{
+                document.getElementById('configSeverityLabel').textContent = severityLabels[value - 1];
+            }}
+            
+            function saveMessageConfig() {{
+                if (!currentMessageType) return;
+                
+                // Save severity for this message type
+                const severity = parseInt(document.getElementById('configSeverity').value);
+                originalAISettings[currentMessageType + '_severity'] = severity;
+                
+                // Update the label on the main page
+                document.getElementById(currentMessageType + '_tone_label').textContent = severityNames[severity - 1];
+                
+                // Save player settings
+                let enabledCount = 0;
+                players.forEach(player => {{
+                    const enabled = document.getElementById('player_' + player.id + '_enabled').checked;
+                    const severityVal = document.getElementById('player_' + player.id + '_severity').value;
+                    messagePlayerSettings[currentMessageType + '_' + player.id] = {{
+                        enabled: enabled,
+                        severity: severityVal ? parseInt(severityVal) : null
+                    }};
+                    if (enabled) enabledCount++;
+                }});
+                
+                // Update players label
+                const playersLabel = enabledCount === players.length ? 'All' : enabledCount + '/' + players.length;
+                document.getElementById(currentMessageType + '_players_label').textContent = playersLabel;
+                
+                closeMessageConfig();
             }}
             
             function saveAISettings() {{
@@ -1150,7 +1328,6 @@ def render_league_management(user, league, players, message=None, error=None):
                 const failure = document.getElementById('ai_failure_roast').checked;
                 const sunday = document.getElementById('ai_sunday_race').checked;
                 const daily = document.getElementById('ai_daily_loser').checked;
-                const severity = parseInt(document.getElementById('ai_severity').value);
                 
                 if (perfect !== originalAISettings.perfect) {{
                     changes.push('🎯 Perfect Score Congrats: ' + (perfect ? 'ON' : 'OFF'));
@@ -1164,8 +1341,21 @@ def render_league_management(user, league, players, message=None, error=None):
                 if (daily !== originalAISettings.daily) {{
                     changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
                 }}
-                if (severity !== originalAISettings.severity) {{
-                    changes.push('🎚️ Message Tone: ' + severityLabels[severity - 1]);
+                
+                // Check for per-message severity changes
+                if (originalAISettings.perfect_score_severity !== {league.get('ai_perfect_score_severity', 2)}) {{
+                    changes.push('🎯 Perfect Score Tone: ' + severityNames[originalAISettings.perfect_score_severity - 1]);
+                }}
+                if (originalAISettings.failure_roast_severity !== {league.get('ai_failure_roast_severity', 2)}) {{
+                    changes.push('🔥 Failure Roast Tone: ' + severityNames[originalAISettings.failure_roast_severity - 1]);
+                }}
+                if (originalAISettings.daily_loser_severity !== {league.get('ai_daily_loser_severity', 2)}) {{
+                    changes.push('😈 Daily Loser Tone: ' + severityNames[originalAISettings.daily_loser_severity - 1]);
+                }}
+                
+                // Check for player setting changes
+                if (Object.keys(messagePlayerSettings).length > 0) {{
+                    changes.push('👥 Player settings updated');
                 }}
                 
                 if (changes.length === 0) {{
@@ -1182,12 +1372,19 @@ def render_league_management(user, league, players, message=None, error=None):
             }}
             
             function confirmAISettings() {{
-                // Get checkbox values and severity
+                // Get checkbox values
                 document.getElementById('aiPerfectScoreInput').value = document.getElementById('ai_perfect_score').checked ? 'true' : 'false';
                 document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
                 document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
                 document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
-                document.getElementById('aiSeverityInput').value = document.getElementById('ai_severity').value;
+                
+                // Add per-message severity values
+                document.getElementById('aiSeverityInput').value = JSON.stringify({{
+                    perfect_score: originalAISettings.perfect_score_severity,
+                    failure_roast: originalAISettings.failure_roast_severity,
+                    daily_loser: originalAISettings.daily_loser_severity,
+                    player_settings: messagePlayerSettings
+                }});
                 
                 closeAISettingsModal();
                 showLoading('Saving AI settings...');
@@ -1201,6 +1398,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     closeRemoveModal();
                     closeRenameModal();
                     closeAISettingsModal();
+                    closeMessageConfig();
                 }}
             }});
             
@@ -1249,6 +1447,42 @@ def get_league_players(league_id):
         conn.close()
 
 
+def get_ai_player_settings(league_id, message_type):
+    """Get AI settings for all players in a league for a specific message type"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get all active players and their AI settings (if any)
+        cursor.execute("""
+            SELECT p.id, p.name, 
+                   COALESCE(aps.enabled, TRUE) as enabled,
+                   aps.severity_override
+            FROM players p
+            LEFT JOIN ai_player_settings aps 
+                ON p.id = aps.player_id 
+                AND aps.league_id = %s 
+                AND aps.message_type = %s
+            WHERE p.league_id = %s AND p.active = TRUE
+            ORDER BY p.name
+        """, (league_id, message_type, league_id))
+        
+        players = []
+        for row in cursor.fetchall():
+            players.append({
+                'id': row[0],
+                'name': row[1],
+                'enabled': row[2],
+                'severity_override': row[3]  # NULL means use default
+            })
+        return players
+    except Exception as e:
+        logging.error(f"Error getting AI player settings: {e}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
+
 def get_league_info(league_id):
     """Get league information including AI messaging settings"""
     conn = get_db_connection()
@@ -1259,7 +1493,8 @@ def get_league_info(league_id):
             SELECT id, name, display_name, twilio_conversation_sid,
                    ai_perfect_score_congrats, ai_failure_roast, 
                    ai_sunday_race_update, ai_daily_loser_roast,
-                   ai_message_severity
+                   ai_message_severity,
+                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -1275,7 +1510,10 @@ def get_league_info(league_id):
                 'ai_failure_roast': row[5] if row[5] is not None else True,
                 'ai_sunday_race_update': row[6] if row[6] is not None else True,
                 'ai_daily_loser_roast': row[7] if row[7] is not None else False,
-                'ai_message_severity': row[8] if row[8] is not None else 2
+                'ai_message_severity': row[8] if row[8] is not None else 2,
+                'ai_perfect_score_severity': row[9] if len(row) > 9 and row[9] is not None else 2,
+                'ai_failure_roast_severity': row[10] if len(row) > 10 and row[10] is not None else 2,
+                'ai_daily_loser_severity': row[11] if len(row) > 11 and row[11] is not None else 2
             }
         return None
     finally:

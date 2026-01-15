@@ -1401,6 +1401,7 @@ def setup_ai_messaging_columns():
 def dashboard_ai_settings(league_id):
     """Update AI messaging settings for a league"""
     from auth import validate_session, can_manage_league
+    import json
     
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
@@ -1416,30 +1417,65 @@ def dashboard_ai_settings(league_id):
     ai_failure_roast = request.form.get('ai_failure_roast') == 'true'
     ai_sunday_race = request.form.get('ai_sunday_race_update') == 'true'
     ai_daily_loser = request.form.get('ai_daily_loser_roast') == 'true'
-    ai_severity = int(request.form.get('ai_message_severity', 2))
+    
+    # Parse per-message severity and player settings from JSON
+    severity_data_str = request.form.get('ai_message_severity', '{}')
+    try:
+        severity_data = json.loads(severity_data_str) if severity_data_str.startswith('{') else {'perfect_score': int(severity_data_str), 'failure_roast': 2, 'daily_loser': 2}
+    except:
+        severity_data = {'perfect_score': 2, 'failure_roast': 2, 'daily_loser': 2}
+    
+    perfect_score_severity = severity_data.get('perfect_score', 2)
+    failure_roast_severity = severity_data.get('failure_roast', 2)
+    daily_loser_severity = severity_data.get('daily_loser', 2)
+    player_settings = severity_data.get('player_settings', {})
     
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Update league-level settings
         cursor.execute("""
             UPDATE leagues 
             SET ai_perfect_score_congrats = %s,
                 ai_failure_roast = %s,
                 ai_sunday_race_update = %s,
                 ai_daily_loser_roast = %s,
-                ai_message_severity = %s
+                ai_perfect_score_severity = %s,
+                ai_failure_roast_severity = %s,
+                ai_daily_loser_severity = %s
             WHERE id = %s
-        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, ai_severity, league_id))
+        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, 
+              perfect_score_severity, failure_roast_severity, daily_loser_severity, league_id))
+        
+        # Update player-specific settings
+        for key, settings in player_settings.items():
+            # key format: "message_type_player_id"
+            parts = key.rsplit('_', 1)
+            if len(parts) == 2:
+                message_type = parts[0]
+                player_id = int(parts[1])
+                enabled = settings.get('enabled', True)
+                severity_override = settings.get('severity') if settings.get('severity') else None
+                
+                # Upsert player settings
+                cursor.execute("""
+                    INSERT INTO ai_player_settings (league_id, player_id, message_type, enabled, severity_override, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (league_id, player_id, message_type) 
+                    DO UPDATE SET enabled = EXCLUDED.enabled, severity_override = EXCLUDED.severity_override, updated_at = CURRENT_TIMESTAMP
+                """, (league_id, player_id, message_type, enabled, severity_override))
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        logging.info(f"Updated AI settings for league {league_id}: perfect={ai_perfect_score}, failure={ai_failure_roast}, sunday={ai_sunday_race}, daily_loser={ai_daily_loser}, severity={ai_severity}")
+        logging.info(f"Updated AI settings for league {league_id}: perfect={ai_perfect_score}, failure={ai_failure_roast}, sunday={ai_sunday_race}, daily_loser={ai_daily_loser}")
         return redirect(f'/dashboard/league/{league_id}?message=AI messaging settings updated')
     except Exception as e:
         logging.error(f"Error updating AI settings: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return redirect(f'/dashboard/league/{league_id}?error=Failed to update AI settings')
 
 @app.route('/setup-ai-severity-column', methods=['POST'])
@@ -1462,6 +1498,51 @@ def setup_ai_severity_column():
         return jsonify({'success': True, 'message': 'AI severity column added successfully'})
     except Exception as e:
         logging.error(f"Error adding AI severity column: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/setup-ai-per-message-settings', methods=['POST'])
+def setup_ai_per_message_settings():
+    """Migration to add per-message severity and player settings table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Add per-message severity columns to leagues table
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS ai_perfect_score_severity INTEGER DEFAULT 2
+        """)
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS ai_failure_roast_severity INTEGER DEFAULT 2
+        """)
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS ai_daily_loser_severity INTEGER DEFAULT 2
+        """)
+        
+        # Create player AI settings table for exclusions and per-player overrides
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ai_player_settings (
+                id SERIAL PRIMARY KEY,
+                league_id INTEGER NOT NULL REFERENCES leagues(id),
+                player_id INTEGER NOT NULL REFERENCES players(id),
+                message_type VARCHAR(50) NOT NULL,
+                enabled BOOLEAN DEFAULT TRUE,
+                severity_override INTEGER DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(league_id, player_id, message_type)
+            )
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Per-message AI settings schema created'})
+    except Exception as e:
+        logging.error(f"Error setting up per-message AI settings: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-auth-tables', methods=['POST'])
