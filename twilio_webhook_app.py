@@ -1312,13 +1312,9 @@ def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
 
-@app.route('/<slug>')
+@app.route('/leagues/<slug>')
 def public_league_page(slug):
-    """Public league page - serves the leaderboard HTML at root path (e.g., /warriorz)"""
-    # Skip known routes to avoid conflicts
-    known_routes = ['auth', 'dashboard', 'static', 'webhook', 'sms', 'setup', 'recent', 'assign', 'favicon.ico', 'styles.css', 'script.js', 'tabs.js']
-    if slug in known_routes or slug.startswith('setup-') or slug.startswith('recent-') or slug.startswith('assign-'):
-        return "Not found", 404
+    """Public league page - serves the leaderboard HTML (e.g., /leagues/warriorz)"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
