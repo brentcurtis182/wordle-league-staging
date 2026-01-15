@@ -244,7 +244,7 @@ def render_login_page(error=None, success=None):
         <style>
             {get_base_styles()}
             .auth-container {{
-                max-width: 400px;
+                max-width: 450px;
                 margin: 80px auto;
                 padding: 20px;
             }}
