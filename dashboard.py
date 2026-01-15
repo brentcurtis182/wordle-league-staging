@@ -885,6 +885,10 @@ def render_league_management(user, league, players, message=None, error=None):
                         </div>
                         <p style="text-align: center; margin-top: 8px; color: {COLORS['accent']}; font-weight: 600;" id="configSeverityLabel">Spicy 🌶️</p>
                     </div>
+                    <div class="tone-preview" id="tonePreview">
+                        <p class="preview-label">Example:</p>
+                        <p class="preview-text" id="previewText">"Loading example..."</p>
+                    </div>
                 </div>
                 
                 <div class="config-section">
@@ -1048,6 +1052,25 @@ def render_league_management(user, league, players, message=None, error=None):
                 background: {COLORS['bg_card']};
                 color: {COLORS['text']};
                 font-size: 0.9em;
+            }}
+            .tone-preview {{
+                margin-top: 16px;
+                padding: 12px;
+                background: {COLORS['bg_card']};
+                border-radius: 8px;
+                border-left: 3px solid {COLORS['accent']};
+            }}
+            .preview-label {{
+                font-size: 0.8em;
+                color: {COLORS['text_muted']};
+                margin: 0 0 6px 0;
+            }}
+            .preview-text {{
+                margin: 0;
+                font-style: italic;
+                color: {COLORS['text']};
+                font-size: 0.9em;
+                line-height: 1.4;
             }}
             .severity-section {{
                 background: {COLORS['bg_dark']};
@@ -1280,6 +1303,9 @@ def render_league_management(user, league, players, message=None, error=None):
                     playerList.appendChild(div);
                 }});
                 
+                // Set initial preview
+                updatePreview(currentSeverity);
+                
                 document.getElementById('messageConfigModal').classList.add('active');
             }}
             
@@ -1288,8 +1314,37 @@ def render_league_management(user, league, players, message=None, error=None):
                 currentMessageType = null;
             }}
             
+            // Example messages for each message type and severity
+            const toneExamples = {{
+                'failure_roast': {{
+                    1: '"Even autocorrect gave up on you today. 💀 Maybe try a coloring book instead?"',
+                    2: '"Really said \\'six guesses? I don\\'t need any of them\\' 😂🔥 Someone get this man a vowel!"',
+                    3: '"Aww, not your day huh? 😅 Tomorrow\\'s a fresh start - sleep with a dictionary under your pillow? 📖"',
+                    4: '"Tough one today! 💪 Those tricky words get us all. Shake it off - you\\'ll crush it tomorrow! 🌟"'
+                }},
+                'perfect_score': {{
+                    1: '"Nice score... IF it\\'s real 👀🤔 Should we check your browser history? Asking for a friend..."',
+                    2: '"Impressive! 🤨 Either you\\'re a genius or... well, we won\\'t say it. But we\\'re thinking it 👀"',
+                    3: '"Amazing score! 🎯 You\\'re on fire today... almost suspiciously so 😉🔥"',
+                    4: '"WOW! Incredible score! 🎉🏆 You absolutely crushed it - pure skill! So impressed!"'
+                }},
+                'daily_loser': {{
+                    1: '"Congrats on finding rock bottom! 💀 The word wasn\\'t THAT hard... for most people 🔥"',
+                    2: '"Today\\'s biggest L goes to... 😂 Maybe Wordle just isn\\'t your thing?"',
+                    3: '"Someone had to come in last! 😅 Hey, at least you showed up - that counts for something!"',
+                    4: '"Not your best day, but we still love you! 💚 Tomorrow is a new opportunity!"'
+                }}
+            }};
+            
             function updateConfigSeverityLabel(value) {{
                 document.getElementById('configSeverityLabel').textContent = severityLabels[value - 1];
+                updatePreview(value);
+            }}
+            
+            function updatePreview(severity) {{
+                if (currentMessageType && toneExamples[currentMessageType]) {{
+                    document.getElementById('previewText').textContent = toneExamples[currentMessageType][severity];
+                }}
             }}
             
             function saveMessageConfig() {{
