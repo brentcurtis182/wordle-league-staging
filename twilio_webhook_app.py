@@ -21,6 +21,70 @@ logging.basicConfig(
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-in-production')
 
+@app.after_request
+def add_cache_headers(response):
+    """Add headers to prevent browser caching of dynamic pages"""
+    if 'text/html' in response.content_type:
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
+@app.errorhandler(500)
+def handle_500(error):
+    """Global error handler - clears bad cookies and shows error page"""
+    logging.error(f"500 error: {error}")
+    import traceback
+    logging.error(traceback.format_exc())
+    
+    # Create response that clears the session cookie
+    response = make_response(f'''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Error - WordPlayLeague.com</title>
+    <style>
+        body {{ font-family: sans-serif; background: #1a1a1b; color: #d7dadc; padding: 40px; text-align: center; }}
+        a {{ color: #00E8DA; }}
+        .btn {{ display: inline-block; padding: 12px 24px; background: #00E8DA; color: #1a1a1b; text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+    </style>
+    </head>
+    <body>
+        <h1>Something went wrong</h1>
+        <p>We've cleared your session. Please try again.</p>
+        <a href="/auth/login" class="btn">Go to Login</a>
+    </body>
+    </html>
+    ''', 500)
+    response.delete_cookie('session_token')
+    return response
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Catch-all exception handler"""
+    logging.error(f"Unhandled exception: {error}")
+    import traceback
+    logging.error(traceback.format_exc())
+    
+    response = make_response(f'''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Error - WordPlayLeague.com</title>
+    <style>
+        body {{ font-family: sans-serif; background: #1a1a1b; color: #d7dadc; padding: 40px; text-align: center; }}
+        a {{ color: #00E8DA; }}
+        .btn {{ display: inline-block; padding: 12px 24px; background: #00E8DA; color: #1a1a1b; text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+    </style>
+    </head>
+    <body>
+        <h1>Something went wrong</h1>
+        <p>We've cleared your session. Please try again.</p>
+        <a href="/auth/login" class="btn">Go to Login</a>
+    </body>
+    </html>
+    ''', 500)
+    response.delete_cookie('session_token')
+    return response
+
 def run_pipeline_with_retry(league_id, max_retries=3):
     """Run the update pipeline with retry logic and exponential backoff"""
     import time
