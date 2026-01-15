@@ -1215,7 +1215,9 @@ def auth_login():
             response.set_cookie('session_token', result['session_token'], 
                               max_age=30*24*60*60,  # 30 days
                               httponly=True,
-                              samesite='Lax')
+                              secure=True,
+                              samesite='Lax',
+                              path='/')
             return response
         else:
             return render_login_page(error=result['error'])
