@@ -1216,7 +1216,7 @@ def auth_login():
                               max_age=30*24*60*60,  # 30 days
                               httponly=True,
                               secure=True,
-                              samesite='Lax',
+                              samesite='None',
                               path='/')
             return response
         else:
@@ -1302,9 +1302,12 @@ def dashboard():
     from dashboard import render_dashboard
     
     session_token = request.cookies.get('session_token')
+    logging.info(f"Dashboard: session_token present: {bool(session_token)}, token: {session_token[:20] if session_token else 'None'}...")
     user = validate_session(session_token)
+    logging.info(f"Dashboard: user validated: {bool(user)}, user: {user}")
     
     if not user:
+        logging.warning(f"Dashboard: No valid user, redirecting to login")
         return redirect('/auth/login')
     
     leagues = get_user_leagues(user['id'])
@@ -1383,9 +1386,12 @@ def dashboard_league(league_id):
     from dashboard import render_league_management, get_league_players, get_league_info
     
     session_token = request.cookies.get('session_token')
+    logging.info(f"League page: session_token present: {bool(session_token)}")
     user = validate_session(session_token)
+    logging.info(f"League page: user validated: {bool(user)}")
     
     if not user:
+        logging.warning(f"League page: No valid user, redirecting to login")
         return redirect('/auth/login')
     
     if not can_manage_league(user['id'], league_id):
