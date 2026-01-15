@@ -895,6 +895,27 @@ def render_league_management(user, league, players, message=None, error=None):
                 margin-top: 2px;
                 accent-color: {COLORS['accent']};
                 cursor: pointer;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                background: {COLORS['bg_card']};
+                border: 2px solid {COLORS['border']};
+                border-radius: 4px;
+                position: relative;
+            }}
+            .toggle-label input[type="checkbox"]:checked {{
+                background: {COLORS['accent']};
+                border-color: {COLORS['accent']};
+            }}
+            .toggle-label input[type="checkbox"]:checked::after {{
+                content: '✓';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #000;
+                font-size: 14px;
+                font-weight: bold;
             }}
             .toggle-text {{
                 display: flex;
