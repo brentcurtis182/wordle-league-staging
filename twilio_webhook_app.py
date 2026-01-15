@@ -412,6 +412,48 @@ def is_ai_message_enabled(league_id, message_type):
         }
         return defaults.get(message_type, False)
 
+def get_ai_message_severity(league_id):
+    """Get the AI message severity setting for a league (1=savage, 2=spicy, 3=playful, 4=gentle)"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return 2  # Default to spicy
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT ai_message_severity FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result and result[0] is not None:
+            return result[0]
+        return 2  # Default to spicy
+        
+    except Exception as e:
+        logging.error(f"Error getting AI message severity: {e}")
+        return 2
+
+def get_severity_prompt(severity, message_type):
+    """Get the appropriate prompt modifier based on severity level"""
+    if message_type == 'roast':
+        prompts = {
+            1: "Be absolutely brutal and savage. No mercy. Roast them mercilessly like a comedy roast. Make it sting but still funny.",
+            2: "Be harsh and spicy with your roast. Don't hold back much, but keep it playful underneath the burns.",
+            3: "Be playful and teasing. Light roasting with good humor. More jokes than actual burns.",
+            4: "Be gentle and encouraging despite the loss. Maybe a tiny tease but mostly supportive and kind."
+        }
+    elif message_type == 'congrats':
+        prompts = {
+            1: "Be over-the-top dramatic and intense with your celebration. Maximum hype energy!",
+            2: "Be enthusiastic and excited. High energy celebration with some flair.",
+            3: "Be warm and genuinely happy for them. Friendly celebration.",
+            4: "Be sweet and wholesome. Gentle, heartfelt congratulations."
+        }
+    else:
+        return ""
+    
+    return prompts.get(severity, prompts[2])
+
 def check_and_roast_daily_losers(league_id, wordle_num, conn):
     """Check if all players have posted, then roast the lowest scorer(s)"""
     try:
@@ -524,15 +566,19 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         # Format score for context: 7 = failed (X/6), otherwise actual score
         score_display = "X/6 (failed)" if worst_score == 7 else f"{worst_score}/6"
         
+        # Get severity setting for this league
+        severity = get_ai_message_severity(league_id)
+        severity_instruction = get_severity_prompt(severity, 'roast')
+        
         if wordle_word:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today (they got {score_display}). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT state their score directly in the message - everyone already saw it. Do NOT highlight the Wordle word with asterisks, caps, or quotes - just use it naturally. Use varied emojis. Keep it under 280 characters. Be witty and fun!"
+            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today (they got {score_display}). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT state their score directly in the message - everyone already saw it. Do NOT highlight the Wordle word with asterisks, caps, or quotes - just use it naturally. Use varied emojis. Keep it under 280 characters. {severity_instruction}"
         else:
-            prompt = f"Everyone in the league has posted! Generate a playful roast for {losers_text} who had the worst score today. Do NOT state their score directly - everyone already saw it. Use varied emojis. Keep it under 200 characters. Be witty and fun!"
+            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today. Do NOT state their score directly - everyone already saw it. Use varied emojis. Keep it under 200 characters. {severity_instruction}"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a fun, playful Wordle league bot. Create clever roasts with subtle wordplay. When given a Wordle word, weave it naturally into your message WITHOUT highlighting it - no asterisks, no caps, no quotes around the word. Make it an Easter egg that clever readers will catch. Be witty but lighthearted."},
+                {"role": "system", "content": f"You are a Wordle league bot. Create clever roasts with subtle wordplay. When given a Wordle word, weave it naturally into your message WITHOUT highlighting it - no asterisks, no caps, no quotes around the word. {severity_instruction}"},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=150,
@@ -583,13 +629,17 @@ def send_perfect_score_congrats(player_name, score, league_id):
             logging.error(f"No conversation SID for league {league_id}")
             return
         
+        # Get severity setting for this league
+        severity = get_ai_message_severity(league_id)
+        severity_instruction = get_severity_prompt(severity, 'congrats')
+        
         # Generate AI congratulations message
-        prompt = f"Generate a fun, enthusiastic congratulations message for {player_name} who just got a {score}/6 on Wordle - an incredible score! Celebrate their achievement with excitement and energy. Use fun emojis like 🎯🔥⭐🏆. DO NOT reveal the Wordle word. Keep it under 160 characters. Be genuinely celebratory!"
+        prompt = f"Generate a congratulations message for {player_name} who just got a {score}/6 on Wordle - an incredible score! Celebrate their achievement. Use fun emojis like 🎯🔥⭐🏆. DO NOT reveal the Wordle word. Keep it under 160 characters. {severity_instruction}"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an enthusiastic Wordle league bot. Celebrate amazing scores with genuine excitement and fun emojis. Be energetic and positive!"},
+                {"role": "system", "content": f"You are a Wordle league bot. Celebrate amazing scores with fun emojis. {severity_instruction}"},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=100,
@@ -640,13 +690,17 @@ def send_failure_roast(player_name, league_id):
             logging.error(f"No conversation SID for league {league_id}")
             return
         
+        # Get severity setting for this league
+        severity = get_ai_message_severity(league_id)
+        severity_instruction = get_severity_prompt(severity, 'roast')
+        
         # Generate AI roast message
-        prompt = f"Roast {player_name} who just FAILED today's Wordle (X/6 - couldn't solve it in 6 tries!). Be savage but playful. Use creative insults, wordplay, and emojis. Mock their Wordle skills. Maybe suggest they need glasses, a dictionary, or a new brain. Keep it under 160 characters. DO NOT mention the actual Wordle word."
+        prompt = f"Roast {player_name} who just FAILED today's Wordle (X/6 - couldn't solve it in 6 tries!). Use creative wordplay and emojis. Keep it under 160 characters. DO NOT mention the actual Wordle word. {severity_instruction}"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a ruthlessly funny Wordle roast bot. Your job is to hilariously mock players who fail. Be creative, use puns, wordplay, and savage humor. Think comedy roast style - brutal but clearly joking. Use emojis for emphasis. Never be boring or generic."},
+                {"role": "system", "content": f"You are a Wordle roast bot. Use puns, wordplay, and humor. Use emojis for emphasis. {severity_instruction}"},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=100,
@@ -1362,6 +1416,7 @@ def dashboard_ai_settings(league_id):
     ai_failure_roast = request.form.get('ai_failure_roast') == 'true'
     ai_sunday_race = request.form.get('ai_sunday_race_update') == 'true'
     ai_daily_loser = request.form.get('ai_daily_loser_roast') == 'true'
+    ai_severity = int(request.form.get('ai_message_severity', 2))
     
     try:
         conn = get_db_connection()
@@ -1372,19 +1427,42 @@ def dashboard_ai_settings(league_id):
             SET ai_perfect_score_congrats = %s,
                 ai_failure_roast = %s,
                 ai_sunday_race_update = %s,
-                ai_daily_loser_roast = %s
+                ai_daily_loser_roast = %s,
+                ai_message_severity = %s
             WHERE id = %s
-        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, league_id))
+        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, ai_severity, league_id))
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        logging.info(f"Updated AI settings for league {league_id}: perfect={ai_perfect_score}, failure={ai_failure_roast}, sunday={ai_sunday_race}, daily_loser={ai_daily_loser}")
+        logging.info(f"Updated AI settings for league {league_id}: perfect={ai_perfect_score}, failure={ai_failure_roast}, sunday={ai_sunday_race}, daily_loser={ai_daily_loser}, severity={ai_severity}")
         return redirect(f'/dashboard/league/{league_id}?message=AI messaging settings updated')
     except Exception as e:
         logging.error(f"Error updating AI settings: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to update AI settings')
+
+@app.route('/setup-ai-severity-column', methods=['POST'])
+def setup_ai_severity_column():
+    """One-time migration to add AI message severity column to leagues table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Add severity column (1=savage, 2=spicy, 3=playful, 4=gentle) - default 2 (spicy)
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS ai_message_severity INTEGER DEFAULT 2
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'AI severity column added successfully'})
+    except Exception as e:
+        logging.error(f"Error adding AI severity column: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-auth-tables', methods=['POST'])
 def setup_auth_tables():

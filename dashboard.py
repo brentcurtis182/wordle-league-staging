@@ -738,6 +738,21 @@ def render_league_management(user, league, players, message=None, error=None):
                 <h2>🤖 AI Automated Messaging</h2>
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 16px;">Control which AI-generated messages are sent to this league's group chat.</p>
                 
+                <!-- Severity Slider -->
+                <div class="severity-section">
+                    <label class="severity-label">
+                        <strong>Message Tone:</strong>
+                        <span id="severityLabel" class="severity-value">{['Savage 🔥', 'Spicy 🌶️', 'Playful 😄', 'Gentle 💚'][league.get('ai_message_severity', 2) - 1]}</span>
+                    </label>
+                    <input type="range" id="ai_severity" min="1" max="4" value="{league.get('ai_message_severity', 2)}" class="severity-slider" oninput="updateSeverityLabel(this.value)">
+                    <div class="severity-scale">
+                        <span>Savage</span>
+                        <span>Spicy</span>
+                        <span>Playful</span>
+                        <span>Gentle</span>
+                    </div>
+                </div>
+                
                 <div class="ai-toggle-list">
                     <div class="ai-toggle-item">
                         <label class="toggle-label">
@@ -754,7 +769,7 @@ def render_league_management(user, league, players, message=None, error=None):
                             <input type="checkbox" id="ai_failure_roast" {ai_failure_checked}>
                             <span class="toggle-text">
                                 <strong>🔥 Failure Roast</strong>
-                                <small>Roast players who fail with X/6 (savage but playful)</small>
+                                <small>Roast players who fail with X/6 (tone based on slider above)</small>
                             </span>
                         </label>
                     </div>
@@ -929,6 +944,58 @@ def render_league_management(user, league, players, message=None, error=None):
                 color: {COLORS['text_muted']};
                 font-size: 0.85em;
             }}
+            .severity-section {{
+                background: {COLORS['bg_dark']};
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                border: 1px solid {COLORS['border']};
+            }}
+            .severity-label {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+            }}
+            .severity-value {{
+                color: {COLORS['accent']};
+                font-weight: 600;
+            }}
+            .severity-slider {{
+                width: 100%;
+                height: 8px;
+                -webkit-appearance: none;
+                appearance: none;
+                background: linear-gradient(to right, #f44336, #FFA64D, #4CAF50, #00E8DA);
+                border-radius: 4px;
+                outline: none;
+            }}
+            .severity-slider::-webkit-slider-thumb {{
+                -webkit-appearance: none;
+                appearance: none;
+                width: 24px;
+                height: 24px;
+                background: white;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }}
+            .severity-slider::-moz-range-thumb {{
+                width: 24px;
+                height: 24px;
+                background: white;
+                border-radius: 50%;
+                cursor: pointer;
+                border: none;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }}
+            .severity-scale {{
+                display: flex;
+                justify-content: space-between;
+                margin-top: 8px;
+                font-size: 0.75em;
+                color: {COLORS['text_muted']};
+            }}
         </style>
         
         <!-- Hidden forms for submission -->
@@ -948,6 +1015,7 @@ def render_league_management(user, league, players, message=None, error=None):
             <input type="hidden" name="ai_failure_roast" id="aiFailureRoastInput">
             <input type="hidden" name="ai_sunday_race_update" id="aiSundayRaceInput">
             <input type="hidden" name="ai_daily_loser_roast" id="aiDailyLoserInput">
+            <input type="hidden" name="ai_message_severity" id="aiSeverityInput">
         </form>
         
         <script>
@@ -1055,12 +1123,18 @@ def render_league_management(user, league, players, message=None, error=None):
             }}
             
             // AI Settings functions
+            const severityLabels = ['Savage 🔥', 'Spicy 🌶️', 'Playful 😄', 'Gentle 💚'];
             const originalAISettings = {{
                 perfect: {str(league.get('ai_perfect_score_congrats', False)).lower()},
                 failure: {str(league.get('ai_failure_roast', True)).lower()},
                 sunday: {str(league.get('ai_sunday_race_update', True)).lower()},
-                daily: {str(league.get('ai_daily_loser_roast', False)).lower()}
+                daily: {str(league.get('ai_daily_loser_roast', False)).lower()},
+                severity: {league.get('ai_message_severity', 2)}
             }};
+            
+            function updateSeverityLabel(value) {{
+                document.getElementById('severityLabel').textContent = severityLabels[value - 1];
+            }}
             
             function saveAISettings() {{
                 // Build changes summary
@@ -1069,6 +1143,7 @@ def render_league_management(user, league, players, message=None, error=None):
                 const failure = document.getElementById('ai_failure_roast').checked;
                 const sunday = document.getElementById('ai_sunday_race').checked;
                 const daily = document.getElementById('ai_daily_loser').checked;
+                const severity = parseInt(document.getElementById('ai_severity').value);
                 
                 if (perfect !== originalAISettings.perfect) {{
                     changes.push('🎯 Perfect Score Congrats: ' + (perfect ? 'ON' : 'OFF'));
@@ -1081,6 +1156,9 @@ def render_league_management(user, league, players, message=None, error=None):
                 }}
                 if (daily !== originalAISettings.daily) {{
                     changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
+                }}
+                if (severity !== originalAISettings.severity) {{
+                    changes.push('🎚️ Message Tone: ' + severityLabels[severity - 1]);
                 }}
                 
                 if (changes.length === 0) {{
@@ -1097,11 +1175,12 @@ def render_league_management(user, league, players, message=None, error=None):
             }}
             
             function confirmAISettings() {{
-                // Get checkbox values
+                // Get checkbox values and severity
                 document.getElementById('aiPerfectScoreInput').value = document.getElementById('ai_perfect_score').checked ? 'true' : 'false';
                 document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
                 document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
                 document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
+                document.getElementById('aiSeverityInput').value = document.getElementById('ai_severity').value;
                 
                 closeAISettingsModal();
                 showLoading('Saving AI settings...');
@@ -1172,7 +1251,8 @@ def get_league_info(league_id):
         cursor.execute("""
             SELECT id, name, display_name, twilio_conversation_sid,
                    ai_perfect_score_congrats, ai_failure_roast, 
-                   ai_sunday_race_update, ai_daily_loser_roast
+                   ai_sunday_race_update, ai_daily_loser_roast,
+                   ai_message_severity
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -1187,7 +1267,8 @@ def get_league_info(league_id):
                 'ai_perfect_score_congrats': row[4] if row[4] is not None else False,
                 'ai_failure_roast': row[5] if row[5] is not None else True,
                 'ai_sunday_race_update': row[6] if row[6] is not None else True,
-                'ai_daily_loser_roast': row[7] if row[7] is not None else False
+                'ai_daily_loser_roast': row[7] if row[7] is not None else False,
+                'ai_message_severity': row[8] if row[8] is not None else 2
             }
         return None
     finally:
