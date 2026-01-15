@@ -463,9 +463,15 @@ def render_dashboard(user, leagues, message=None, error=None):
     league_cards = ""
     for league in leagues:
         wix_path = get_league_wix_url(league['id'])
+        is_active = league.get('conversation_sid') is not None
+        status_color = '#2ECC71' if is_active else COLORS['orange']
+        status_text = '✓ Active' if is_active else '⚠ Inactive'
         league_cards += f"""
         <div class="league-card">
-            <h3>{league['display_name']}</h3>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h3>{league['display_name']}</h3>
+                <span style="background: {status_color}; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 600; white-space: nowrap;">{status_text}</span>
+            </div>
             <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
