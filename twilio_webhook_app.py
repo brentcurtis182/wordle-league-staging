@@ -488,10 +488,10 @@ def get_severity_prompt(severity, message_type):
         }
     elif message_type == 'congrats':
         prompts = {
-            1: "Be over-the-top dramatic and intense with your celebration. Maximum hype energy!",
-            2: "Be enthusiastic and excited. High energy celebration with some flair.",
-            3: "Be warm and genuinely happy for them. Friendly celebration.",
-            4: "Be sweet and wholesome. Gentle, heartfelt congratulations."
+            1: "Be VERY suspicious they're cheating. Congratulate them but heavily imply you don't believe it's legit. Playful accusations, side-eye emojis 👀🤔. Make it funny but skeptical.",
+            2: "Be skeptical but impressed. Congratulate them while jokingly questioning if they cheated. Mix suspicion with genuine props. Use 🤨👀 type emojis.",
+            3: "Be impressed and celebratory with just a tiny hint of playful suspicion. Mostly genuine congrats with a wink.",
+            4: "Be genuinely impressed and wholesome. No suspicion at all - just pure, heartfelt congratulations for an amazing score! 🎉🏆"
         }
     else:
         return ""
