@@ -780,6 +780,7 @@ def render_league_management(user, league, players, message=None, error=None):
                             <span class="toggle-text">
                                 <strong>📊 Sunday Race Update</strong>
                                 <small>10am Sunday summary showing who can still win the week</small>
+                                <span class="tone-na">Tone: N/A (informational)</span>
                             </span>
                         </label>
                     </div>
@@ -943,6 +944,12 @@ def render_league_management(user, league, players, message=None, error=None):
             .toggle-text small {{
                 color: {COLORS['text_muted']};
                 font-size: 0.85em;
+            }}
+            .tone-na {{
+                font-size: 0.75em;
+                color: {COLORS['text_muted']};
+                font-style: italic;
+                margin-top: 4px;
             }}
             .severity-section {{
                 background: {COLORS['bg_dark']};
