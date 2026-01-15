@@ -901,7 +901,20 @@ def render_league_management(user, league, players, message=None, error=None):
                 
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeMessageConfig()">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-small" onclick="saveMessageConfig()">Save</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="showMessageConfigConfirm()">Save</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Config Confirmation Modal -->
+        <div class="modal-overlay" id="messageConfigConfirmModal">
+            <div class="modal">
+                <h3>🤖 Update Message Settings?</h3>
+                <p>Are you sure you want to update these settings?</p>
+                <div id="messageConfigChanges" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.9em;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeMessageConfigConfirm()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmMessageConfig()">Yes, Update</button>
                 </div>
             </div>
         </div>
@@ -1347,32 +1360,95 @@ def render_league_management(user, league, players, message=None, error=None):
                 }}
             }}
             
-            function saveMessageConfig() {{
+            // Pending message config changes (stored until confirmed)
+            let pendingConfigChanges = null;
+            
+            function showMessageConfigConfirm() {{
                 if (!currentMessageType) return;
                 
-                // Save severity for this message type
+                // Build changes summary
+                const changes = [];
                 const severity = parseInt(document.getElementById('configSeverity').value);
-                originalAISettings[currentMessageType + '_severity'] = severity;
+                const originalSeverity = originalAISettings[currentMessageType + '_severity'] || 2;
                 
-                // Update the label on the main page
-                document.getElementById(currentMessageType + '_tone_label').textContent = severityNames[severity - 1];
+                if (severity !== originalSeverity) {{
+                    changes.push('🎚️ Default Tone: ' + severityLabels[severity - 1]);
+                }}
                 
-                // Save player settings
+                // Check player changes
                 let enabledCount = 0;
+                let playerChanges = [];
                 players.forEach(player => {{
                     const enabled = document.getElementById('player_' + player.id + '_enabled').checked;
                     const severityVal = document.getElementById('player_' + player.id + '_severity').value;
-                    messagePlayerSettings[currentMessageType + '_' + player.id] = {{
+                    const existingSettings = messagePlayerSettings[currentMessageType + '_' + player.id] || {{enabled: true, severity: null}};
+                    
+                    if (enabled !== existingSettings.enabled) {{
+                        playerChanges.push(player.name + ': ' + (enabled ? '✅ Enabled' : '❌ Excluded'));
+                    }}
+                    if ((severityVal || null) !== (existingSettings.severity ? String(existingSettings.severity) : null)) {{
+                        if (severityVal) {{
+                            playerChanges.push(player.name + ': Tone → ' + severityLabels[parseInt(severityVal) - 1]);
+                        }} else {{
+                            playerChanges.push(player.name + ': Tone → Default');
+                        }}
+                    }}
+                    if (enabled) enabledCount++;
+                }});
+                
+                if (playerChanges.length > 0) {{
+                    changes.push('👥 Player changes:<br>&nbsp;&nbsp;• ' + playerChanges.join('<br>&nbsp;&nbsp;• '));
+                }}
+                
+                if (changes.length === 0) {{
+                    alert('No changes to save.');
+                    return;
+                }}
+                
+                // Store pending changes
+                pendingConfigChanges = {{
+                    messageType: currentMessageType,
+                    severity: severity,
+                    enabledCount: enabledCount
+                }};
+                
+                document.getElementById('messageConfigChanges').innerHTML = changes.join('<br>');
+                document.getElementById('messageConfigConfirmModal').classList.add('active');
+            }}
+            
+            function closeMessageConfigConfirm() {{
+                document.getElementById('messageConfigConfirmModal').classList.remove('active');
+                pendingConfigChanges = null;
+            }}
+            
+            function confirmMessageConfig() {{
+                if (!pendingConfigChanges) return;
+                
+                const messageType = pendingConfigChanges.messageType;
+                const severity = pendingConfigChanges.severity;
+                const enabledCount = pendingConfigChanges.enabledCount;
+                
+                // Save severity for this message type
+                originalAISettings[messageType + '_severity'] = severity;
+                
+                // Update the label on the main page
+                document.getElementById(messageType + '_tone_label').textContent = severityNames[severity - 1];
+                
+                // Save player settings
+                players.forEach(player => {{
+                    const enabled = document.getElementById('player_' + player.id + '_enabled').checked;
+                    const severityVal = document.getElementById('player_' + player.id + '_severity').value;
+                    messagePlayerSettings[messageType + '_' + player.id] = {{
                         enabled: enabled,
                         severity: severityVal ? parseInt(severityVal) : null
                     }};
-                    if (enabled) enabledCount++;
                 }});
                 
                 // Update players label
                 const playersLabel = enabledCount === players.length ? 'All' : enabledCount + '/' + players.length;
-                document.getElementById(currentMessageType + '_players_label').textContent = playersLabel;
+                document.getElementById(messageType + '_players_label').textContent = playersLabel;
                 
+                closeMessageConfigConfirm();
                 closeMessageConfig();
             }}
             
@@ -1454,6 +1530,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     closeRenameModal();
                     closeAISettingsModal();
                     closeMessageConfig();
+                    closeMessageConfigConfirm();
                 }}
             }});
             
