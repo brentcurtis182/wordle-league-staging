@@ -8,7 +8,7 @@ import os
 import re
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect, make_response
 from twilio.twiml.messaging_response import MessagingResponse
 import psycopg2
 
@@ -19,6 +19,7 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-in-production')
 
 def run_pipeline_with_retry(league_id, max_retries=3):
     """Run the update pipeline with retry logic and exponential backoff"""
@@ -871,6 +872,304 @@ def webhook():
 def health():
     """Health check endpoint"""
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
+
+# =============================================================================
+# AUTH ROUTES - User Registration, Login, Logout
+# =============================================================================
+
+@app.route('/auth/login', methods=['GET', 'POST'])
+def auth_login():
+    """Login page and handler"""
+    from auth import login_user, validate_session
+    from dashboard import render_login_page
+    
+    # Check if already logged in
+    session_token = request.cookies.get('session_token')
+    if session_token and validate_session(session_token):
+        return redirect('/dashboard')
+    
+    if request.method == 'GET':
+        success = request.args.get('registered')
+        return render_login_page(success='Account created! Please sign in.' if success else None)
+    
+    # POST - handle login
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    
+    if not email or not password:
+        return render_login_page(error='Please enter email and password')
+    
+    result = login_user(email, password)
+    
+    if result['success']:
+        response = make_response(redirect('/dashboard'))
+        response.set_cookie('session_token', result['session_token'], 
+                          max_age=30*24*60*60,  # 30 days
+                          httponly=True,
+                          samesite='Lax')
+        return response
+    else:
+        return render_login_page(error=result['error'])
+
+@app.route('/auth/register', methods=['GET', 'POST'])
+def auth_register():
+    """Registration page and handler"""
+    from auth import register_user, validate_session
+    from dashboard import render_register_page
+    
+    # Check if already logged in
+    session_token = request.cookies.get('session_token')
+    if session_token and validate_session(session_token):
+        return redirect('/dashboard')
+    
+    if request.method == 'GET':
+        return render_register_page()
+    
+    # POST - handle registration
+    name = request.form.get('name', '').strip()
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    if not name or not email or not password:
+        return render_register_page(error='All fields are required')
+    
+    if len(password) < 8:
+        return render_register_page(error='Password must be at least 8 characters')
+    
+    if password != confirm_password:
+        return render_register_page(error='Passwords do not match')
+    
+    result = register_user(email, password, name)
+    
+    if result['success']:
+        return redirect('/auth/login?registered=1')
+    else:
+        return render_register_page(error=result['error'])
+
+@app.route('/auth/logout')
+def auth_logout():
+    """Logout handler"""
+    from auth import logout_user
+    
+    session_token = request.cookies.get('session_token')
+    if session_token:
+        logout_user(session_token)
+    
+    response = make_response(redirect('/auth/login'))
+    response.delete_cookie('session_token')
+    return response
+
+# =============================================================================
+# DASHBOARD ROUTES - League Management UI
+# =============================================================================
+
+@app.route('/dashboard')
+def dashboard():
+    """Main dashboard page"""
+    from auth import validate_session, get_user_leagues
+    from dashboard import render_dashboard
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    leagues = get_user_leagues(user['id'])
+    message = request.args.get('message')
+    error = request.args.get('error')
+    
+    return render_dashboard(user, leagues, message=message, error=error)
+
+@app.route('/dashboard/league/<int:league_id>')
+def dashboard_league(league_id):
+    """League management page"""
+    from auth import validate_session, can_manage_league
+    from dashboard import render_league_management, get_league_players, get_league_info
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    league = get_league_info(league_id)
+    if not league:
+        return redirect('/dashboard?error=League not found')
+    
+    players = get_league_players(league_id)
+    message = request.args.get('message')
+    error = request.args.get('error')
+    
+    return render_league_management(user, league, players, message=message, error=error)
+
+@app.route('/dashboard/league/<int:league_id>/rename', methods=['POST'])
+def dashboard_rename_league(league_id):
+    """Rename a league"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    display_name = request.form.get('display_name', '').strip()
+    if not display_name:
+        return redirect(f'/dashboard/league/{league_id}?error=Display name is required')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE leagues SET display_name = %s WHERE id = %s", (display_name, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Regenerate HTML to reflect the name change
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+        
+        return redirect(f'/dashboard/league/{league_id}?message=League renamed successfully')
+    except Exception as e:
+        logging.error(f"Error renaming league: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to rename league')
+
+@app.route('/dashboard/league/<int:league_id>/add-player', methods=['POST'])
+def dashboard_add_player(league_id):
+    """Add a player to a league"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    name = request.form.get('name', '').strip()
+    phone = request.form.get('phone', '').strip()
+    
+    # Clean phone number - remove non-digits
+    phone = re.sub(r'\D', '', phone)
+    
+    if not name or not phone:
+        return redirect(f'/dashboard/league/{league_id}?error=Name and phone are required')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if phone already exists in this league
+        cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number = %s", (league_id, phone))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return redirect(f'/dashboard/league/{league_id}?error=Phone number already exists in this league')
+        
+        # Insert new player
+        cursor.execute("""
+            INSERT INTO players (name, phone_number, league_id, active)
+            VALUES (%s, %s, %s, TRUE)
+        """, (name, phone, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Added player {name} ({phone}) to league {league_id}")
+        return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
+    except Exception as e:
+        logging.error(f"Error adding player: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to add player')
+
+@app.route('/dashboard/league/<int:league_id>/remove-player', methods=['POST'])
+def dashboard_remove_player(league_id):
+    """Remove a player from a league (soft delete)"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    player_id = request.form.get('player_id')
+    if not player_id:
+        return redirect(f'/dashboard/league/{league_id}?error=Player ID is required')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get player name for message
+        cursor.execute("SELECT name FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return redirect(f'/dashboard/league/{league_id}?error=Player not found')
+        
+        player_name = result[0]
+        
+        # Soft delete - set active to FALSE
+        cursor.execute("UPDATE players SET active = FALSE WHERE id = %s AND league_id = %s", (player_id, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Regenerate HTML
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+        
+        logging.info(f"Removed player {player_name} from league {league_id}")
+        return redirect(f'/dashboard/league/{league_id}?message=Player {player_name} removed')
+    except Exception as e:
+        logging.error(f"Error removing player: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to remove player')
+
+@app.route('/setup-auth-tables', methods=['POST'])
+def setup_auth_tables():
+    """One-time setup endpoint to create auth tables"""
+    try:
+        from auth import create_auth_tables
+        result = create_auth_tables()
+        return jsonify({'success': result, 'message': 'Auth tables created' if result else 'Failed to create tables'})
+    except Exception as e:
+        logging.error(f"Error setting up auth tables: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/assign-leagues-to-user', methods=['POST'])
+def assign_leagues_to_user():
+    """Admin endpoint to assign existing leagues to a user"""
+    try:
+        from auth import assign_league_to_user
+        
+        data = request.get_json()
+        user_id = data.get('user_id')
+        league_ids = data.get('league_ids', [])
+        
+        if not user_id or not league_ids:
+            return jsonify({'success': False, 'error': 'user_id and league_ids required'}), 400
+        
+        for league_id in league_ids:
+            assign_league_to_user(user_id, league_id, 'owner')
+        
+        return jsonify({'success': True, 'message': f'Assigned {len(league_ids)} leagues to user {user_id}'})
+    except Exception as e:
+        logging.error(f"Error assigning leagues: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/recent-messages/<int:league_id>', methods=['GET'])
 def recent_messages(league_id):

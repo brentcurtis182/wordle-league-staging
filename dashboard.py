@@ -1,0 +1,593 @@
+#!/usr/bin/env python3
+"""
+Dashboard and League Management UI for Wordle League
+"""
+
+import os
+import logging
+from flask import Blueprint, request, jsonify, redirect, make_response
+from auth import login_required, can_manage_league, get_user_leagues, validate_session
+from league_data_adapter import get_db_connection
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+dashboard_bp = Blueprint('dashboard', __name__)
+
+# Color scheme matching the site
+COLORS = {
+    'bg_dark': '#1a1a1b',
+    'bg_card': '#272729',
+    'accent': '#00E8DA',
+    'accent_orange': '#FFA64D',
+    'text': '#d7dadc',
+    'text_muted': '#818384',
+    'success': '#4CAF50',
+    'error': '#f44336',
+}
+
+def get_base_styles():
+    """Return base CSS styles for all dashboard pages"""
+    return f"""
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: {COLORS['bg_dark']};
+            color: {COLORS['text']};
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 30px;
+        }}
+        .logo {{
+            font-size: 1.5em;
+            font-weight: bold;
+            color: {COLORS['accent']};
+        }}
+        .logo span {{ color: {COLORS['accent_orange']}; }}
+        .nav-links a {{
+            color: {COLORS['text']};
+            text-decoration: none;
+            margin-left: 20px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }}
+        .nav-links a:hover {{ background: {COLORS['bg_card']}; }}
+        .nav-links a.logout {{ color: {COLORS['accent_orange']}; }}
+        .card {{
+            background: {COLORS['bg_card']};
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }}
+        .card h2 {{
+            color: {COLORS['accent']};
+            margin-bottom: 16px;
+            font-size: 1.3em;
+        }}
+        .btn {{
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }}
+        .btn-primary {{
+            background: {COLORS['accent']};
+            color: {COLORS['bg_dark']};
+        }}
+        .btn-primary:hover {{ background: #00c4b8; }}
+        .btn-secondary {{
+            background: transparent;
+            color: {COLORS['accent']};
+            border: 2px solid {COLORS['accent']};
+        }}
+        .btn-secondary:hover {{ background: rgba(0, 232, 218, 0.1); }}
+        .btn-danger {{
+            background: {COLORS['error']};
+            color: white;
+        }}
+        .btn-danger:hover {{ background: #d32f2f; }}
+        .btn-small {{
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }}
+        .form-group {{
+            margin-bottom: 20px;
+        }}
+        .form-group label {{
+            display: block;
+            margin-bottom: 8px;
+            color: {COLORS['text_muted']};
+            font-size: 0.9em;
+        }}
+        .form-group input, .form-group select {{
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: {COLORS['bg_dark']};
+            color: {COLORS['text']};
+            font-size: 1em;
+        }}
+        .form-group input:focus {{
+            outline: none;
+            border-color: {COLORS['accent']};
+        }}
+        .league-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }}
+        .league-card {{
+            background: {COLORS['bg_card']};
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #333;
+            transition: border-color 0.2s;
+        }}
+        .league-card:hover {{ border-color: {COLORS['accent']}; }}
+        .league-card h3 {{
+            color: {COLORS['accent']};
+            margin-bottom: 8px;
+        }}
+        .league-card .meta {{
+            color: {COLORS['text_muted']};
+            font-size: 0.9em;
+            margin-bottom: 16px;
+        }}
+        .league-card .actions {{
+            display: flex;
+            gap: 10px;
+        }}
+        .player-list {{
+            list-style: none;
+        }}
+        .player-item {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: {COLORS['bg_dark']};
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }}
+        .player-item .name {{ font-weight: 500; }}
+        .player-item .phone {{ color: {COLORS['text_muted']}; font-size: 0.9em; }}
+        .alert {{
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }}
+        .alert-success {{ background: rgba(76, 175, 80, 0.2); border: 1px solid {COLORS['success']}; }}
+        .alert-error {{ background: rgba(244, 67, 54, 0.2); border: 1px solid {COLORS['error']}; }}
+        .tabs {{
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }}
+        .tab {{
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: {COLORS['text_muted']};
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            font-size: 1em;
+        }}
+        .tab.active {{
+            color: {COLORS['accent']};
+            background: {COLORS['bg_card']};
+        }}
+        .tab:hover {{ color: {COLORS['text']}; }}
+        .modal-overlay {{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }}
+        .modal {{
+            background: {COLORS['bg_card']};
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }}
+        .modal h2 {{ margin-bottom: 20px; }}
+    """
+
+
+def render_login_page(error=None, success=None):
+    """Render the login page"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Login - Wordplay League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 400px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 8px;
+                color: {COLORS['accent']};
+            }}
+            .auth-card .subtitle {{
+                text-align: center;
+                color: {COLORS['text_muted']};
+                margin-bottom: 30px;
+            }}
+            .auth-footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: {COLORS['text_muted']};
+            }}
+            .auth-footer a {{ color: {COLORS['accent']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1>🎯 Wordplay League</h1>
+                <p class="subtitle">Sign in to manage your leagues</p>
+                
+                {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+                {'<div class="alert alert-success">' + success + '</div>' if success else ''}
+                
+                <form method="POST" action="/auth/login">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+                </form>
+                
+                <div class="auth-footer">
+                    Don't have an account? <a href="/auth/register">Sign up</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_register_page(error=None):
+    """Render the registration page"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Register - Wordplay League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 400px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 8px;
+                color: {COLORS['accent']};
+            }}
+            .auth-card .subtitle {{
+                text-align: center;
+                color: {COLORS['text_muted']};
+                margin-bottom: 30px;
+            }}
+            .auth-footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: {COLORS['text_muted']};
+            }}
+            .auth-footer a {{ color: {COLORS['accent']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1>🎯 Wordplay League</h1>
+                <p class="subtitle">Create your account</p>
+                
+                {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+                
+                <form method="POST" action="/auth/register">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="name" required placeholder="Your name">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" required placeholder="••••••••" minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" name="confirm_password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+                </form>
+                
+                <div class="auth-footer">
+                    Already have an account? <a href="/auth/login">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_dashboard(user, leagues, message=None, error=None):
+    """Render the main dashboard"""
+    league_cards = ""
+    for league in leagues:
+        league_cards += f"""
+        <div class="league-card">
+            <h3>{league['display_name']}</h3>
+            <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
+            <div class="actions">
+                <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
+                <a href="https://wordplayleague.com/leagues/{league['name'].lower()}" target="_blank" class="btn btn-secondary btn-small">View</a>
+            </div>
+        </div>
+        """
+    
+    if not leagues:
+        league_cards = """
+        <div class="card" style="text-align: center; padding: 40px;">
+            <p style="color: #818384; margin-bottom: 20px;">You don't have any leagues yet.</p>
+            <a href="/dashboard/create-league" class="btn btn-primary">Create Your First League</a>
+        </div>
+        """
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Dashboard - Wordplay League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>{get_base_styles()}</style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">🎯 Wordplay <span>League</span></div>
+                <div class="nav-links">
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/auth/logout" class="logout">Logout</a>
+                </div>
+            </div>
+            
+            {'<div class="alert alert-success">' + message + '</div>' if message else ''}
+            {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+            
+            <div class="card">
+                <h2>👋 Welcome, {user['name'] or user['email']}!</h2>
+                <p style="color: {COLORS['text_muted']};">Manage your Wordle leagues from here.</p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: {COLORS['text']};">Your Leagues</h2>
+            </div>
+            
+            <div class="league-grid">
+                {league_cards}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_league_management(user, league, players, message=None, error=None):
+    """Render the league management page"""
+    player_rows = ""
+    for player in players:
+        player_rows += f"""
+        <div class="player-item">
+            <div>
+                <div class="name">{player['name']}</div>
+                <div class="phone">{player['phone']}</div>
+            </div>
+            <form method="POST" action="/dashboard/league/{league['id']}/remove-player" style="margin: 0;">
+                <input type="hidden" name="player_id" value="{player['id']}">
+                <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Remove {player['name']} from this league?')">Remove</button>
+            </form>
+        </div>
+        """
+    
+    if not players:
+        player_rows = '<p style="color: #818384; padding: 20px; text-align: center;">No players in this league yet.</p>'
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{league['display_name']} - Manage League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .back-link {{
+                color: {COLORS['accent']};
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 20px;
+            }}
+            .back-link:hover {{ text-decoration: underline; }}
+            .section {{ margin-bottom: 30px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">🎯 Wordplay <span>League</span></div>
+                <div class="nav-links">
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/auth/logout" class="logout">Logout</a>
+                </div>
+            </div>
+            
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+            
+            {'<div class="alert alert-success">' + message + '</div>' if message else ''}
+            {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+            
+            <div class="card">
+                <h2>⚙️ {league['display_name']}</h2>
+                <p style="color: {COLORS['text_muted']};">League ID: {league['id']}</p>
+            </div>
+            
+            <!-- Rename League Section -->
+            <div class="card section">
+                <h2>📝 League Settings</h2>
+                <form method="POST" action="/dashboard/league/{league['id']}/rename">
+                    <div class="form-group">
+                        <label>League Display Name</label>
+                        <input type="text" name="display_name" value="{league['display_name']}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+            
+            <!-- Players Section -->
+            <div class="card section">
+                <h2>👥 Players ({len(players)})</h2>
+                <div class="player-list">
+                    {player_rows}
+                </div>
+            </div>
+            
+            <!-- Add Player Section -->
+            <div class="card section">
+                <h2>➕ Add Player</h2>
+                <form method="POST" action="/dashboard/league/{league['id']}/add-player">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Player Name</label>
+                            <input type="text" name="name" required placeholder="John Doe">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" name="phone" required placeholder="18585551234">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Player</button>
+                </form>
+            </div>
+            
+            <!-- View League Link -->
+            <div class="card">
+                <h2>🔗 Public League Page</h2>
+                <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
+                <a href="https://wordplayleague.com/leagues/{league['name'].lower()}" target="_blank" class="btn btn-secondary">
+                    View Public Page →
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def get_league_players(league_id):
+    """Get all players in a league"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, name, phone_number
+            FROM players
+            WHERE league_id = %s AND active = TRUE
+            ORDER BY name
+        """, (league_id,))
+        
+        players = []
+        for row in cursor.fetchall():
+            players.append({
+                'id': row[0],
+                'name': row[1],
+                'phone': row[2]
+            })
+        return players
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_league_info(league_id):
+    """Get league information"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, name, display_name, twilio_conversation_sid
+            FROM leagues
+            WHERE id = %s
+        """, (league_id,))
+        
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row[0],
+                'name': row[1],
+                'display_name': row[2],
+                'conversation_sid': row[3]
+            }
+        return None
+    finally:
+        cursor.close()
+        conn.close()
