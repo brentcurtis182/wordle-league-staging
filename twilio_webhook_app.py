@@ -1295,6 +1295,54 @@ def dashboard_remove_player(league_id):
         logging.error(f"Error removing player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to remove player')
 
+@app.route('/setup-ai-messaging-columns', methods=['POST'])
+def setup_ai_messaging_columns():
+    """One-time migration to add AI messaging toggle columns to leagues table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Add 4 columns for AI messaging toggles
+        columns = [
+            ("ai_perfect_score_congrats", "FALSE"),
+            ("ai_failure_roast", "TRUE"),
+            ("ai_sunday_race_update", "TRUE"),
+            ("ai_daily_loser_roast", "FALSE")
+        ]
+        
+        results = []
+        for col_name, default_val in columns:
+            try:
+                cursor.execute(f"""
+                    ALTER TABLE leagues 
+                    ADD COLUMN IF NOT EXISTS {col_name} BOOLEAN DEFAULT {default_val}
+                """)
+                results.append(f"Added {col_name}")
+            except Exception as e:
+                results.append(f"{col_name}: {str(e)}")
+                conn.rollback()
+        
+        conn.commit()
+        
+        # Verify columns exist
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'leagues' AND column_name LIKE 'ai_%'
+        """)
+        ai_columns = [c[0] for c in cursor.fetchall()]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'ai_columns': ai_columns
+        })
+    except Exception as e:
+        logging.error(f"Error setting up AI messaging columns: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/dashboard/league/<int:league_id>/ai-settings', methods=['POST'])
 def dashboard_ai_settings(league_id):
     """Update AI messaging settings for a league"""
