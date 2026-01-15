@@ -1316,7 +1316,7 @@ def serve_static(filename):
 def public_league_page(slug):
     """Public league page - serves the leaderboard HTML at root path (e.g., /warriorz)"""
     # Skip known routes to avoid conflicts
-    known_routes = ['auth', 'dashboard', 'static', 'webhook', 'sms', 'setup', 'recent', 'assign', 'favicon.ico']
+    known_routes = ['auth', 'dashboard', 'static', 'webhook', 'sms', 'setup', 'recent', 'assign', 'favicon.ico', 'styles.css', 'script.js', 'tabs.js']
     if slug in known_routes or slug.startswith('setup-') or slug.startswith('recent-') or slug.startswith('assign-'):
         return "Not found", 404
     try:
@@ -1342,12 +1342,39 @@ def public_league_page(slug):
         html_content = generate_league_html(league_id)
         
         if html_content:
+            # Inline the CSS and JS files so the page works standalone
+            import os
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            
+            with open(os.path.join(base_dir, 'styles.css'), 'r', encoding='utf-8') as f:
+                styles_css = f.read()
+            with open(os.path.join(base_dir, 'script.js'), 'r', encoding='utf-8') as f:
+                script_js = f.read()
+            with open(os.path.join(base_dir, 'tabs.js'), 'r', encoding='utf-8') as f:
+                tabs_js = f.read()
+            
+            # Replace external references with inline content
+            html_content = html_content.replace(
+                '<link rel="stylesheet" href="styles.css"/>',
+                f'<style>{styles_css}</style>'
+            )
+            html_content = html_content.replace(
+                '<script src="script.js"></script>',
+                f'<script>{script_js}</script>'
+            )
+            html_content = html_content.replace(
+                '<script src="tabs.js"></script>',
+                f'<script>{tabs_js}</script>'
+            )
+            
             return html_content
         else:
             return f"<h1>{display_name}</h1><p>No data available yet.</p>", 200
             
     except Exception as e:
         logging.error(f"Error serving public league page: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return "Error loading league", 500
 
 @app.route('/dashboard/league/<int:league_id>/rename', methods=['POST'])
