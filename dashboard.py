@@ -508,6 +508,13 @@ def render_dashboard(user, leagues, message=None, error=None):
 
 def render_league_management(user, league, players, message=None, error=None):
     """Render the league management page"""
+    
+    # Pre-compute AI settings checkbox states
+    ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
+    ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
+    ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
+    ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
+    
     player_rows = ""
     for player in players:
         player_rows += f"""
@@ -731,7 +738,7 @@ def render_league_management(user, league, players, message=None, error=None):
                 <div class="ai-toggle-list">
                     <div class="ai-toggle-item">
                         <label class="toggle-label">
-                            <input type="checkbox" id="ai_perfect_score" {'checked' if league.get('ai_perfect_score_congrats') else ''}>
+                            <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked}>
                             <span class="toggle-text">
                                 <strong>🎯 Perfect Score Congrats</strong>
                                 <small>Celebrate 1/6 or 2/6 scores with playful "cheating" jokes and whale emojis</small>
@@ -741,7 +748,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     
                     <div class="ai-toggle-item">
                         <label class="toggle-label">
-                            <input type="checkbox" id="ai_failure_roast" {'checked' if league.get('ai_failure_roast') else ''}>
+                            <input type="checkbox" id="ai_failure_roast" {ai_failure_checked}>
                             <span class="toggle-text">
                                 <strong>🔥 Failure Roast</strong>
                                 <small>Roast players who fail with X/6 (savage but playful)</small>
@@ -751,7 +758,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     
                     <div class="ai-toggle-item">
                         <label class="toggle-label">
-                            <input type="checkbox" id="ai_sunday_race" {'checked' if league.get('ai_sunday_race_update') else ''}>
+                            <input type="checkbox" id="ai_sunday_race" {ai_sunday_checked}>
                             <span class="toggle-text">
                                 <strong>📊 Sunday Race Update</strong>
                                 <small>10am Sunday summary showing who can still win the week</small>
@@ -761,7 +768,7 @@ def render_league_management(user, league, players, message=None, error=None):
                     
                     <div class="ai-toggle-item">
                         <label class="toggle-label">
-                            <input type="checkbox" id="ai_daily_loser" {'checked' if league.get('ai_daily_loser_roast') else ''}>
+                            <input type="checkbox" id="ai_daily_loser" {ai_daily_checked}>
                             <span class="toggle-text">
                                 <strong>😈 Daily Loser Roast</strong>
                                 <small>When all players post, roast the worst scorer using the Wordle word</small>
