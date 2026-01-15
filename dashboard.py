@@ -723,6 +723,56 @@ def render_league_management(user, league, players, message=None, error=None):
                 </form>
             </div>
             
+            <!-- AI Messaging Settings -->
+            <div class="card section">
+                <h2>🤖 AI Automated Messaging</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 16px;">Control which AI-generated messages are sent to this league's group chat.</p>
+                
+                <div class="ai-toggle-list">
+                    <div class="ai-toggle-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="ai_perfect_score" {'checked' if league.get('ai_perfect_score_congrats') else ''}>
+                            <span class="toggle-text">
+                                <strong>🎯 Perfect Score Congrats</strong>
+                                <small>Celebrate 1/6 or 2/6 scores with playful "cheating" jokes and whale emojis</small>
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-toggle-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="ai_failure_roast" {'checked' if league.get('ai_failure_roast') else ''}>
+                            <span class="toggle-text">
+                                <strong>🔥 Failure Roast</strong>
+                                <small>Roast players who fail with X/6 (savage but playful)</small>
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-toggle-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="ai_sunday_race" {'checked' if league.get('ai_sunday_race_update') else ''}>
+                            <span class="toggle-text">
+                                <strong>📊 Sunday Race Update</strong>
+                                <small>10am Sunday summary showing who can still win the week</small>
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-toggle-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="ai_daily_loser" {'checked' if league.get('ai_daily_loser_roast') else ''}>
+                            <span class="toggle-text">
+                                <strong>😈 Daily Loser Roast</strong>
+                                <small>When all players post, roast the worst scorer using the Wordle word</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn btn-primary" onclick="saveAISettings()" style="margin-top: 16px;">Save AI Settings</button>
+            </div>
+            
             <!-- View League Link -->
             <div class="card">
                 <h2>🔗 Public League Page</h2>
@@ -799,6 +849,42 @@ def render_league_management(user, league, players, message=None, error=None):
                 font-size: 1.1em;
                 margin: 0;
             }}
+            .ai-toggle-list {{
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }}
+            .ai-toggle-item {{
+                background: {COLORS['bg_main']};
+                padding: 12px 16px;
+                border-radius: 8px;
+                border: 1px solid {COLORS['border']};
+            }}
+            .toggle-label {{
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                cursor: pointer;
+            }}
+            .toggle-label input[type="checkbox"] {{
+                width: 20px;
+                height: 20px;
+                margin-top: 2px;
+                accent-color: {COLORS['accent']};
+                cursor: pointer;
+            }}
+            .toggle-text {{
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }}
+            .toggle-text strong {{
+                color: {COLORS['text']};
+            }}
+            .toggle-text small {{
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+            }}
         </style>
         
         <!-- Hidden forms for submission -->
@@ -812,6 +898,12 @@ def render_league_management(user, league, players, message=None, error=None):
         </form>
         <form id="renameLeagueForm" method="POST" action="/dashboard/league/{league['id']}/rename" style="display:none;">
             <input type="hidden" name="display_name" id="renameDisplayName">
+        </form>
+        <form id="aiSettingsForm" method="POST" action="/dashboard/league/{league['id']}/ai-settings" style="display:none;">
+            <input type="hidden" name="ai_perfect_score_congrats" id="aiPerfectScoreInput">
+            <input type="hidden" name="ai_failure_roast" id="aiFailureRoastInput">
+            <input type="hidden" name="ai_sunday_race_update" id="aiSundayRaceInput">
+            <input type="hidden" name="ai_daily_loser_roast" id="aiDailyLoserInput">
         </form>
         
         <script>
@@ -918,6 +1010,18 @@ def render_league_management(user, league, players, message=None, error=None):
                 document.getElementById('renameLeagueForm').submit();
             }}
             
+            // AI Settings functions
+            function saveAISettings() {{
+                // Get checkbox values
+                document.getElementById('aiPerfectScoreInput').value = document.getElementById('ai_perfect_score').checked ? 'true' : 'false';
+                document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
+                document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
+                document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
+                
+                showLoading('Saving AI settings...');
+                document.getElementById('aiSettingsForm').submit();
+            }}
+            
             // Close modals on escape key
             document.addEventListener('keydown', function(e) {{
                 if (e.key === 'Escape') {{
@@ -970,13 +1074,15 @@ def get_league_players(league_id):
 
 
 def get_league_info(league_id):
-    """Get league information"""
+    """Get league information including AI messaging settings"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute("""
-            SELECT id, name, display_name, twilio_conversation_sid
+            SELECT id, name, display_name, twilio_conversation_sid,
+                   ai_perfect_score_congrats, ai_failure_roast, 
+                   ai_sunday_race_update, ai_daily_loser_roast
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -987,7 +1093,11 @@ def get_league_info(league_id):
                 'id': row[0],
                 'name': row[1],
                 'display_name': row[2],
-                'conversation_sid': row[3]
+                'conversation_sid': row[3],
+                'ai_perfect_score_congrats': row[4] if row[4] is not None else False,
+                'ai_failure_roast': row[5] if row[5] is not None else True,
+                'ai_sunday_race_update': row[6] if row[6] is not None else True,
+                'ai_daily_loser_roast': row[7] if row[7] is not None else False
             }
         return None
     finally:

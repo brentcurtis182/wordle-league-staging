@@ -226,6 +226,50 @@ def upload_image_to_twilio(image_bytes, twilio_sid, twilio_token, chat_service_s
         logging.error(f"Error uploading image to Twilio: {e}")
         return None
 
+def is_ai_message_enabled(league_id, message_type):
+    """Check if a specific AI message type is enabled for a league"""
+    import psycopg2
+    try:
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            conn = psycopg2.connect(database_url)
+        else:
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST'),
+                database=os.environ.get('PGDATABASE'),
+                user=os.environ.get('PGUSER'),
+                password=os.environ.get('PGPASSWORD'),
+                port=os.environ.get('PGPORT', 5432)
+            )
+        
+        cursor = conn.cursor()
+        column_map = {
+            'perfect_score': 'ai_perfect_score_congrats',
+            'failure_roast': 'ai_failure_roast',
+            'sunday_race': 'ai_sunday_race_update',
+            'daily_loser': 'ai_daily_loser_roast'
+        }
+        column = column_map.get(message_type)
+        if not column:
+            cursor.close()
+            conn.close()
+            return False
+        
+        cursor.execute(f"SELECT {column} FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result and result[0] is not None:
+            return result[0]
+        
+        # Default values
+        defaults = {'sunday_race': True}
+        return defaults.get(message_type, False)
+    except Exception as e:
+        logging.error(f"Error checking AI message setting: {e}")
+        return True  # Default to enabled for sunday_race
+
 def send_sunday_race_update(league_id, force_season_image=False):
     """Send the Sunday race update message with precise scenario analysis
     
@@ -233,6 +277,11 @@ def send_sunday_race_update(league_id, force_season_image=False):
         league_id: The league to send the update to
         force_season_image: If True, always send season image (for testing)
     """
+    # Check if Sunday race update is enabled for this league
+    if not is_ai_message_enabled(league_id, 'sunday_race'):
+        logging.info(f"Sunday race update disabled for league {league_id}")
+        return False
+    
     try:
         from openai import OpenAI
         from twilio.rest import Client

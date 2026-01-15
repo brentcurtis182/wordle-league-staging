@@ -348,6 +348,70 @@ def get_todays_wordle_word():
         logging.error(f"Error fetching Wordle word: {e}")
         return None
 
+def is_ai_message_enabled(league_id, message_type):
+    """Check if a specific AI message type is enabled for a league
+    
+    message_type can be:
+    - 'perfect_score' (ai_perfect_score_congrats)
+    - 'failure_roast' (ai_failure_roast)
+    - 'sunday_race' (ai_sunday_race_update)
+    - 'daily_loser' (ai_daily_loser_roast)
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            # Default to current hardcoded behavior if DB unavailable
+            defaults = {
+                'perfect_score': False,
+                'failure_roast': True,
+                'sunday_race': True,
+                'daily_loser': False
+            }
+            return defaults.get(message_type, False)
+        
+        cursor = conn.cursor()
+        
+        column_map = {
+            'perfect_score': 'ai_perfect_score_congrats',
+            'failure_roast': 'ai_failure_roast',
+            'sunday_race': 'ai_sunday_race_update',
+            'daily_loser': 'ai_daily_loser_roast'
+        }
+        
+        column = column_map.get(message_type)
+        if not column:
+            cursor.close()
+            conn.close()
+            return False
+        
+        cursor.execute(f"SELECT {column} FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result and result[0] is not None:
+            return result[0]
+        
+        # Default values if column is NULL
+        defaults = {
+            'perfect_score': False,
+            'failure_roast': True,
+            'sunday_race': True,
+            'daily_loser': False
+        }
+        return defaults.get(message_type, False)
+        
+    except Exception as e:
+        logging.error(f"Error checking AI message setting: {e}")
+        # Default to current behavior
+        defaults = {
+            'perfect_score': False,
+            'failure_roast': True,
+            'sunday_race': True,
+            'daily_loser': False
+        }
+        return defaults.get(message_type, False)
+
 def check_and_roast_daily_losers(league_id, wordle_num, conn):
     """Check if all players have posted, then roast the lowest scorer(s)"""
     try:
@@ -691,29 +755,32 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             except Exception as e:
                 logging.error(f"Error checking if last to post: {e}")
             
-            # Auto-roast X/6 failures in all leagues
+            # Auto-roast X/6 failures - check if enabled for this league
             # BUT skip if this player is the last to post - they'll be roasted in the daily loser message
             if score == 7:  # X/6 = 7 in our system
                 if is_last_to_post:
                     logging.info(f"Skipping instant X/6 roast for {player_name} - they're last to post, will be included in daily loser roast")
-                else:
+                elif is_ai_message_enabled(league_id, 'failure_roast'):
                     try:
                         send_failure_roast(player_name, league_id)
                     except Exception as e:
                         logging.error(f"Failed to send roast message: {e}")
+                else:
+                    logging.info(f"Failure roast disabled for league {league_id}")
             
-            # DISABLED: Perfect score congrats (1/6 or 2/6) - disabled to reduce MMS costs
-            # if score in [1, 2]:
-            #     try:
-            #         send_perfect_score_congrats(player_name, score, league_id)
-            #     except Exception as e:
-            #         logging.error(f"Failed to send perfect score message: {e}")
+            # Perfect score congrats (1/6 or 2/6) - check if enabled for this league
+            if score in [1, 2] and is_ai_message_enabled(league_id, 'perfect_score'):
+                try:
+                    send_perfect_score_congrats(player_name, score, league_id)
+                except Exception as e:
+                    logging.error(f"Failed to send perfect score message: {e}")
             
-            # DISABLED: Daily loser roast when all players posted - disabled to reduce MMS costs
-            # try:
-            #     check_and_roast_daily_losers(league_id, wordle_num, conn)
-            # except Exception as e:
-            #     logging.error(f"Failed to check/send daily loser roast: {e}")
+            # Daily loser roast when all players posted - check if enabled for this league
+            if is_ai_message_enabled(league_id, 'daily_loser'):
+                try:
+                    check_and_roast_daily_losers(league_id, wordle_num, conn)
+                except Exception as e:
+                    logging.error(f"Failed to check/send daily loser roast: {e}")
             
             return "new"
             
@@ -1227,6 +1294,49 @@ def dashboard_remove_player(league_id):
     except Exception as e:
         logging.error(f"Error removing player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to remove player')
+
+@app.route('/dashboard/league/<int:league_id>/ai-settings', methods=['POST'])
+def dashboard_ai_settings(league_id):
+    """Update AI messaging settings for a league"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard?error=You do not have access to this league')
+    
+    # Get checkbox values (they come as 'true' or 'false' strings)
+    ai_perfect_score = request.form.get('ai_perfect_score_congrats') == 'true'
+    ai_failure_roast = request.form.get('ai_failure_roast') == 'true'
+    ai_sunday_race = request.form.get('ai_sunday_race_update') == 'true'
+    ai_daily_loser = request.form.get('ai_daily_loser_roast') == 'true'
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE leagues 
+            SET ai_perfect_score_congrats = %s,
+                ai_failure_roast = %s,
+                ai_sunday_race_update = %s,
+                ai_daily_loser_roast = %s
+            WHERE id = %s
+        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, league_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Updated AI settings for league {league_id}: perfect={ai_perfect_score}, failure={ai_failure_roast}, sunday={ai_sunday_race}, daily_loser={ai_daily_loser}")
+        return redirect(f'/dashboard/league/{league_id}?message=AI messaging settings updated')
+    except Exception as e:
+        logging.error(f"Error updating AI settings: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to update AI settings')
 
 @app.route('/setup-auth-tables', methods=['POST'])
 def setup_auth_tables():
