@@ -542,18 +542,18 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
         
         worst_score = worst_result[1]
         
-        # Get all players with the worst score
+        # Get all players with the worst score (include player IDs for severity lookup)
         cursor.execute("""
-            SELECT p.name 
+            SELECT p.id, p.name 
             FROM scores s
             JOIN players p ON s.player_id = p.id
             WHERE p.league_id = %s AND s.wordle_number = %s AND s.score = %s
         """, (league_id, wordle_num, worst_score))
         
-        losers = [row[0] for row in cursor.fetchall()]
+        loser_data = [(row[0], row[1]) for row in cursor.fetchall()]  # (player_id, name)
         cursor.close()
         
-        if not losers:
+        if not loser_data:
             return
         
         # Check if we already sent a roast for this day (to avoid duplicates)
@@ -561,15 +561,18 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
         # This prevents duplicate roasts if multiple people post at the same time
         
         # Send the roast!
-        send_daily_loser_roast(losers, worst_score, league_id, wordle_num)
+        send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num)
         
     except Exception as e:
         logging.error(f"Error checking daily losers: {e}")
         import traceback
         logging.error(traceback.format_exc())
 
-def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
-    """Send an AI-generated roast for the daily lowest scorer(s) with Wordle word puns"""
+def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
+    """Send an AI-generated roast for the daily lowest scorer(s) with Wordle word puns
+    
+    loser_data: list of (player_id, player_name) tuples
+    """
     try:
         from openai import OpenAI
         from twilio.rest import Client
@@ -598,6 +601,9 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         # Get today's Wordle word (if available)
         wordle_word = get_todays_wordle_word()
         
+        # Extract names from loser_data
+        loser_names = [name for (player_id, name) in loser_data]
+        
         # Format loser names
         if len(loser_names) == 1:
             losers_text = loser_names[0]
@@ -610,8 +616,24 @@ def send_daily_loser_roast(loser_names, worst_score, league_id, wordle_num):
         # Format score for context: 7 = failed (X/6), otherwise actual score
         score_display = "X/6 (failed)" if worst_score == 7 else f"{worst_score}/6"
         
-        # Get per-message severity setting for this league
-        severity = get_ai_message_severity(league_id, 'daily_loser')
+        # Get per-message severity setting for this league (default)
+        league_severity = get_ai_message_severity(league_id, 'daily_loser')
+        
+        # If multiple losers, check each player's individual severity and use the NICEST (highest number)
+        # This ensures no one gets roasted harder than their personal setting allows
+        severity = league_severity
+        if len(loser_data) > 1:
+            for player_id, player_name in loser_data:
+                enabled, player_severity = get_player_ai_settings(league_id, player_id, 'daily_loser')
+                if player_severity is not None and player_severity > severity:
+                    severity = player_severity
+                    logging.info(f"Using {player_name}'s gentler severity ({severity}) for daily loser roast")
+        elif len(loser_data) == 1:
+            # Single loser - check their individual setting
+            player_id, player_name = loser_data[0]
+            enabled, player_severity = get_player_ai_settings(league_id, player_id, 'daily_loser')
+            if player_severity is not None:
+                severity = player_severity
         severity_instruction = get_severity_prompt(severity, 'roast')
         
         if wordle_word:
