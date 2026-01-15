@@ -1218,6 +1218,69 @@ def dashboard():
     
     return render_dashboard(user, leagues, message=message, error=error)
 
+@app.route('/dashboard/create-league', methods=['GET', 'POST'])
+def dashboard_create_league():
+    """Create a new league"""
+    from auth import validate_session, assign_league_to_user
+    from dashboard import render_create_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if request.method == 'GET':
+        return render_create_league(user)
+    
+    # POST - create the league
+    league_name = request.form.get('league_name', '').strip()
+    slug = request.form.get('slug', '').strip().lower()
+    
+    if not league_name or not slug:
+        return render_create_league(user, error='League name and slug are required')
+    
+    # Validate slug format
+    import re
+    if not re.match(r'^[a-z0-9-]+$', slug):
+        return render_create_league(user, error='Slug can only contain lowercase letters, numbers, and hyphens')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if slug already exists
+        cursor.execute("SELECT id FROM leagues WHERE slug = %s", (slug,))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return render_create_league(user, error=f'The slug "{slug}" is already taken. Please choose another.')
+        
+        # Create the league
+        cursor.execute("""
+            INSERT INTO leagues (name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
+            VALUES (%s, %s, %s, false, true, true, false)
+            RETURNING id
+        """, (slug, league_name, slug))
+        
+        league_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Assign league to user as owner
+        assign_league_to_user(user['id'], league_id, 'owner')
+        
+        logging.info(f"Created new league: {league_name} (id={league_id}, slug={slug}) by user {user['id']}")
+        
+        return redirect(f'/dashboard/league/{league_id}?message=League created! Now add players and connect your group chat.')
+        
+    except Exception as e:
+        logging.error(f"Error creating league: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return render_create_league(user, error='Failed to create league. Please try again.')
+
 @app.route('/dashboard/league/<int:league_id>')
 def dashboard_league(league_id):
     """League management page"""
@@ -1248,6 +1311,40 @@ def dashboard_league(league_id):
 def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
+
+@app.route('/league/<slug>')
+def public_league_page(slug):
+    """Public league page - serves the leaderboard HTML for embedding"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, display_name, slug 
+            FROM leagues 
+            WHERE slug = %s
+        """, (slug,))
+        league = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not league:
+            return "League not found", 404
+        
+        league_id = league[0]
+        display_name = league[2] or league[1]
+        
+        # Generate the leaderboard HTML using existing pipeline
+        from update_pipeline import generate_league_html
+        html_content = generate_league_html(league_id)
+        
+        if html_content:
+            return html_content
+        else:
+            return f"<h1>{display_name}</h1><p>No data available yet.</p>", 200
+            
+    except Exception as e:
+        logging.error(f"Error serving public league page: {e}")
+        return "Error loading league", 500
 
 @app.route('/dashboard/league/<int:league_id>/rename', methods=['POST'])
 def dashboard_rename_league(league_id):
@@ -1711,6 +1808,41 @@ def setup_ai_per_message_settings():
         return jsonify({'success': True, 'message': 'Per-message AI settings schema created'})
     except Exception as e:
         logging.error(f"Error setting up per-message AI settings: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/setup-league-slug', methods=['POST'])
+def setup_league_slug():
+    """Migration to add slug column to leagues table and set existing slugs"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Add slug column
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS slug VARCHAR(100) UNIQUE
+        """)
+        
+        # Set slugs for existing leagues
+        existing_slugs = {
+            1: 'warriorz',
+            3: 'pal',
+            4: 'party',
+            7: 'bellyup'
+        }
+        
+        for league_id, slug in existing_slugs.items():
+            cursor.execute("""
+                UPDATE leagues SET slug = %s WHERE id = %s AND slug IS NULL
+            """, (slug, league_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Slug column added and existing leagues updated'})
+    except Exception as e:
+        logging.error(f"Error setting up league slug: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-auth-tables', methods=['POST'])

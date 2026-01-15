@@ -510,12 +510,142 @@ def render_dashboard(user, leagues, message=None, error=None):
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="color: {COLORS['text']};">Your Leagues</h2>
+                <a href="/dashboard/create-league" class="btn btn-primary btn-small">+ Create League</a>
             </div>
             
             <div class="league-grid">
                 {league_cards}
             </div>
         </div>
+    </body>
+    </html>
+    """
+
+
+def render_create_league(user, error=None):
+    """Render the create league page"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Create League - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .form-group {{
+                margin-bottom: 20px;
+            }}
+            .form-group label {{
+                display: block;
+                color: {COLORS['text']};
+                margin-bottom: 8px;
+                font-weight: 500;
+            }}
+            .form-group input {{
+                width: 100%;
+                padding: 12px;
+                border: 1px solid {COLORS['border']};
+                border-radius: 8px;
+                background: {COLORS['bg_dark']};
+                color: {COLORS['text']};
+                font-size: 1em;
+                box-sizing: border-box;
+            }}
+            .form-group input:focus {{
+                outline: none;
+                border-color: {COLORS['accent']};
+            }}
+            .form-group .hint {{
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+                margin-top: 6px;
+            }}
+            .slug-preview {{
+                background: {COLORS['bg_dark']};
+                padding: 12px;
+                border-radius: 8px;
+                margin-top: 10px;
+                font-family: monospace;
+                color: {COLORS['accent']};
+            }}
+            .status-info {{
+                background: {COLORS['bg_dark']};
+                padding: 16px;
+                border-radius: 8px;
+                margin-top: 20px;
+                border-left: 4px solid {COLORS['orange']};
+            }}
+            .status-info h4 {{
+                color: {COLORS['orange']};
+                margin: 0 0 8px 0;
+            }}
+            .status-info p {{
+                color: {COLORS['text_muted']};
+                margin: 0;
+                font-size: 0.9em;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">WordPlay<span class="orange">League.com</span></div>
+                <div class="nav-links">
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/auth/logout" class="logout">Logout</a>
+                </div>
+            </div>
+            
+            {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+            
+            <div class="card">
+                <h2>🏆 Create New League</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 24px;">
+                    Set up a new Wordle league for your group chat.
+                </p>
+                
+                <form method="POST" action="/dashboard/create-league">
+                    <div class="form-group">
+                        <label for="league_name">League Name</label>
+                        <input type="text" id="league_name" name="league_name" 
+                               placeholder="e.g., Office Champions" required
+                               oninput="updateSlugPreview(this.value)">
+                        <div class="hint">This will be displayed on your leaderboard</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="slug">URL Slug</label>
+                        <input type="text" id="slug" name="slug" 
+                               placeholder="e.g., office-champions" required
+                               pattern="[a-z0-9-]+" 
+                               title="Only lowercase letters, numbers, and hyphens allowed">
+                        <div class="hint">Your league will be at: <span class="slug-preview">wordplayleague.com/<span id="slugPreview">your-slug</span></span></div>
+                    </div>
+                    
+                    <div class="status-info">
+                        <h4>⚠️ League Status: Inactive</h4>
+                        <p>After creating your league, you'll need to connect your group chat to start tracking scores. We'll guide you through this process.</p>
+                    </div>
+                    
+                    <div style="margin-top: 24px; display: flex; gap: 12px;">
+                        <button type="submit" class="btn btn-primary">Create League</button>
+                        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            function updateSlugPreview(name) {{
+                const slug = name.toLowerCase()
+                    .replace(/[^a-z0-9\\s-]/g, '')
+                    .replace(/\\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .trim();
+                document.getElementById('slug').value = slug;
+                document.getElementById('slugPreview').textContent = slug || 'your-slug';
+            }}
+        </script>
     </body>
     </html>
     """
@@ -727,7 +857,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             <div class="card">
                 <h2>⚙️ {league['display_name']}</h2>
-                <p style="color: {COLORS['text_muted']};">League ID: {league['id']}</p>
+                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <span style="color: {COLORS['text_muted']};">League ID: {league['id']}</span>
+                    <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
+                        {'✓ Active' if league.get('conversation_sid') else '⚠ Inactive'}
+                    </span>
+                    {f'<a href="https://app.wordplayleague.com/league/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">wordplayleague.com/{league["slug"]}</a>' if league.get('slug') else ''}
+                </div>
             </div>
             
             <!-- Rename League Section -->
@@ -1706,7 +1842,8 @@ def get_league_info(league_id):
                    ai_perfect_score_congrats, ai_failure_roast, 
                    ai_sunday_race_update, ai_daily_loser_roast,
                    ai_message_severity,
-                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
+                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
+                   slug
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -1725,7 +1862,8 @@ def get_league_info(league_id):
                 'ai_message_severity': row[8] if row[8] is not None else 2,
                 'ai_perfect_score_severity': row[9] if len(row) > 9 and row[9] is not None else 2,
                 'ai_failure_roast_severity': row[10] if len(row) > 10 and row[10] is not None else 2,
-                'ai_daily_loser_severity': row[11] if len(row) > 11 and row[11] is not None else 2
+                'ai_daily_loser_severity': row[11] if len(row) > 11 and row[11] is not None else 2,
+                'slug': row[12] if len(row) > 12 else None
             }
         return None
     finally:

@@ -183,6 +183,19 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     
     return status
 
+def generate_league_html(league_id):
+    """Generate HTML for a league without publishing to GitHub.
+    Used for serving public league pages directly from Railway.
+    """
+    try:
+        league_display_name = get_league_display_name(league_id)
+        league_data = get_complete_league_data(league_id)
+        html_content = generate_full_html(league_data, league_display_name)
+        return html_content
+    except Exception as e:
+        logging.error(f"Error generating league HTML: {e}")
+        return None
+
 if __name__ == "__main__":
     # Test the pipeline
     logging.basicConfig(
