@@ -10,6 +10,44 @@ from league_data_adapter import get_complete_league_data
 from html_generator_v2 import generate_full_html
 from github_publisher import publish_to_github
 
+def get_league_display_name(league_id):
+    """Get the display name for a league from the database"""
+    import os
+    import psycopg2
+    
+    try:
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            conn = psycopg2.connect(database_url)
+        else:
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST'),
+                database=os.environ.get('PGDATABASE'),
+                user=os.environ.get('PGUSER'),
+                password=os.environ.get('PGPASSWORD'),
+                port=os.environ.get('PGPORT', 5432)
+            )
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT display_name FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result and result[0]:
+            return result[0]
+    except Exception as e:
+        logging.error(f"Error fetching league display name: {e}")
+    
+    # Fallback to hardcoded names if database lookup fails
+    fallback_names = {
+        1: 'Warriorz',
+        3: 'PAL',
+        4: 'Pickle Party',
+        7: 'BellyUp'
+    }
+    return fallback_names.get(league_id, f'League {league_id}')
+
 def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     """
     Run the complete update pipeline:
@@ -20,7 +58,7 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
     Returns:
         dict: Status information
     """
-    # Map league IDs to URL slugs and names
+    # Map league IDs to URL slugs (for GitHub paths)
     league_slugs = {
         1: '',  # Root path for Warriorz
         3: 'pal',
@@ -28,15 +66,10 @@ def run_update_pipeline(league_id=6, league_name="League 6 Beta"):
         6: 'league6',
         7: 'bellyup'
     }
-    league_names = {
-        1: 'Warriorz',
-        3: 'PAL',
-        4: 'Party',
-        6: 'League 6 Beta',
-        7: 'BellyUp'
-    }
     league_slug = league_slugs.get(league_id, f'league{league_id}')
-    league_display_name = league_names.get(league_id, f'League {league_id}')
+    
+    # Get display name from database (falls back to hardcoded if needed)
+    league_display_name = get_league_display_name(league_id)
     start_time = datetime.now()
     status = {
         'success': False,
