@@ -18,6 +18,8 @@ body {
     left: 0 !important;
     z-index: 2 !important;
     background-color: #1a1a1b !important;
+    min-width: 120px;
+    white-space: nowrap;
 }
 .container {
     max-width: 800px;
