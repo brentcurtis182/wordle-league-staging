@@ -1647,38 +1647,23 @@ def dashboard_delete_league(league_id):
         
         league_name = league_row[1] or league_row[0]
         
-        # Delete in order to respect foreign key constraints
-        # 1. Delete player AI settings (table may not exist)
-        try:
-            cursor.execute("DELETE FROM player_ai_settings WHERE league_id = %s", (league_id,))
-        except:
-            pass  # Table doesn't exist yet
+        # Delete in order - use IF EXISTS style queries to avoid errors
+        # 1. Delete weekly winners
+        cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
         
-        # 2. Delete weekly winners
-        try:
-            cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
-        except:
-            pass
+        # 2. Delete latest scores  
+        cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
         
-        # 3. Delete latest scores
-        try:
-            cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
-        except:
-            pass
+        # 3. Delete scores
+        cursor.execute("DELETE FROM scores WHERE league_id = %s", (league_id,))
         
-        # 4. Delete scores
-        try:
-            cursor.execute("DELETE FROM scores WHERE league_id = %s", (league_id,))
-        except:
-            pass
-        
-        # 5. Delete players
+        # 4. Delete players
         cursor.execute("DELETE FROM players WHERE league_id = %s", (league_id,))
         
-        # 6. Delete user_leagues associations
+        # 5. Delete user_leagues associations
         cursor.execute("DELETE FROM user_leagues WHERE league_id = %s", (league_id,))
         
-        # 7. Finally delete the league itself
+        # 6. Finally delete the league itself
         cursor.execute("DELETE FROM leagues WHERE id = %s", (league_id,))
         
         conn.commit()
