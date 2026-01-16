@@ -28,35 +28,47 @@ body {
 
 @media (max-width: 600px) {
     html {
-        font-size: 18px;
+        font-size: 22px;
+    }
+    body {
+        font-size: 1rem;
     }
     .container {
-        padding: 12px;
+        padding: 16px;
         max-width: 100%;
     }
     .title {
-        font-size: 1.5rem !important;
+        font-size: 1.6rem !important;
     }
     .score-card {
-        padding: 14px;
-        margin-bottom: 12px;
+        padding: 18px;
+        margin-bottom: 14px;
+        border-radius: 8px;
     }
     .player-name {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
     }
     .score-display {
-        font-size: 1.4rem;
-        padding: 10px 14px;
+        font-size: 1.5rem;
+        padding: 12px 18px;
+        border-radius: 6px;
     }
     .tab-button {
-        padding: 14px 18px;
-        font-size: 1.05rem;
+        padding: 16px 22px;
+        font-size: 1.1rem;
+        border-radius: 8px;
     }
     table {
-        font-size: 1rem;
+        font-size: 1.05rem;
     }
     th, td {
-        padding: 12px 10px;
+        padding: 14px 12px;
+    }
+    nav {
+        padding: 14px 18px !important;
+    }
+    nav a {
+        font-size: 1rem !important;
     }
 }
 header {
