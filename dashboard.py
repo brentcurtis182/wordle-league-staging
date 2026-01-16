@@ -151,10 +151,13 @@ def get_base_styles():
             background: {COLORS['bg_card']};
             border-radius: 12px;
             padding: 20px;
-            border: 1px solid #333;
-            transition: border-color 0.2s;
+            border: 2px solid {COLORS['accent']};
+            transition: transform 0.2s, box-shadow 0.2s;
         }}
-        .league-card:hover {{ border-color: {COLORS['accent']}; }}
+        .league-card:hover {{ 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 232, 218, 0.2);
+        }}
         .league-card h3 {{
             color: {COLORS['accent']};
             margin-bottom: 8px;
