@@ -282,7 +282,7 @@ def render_login_page(error=None, success=None):
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>WordPlay<span class="orange">League.com</span></h1>
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
                 <p class="subtitle">Sign in to manage your leagues</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -397,7 +397,7 @@ def render_register_page(error=None):
     <body>
         <div class="auth-container">
             <div class="auth-card">
-                <h1>WordPlay<span class="orange">League.com</span></h1>
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
                 <p class="subtitle">Sign Up</p>
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -511,7 +511,7 @@ def render_dashboard(user, leagues, message=None, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">WordPlay<span class="orange">League.com</span></div>
+                <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
@@ -607,7 +607,7 @@ def render_create_league(user, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">WordPlay<span class="orange">League.com</span></div>
+                <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
@@ -862,7 +862,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">WordPlay<span class="orange">League.com</span></div>
+                <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
                     <a href="/auth/logout" class="logout">Logout</a>
