@@ -992,11 +992,12 @@ def webhook():
             logging.info(f"Ignoring quoted Wordle score (reaction to someone else's score)")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
-        # Check for verification code (6-character alphanumeric, uppercase)
+        # Check for verification code phrase (two words like "pizza grass")
         # This is used to link a new group chat to a league
-        stripped_message = message_body.strip().upper()
-        if re.match(r'^[A-Z0-9]{6}$', stripped_message):
-            logging.info(f"Potential verification code received: {stripped_message}")
+        stripped_message = message_body.strip().lower()
+        # Match two-word phrases (letters only, separated by space)
+        if re.match(r'^[a-z]+ [a-z]+$', stripped_message):
+            logging.info(f"Potential code phrase received: {stripped_message}")
             # Get conversation SID
             conv_sid = None
             if request.is_json:
@@ -1005,12 +1006,12 @@ def webhook():
                 conv_sid = request.form.get('ConversationSid')
             
             if conv_sid:
-                # Check if this code matches any pending league activation
+                # Check if this code phrase matches any pending league activation
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT id, display_name FROM leagues 
-                    WHERE verification_code = %s AND twilio_conversation_sid IS NULL
+                    WHERE LOWER(verification_code) = %s AND twilio_conversation_sid IS NULL
                 """, (stripped_message,))
                 league = cursor.fetchone()
                 
@@ -1762,10 +1763,10 @@ def dashboard_delete_league(league_id):
 
 @app.route('/dashboard/league/<int:league_id>/generate-code', methods=['POST'])
 def dashboard_generate_code(league_id):
-    """Generate a verification code for league activation"""
+    """Generate a fun code phrase for league activation using OpenAI"""
     from auth import validate_session, can_manage_league
+    from openai import OpenAI
     import random
-    import string
     
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
@@ -1777,23 +1778,41 @@ def dashboard_generate_code(league_id):
         return jsonify({'success': False, 'error': 'Access denied'}), 403
     
     try:
-        # Generate a 6-character alphanumeric code (uppercase for easy reading)
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        # Generate a fun two-word code phrase using OpenAI
+        code_phrase = None
+        try:
+            client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{
+                    "role": "user",
+                    "content": "Generate a single fun, random two-word phrase like 'pizza grass' or 'computer pie' or 'dancing banana'. Just output the two words in lowercase, nothing else. Make it unique and playful."
+                }],
+                max_tokens=10,
+                temperature=1.2
+            )
+            code_phrase = response.choices[0].message.content.strip().lower()
+        except Exception as e:
+            logging.error(f"OpenAI error generating code phrase: {e}")
+            # Fallback to random word pairs
+            words1 = ['happy', 'silly', 'cosmic', 'dancing', 'flying', 'purple', 'golden', 'magic', 'super', 'tiny']
+            words2 = ['banana', 'pizza', 'robot', 'unicorn', 'taco', 'pickle', 'waffle', 'dragon', 'penguin', 'donut']
+            code_phrase = f"{random.choice(words1)} {random.choice(words2)}"
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Store the code in the leagues table
+        # Store the code phrase in the leagues table
         cursor.execute("""
             UPDATE leagues SET verification_code = %s WHERE id = %s
-        """, (code, league_id))
+        """, (code_phrase, league_id))
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        logging.info(f"Generated verification code {code} for league {league_id}")
-        return jsonify({'success': True, 'code': code})
+        logging.info(f"Generated code phrase '{code_phrase}' for league {league_id}")
+        return jsonify({'success': True, 'code': code_phrase})
         
     except Exception as e:
         logging.error(f"Error generating verification code: {e}")

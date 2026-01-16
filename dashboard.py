@@ -1133,22 +1133,21 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
                     <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
                     <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']};">
-                        +1 (858) 256-3516
+                        +1 (858) 666-6827
                     </div>
                 </div>
                 
                 <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the verification code</h4>
-                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this code in the group chat:</p>
-                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.4em; text-align: center; color: {COLORS['accent']}; letter-spacing: 2px;" id="verificationCode">
+                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
+                    <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;" id="verificationCode">
                         {league.get('verification_code') or 'Loading...'}
                     </div>
-                    <button type="button" class="btn btn-small" style="margin-top: 12px; width: 100%;" onclick="generateNewCode()">Generate New Code</button>
                 </div>
                 
                 <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                     <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">Step 3: Wait for confirmation</h4>
-                    <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond in your group chat once connected. This page will update automatically.</p>
+                    <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond in your group chat once connected. Click "Check Status" below to verify.</p>
                 </div>
                 
                 <div class="modal-actions">
@@ -1592,12 +1591,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // Activate League functions
             function showActivateModal() {{
                 document.getElementById('activateModal').classList.add('active');
-                // Generate code if not already present or if it says Loading
-                const codeEl = document.getElementById('verificationCode');
-                const currentCode = codeEl.textContent.trim();
-                if (!currentCode || currentCode === 'Loading...' || currentCode.length !== 6) {{
-                    generateNewCode();
-                }}
+                // Always generate a fresh code phrase when modal opens
+                generateNewCode();
             }}
             
             function closeActivateModal() {{
