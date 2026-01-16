@@ -992,6 +992,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     View Public Page →
                 </a>
             </div>
+            
+            <!-- Danger Zone -->
+            <div class="card" style="border: 1px solid {COLORS['error']};">
+                <h2 style="color: {COLORS['error']};">⚠️ Danger Zone</h2>
+                <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Permanently delete this league and all associated data. This action cannot be undone.</p>
+                <button type="button" class="btn" style="background: {COLORS['error']}; color: white;" onclick="showDeleteLeagueModal()">
+                    Delete League
+                </button>
+            </div>
         </div>
         
         <!-- Save Confirmation Modal -->
@@ -1090,6 +1099,29 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeMessageConfigConfirm()">Cancel</button>
                     <button type="button" class="btn btn-primary btn-small" onclick="confirmMessageConfig()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete League Modal -->
+        <div class="modal-overlay" id="deleteLeagueModal">
+            <div class="modal">
+                <h3 style="color: {COLORS['error']};">🗑️ Delete League Permanently?</h3>
+                <p style="margin-bottom: 16px;">This will permanently delete <strong>{league['display_name']}</strong> and all associated data including:</p>
+                <ul style="text-align: left; margin: 0 0 16px 20px; color: {COLORS['text_muted']};">
+                    <li>All player records</li>
+                    <li>All score history</li>
+                    <li>All weekly winners</li>
+                    <li>The public league page</li>
+                </ul>
+                <p style="color: {COLORS['error']}; font-weight: 600; margin-bottom: 16px;">This action CANNOT be undone!</p>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>Type the league name to confirm:</label>
+                    <input type="text" id="deleteLeagueConfirmName" placeholder="{league['display_name']}" style="width: 100%;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeDeleteLeagueModal()">Cancel</button>
+                    <button type="button" class="btn btn-small" style="background: {COLORS['error']}; color: white;" onclick="confirmDeleteLeague()" id="confirmDeleteBtn" disabled>Delete Forever</button>
                 </div>
             </div>
         </div>
@@ -1436,6 +1468,55 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 showLoading('Renaming league...');
                 
                 document.getElementById('renameLeagueForm').submit();
+            }}
+            
+            // Delete League functions
+            const leagueNameToConfirm = "{league['display_name']}";
+            
+            function showDeleteLeagueModal() {{
+                document.getElementById('deleteLeagueModal').classList.add('active');
+                document.getElementById('deleteLeagueConfirmName').value = '';
+                document.getElementById('confirmDeleteBtn').disabled = true;
+                
+                // Add input listener to enable button when name matches
+                document.getElementById('deleteLeagueConfirmName').addEventListener('input', function() {{
+                    const inputName = this.value.trim();
+                    document.getElementById('confirmDeleteBtn').disabled = (inputName !== leagueNameToConfirm);
+                }});
+            }}
+            
+            function closeDeleteLeagueModal() {{
+                document.getElementById('deleteLeagueModal').classList.remove('active');
+            }}
+            
+            function confirmDeleteLeague() {{
+                const inputName = document.getElementById('deleteLeagueConfirmName').value.trim();
+                if (inputName !== leagueNameToConfirm) {{
+                    alert('League name does not match. Please type the exact name to confirm deletion.');
+                    return;
+                }}
+                
+                closeDeleteLeagueModal();
+                showLoading('Deleting league...');
+                
+                // Submit delete request
+                fetch('/dashboard/league/{league['id']}/delete', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }}
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    if (data.success) {{
+                        window.location.href = '/dashboard?message=' + encodeURIComponent('League deleted successfully');
+                    }} else {{
+                        hideLoading();
+                        alert('Error deleting league: ' + data.error);
+                    }}
+                }})
+                .catch(error => {{
+                    hideLoading();
+                    alert('Error deleting league: ' + error);
+                }});
             }}
             
             // AI Settings functions

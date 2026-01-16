@@ -1295,10 +1295,10 @@ def dashboard_create_league():
         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM leagues")
         next_id = cursor.fetchone()[0]
         
-        # Create the league
+        # Create the league (all AI messages default to OFF)
         cursor.execute("""
             INSERT INTO leagues (id, name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
-            VALUES (%s, %s, %s, %s, false, true, true, false)
+            VALUES (%s, %s, %s, %s, false, false, false, false)
             RETURNING id
         """, (next_id, slug, league_name, slug))
         
@@ -1618,6 +1618,69 @@ def dashboard_remove_player(league_id):
     except Exception as e:
         logging.error(f"Error removing player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to remove player')
+
+@app.route('/dashboard/league/<int:league_id>/delete', methods=['POST'])
+def dashboard_delete_league(league_id):
+    """Delete a league and all associated data"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'You do not have access to this league'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get league name for logging
+        cursor.execute("SELECT name, display_name FROM leagues WHERE id = %s", (league_id,))
+        league_row = cursor.fetchone()
+        if not league_row:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'League not found'}), 404
+        
+        league_name = league_row[1] or league_row[0]
+        
+        # Delete in order to respect foreign key constraints
+        # 1. Delete player AI settings
+        cursor.execute("DELETE FROM player_ai_settings WHERE league_id = %s", (league_id,))
+        
+        # 2. Delete weekly winners
+        cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
+        
+        # 3. Delete latest scores
+        cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
+        
+        # 4. Delete scores
+        cursor.execute("DELETE FROM scores WHERE league_id = %s", (league_id,))
+        
+        # 5. Delete players
+        cursor.execute("DELETE FROM players WHERE league_id = %s", (league_id,))
+        
+        # 6. Delete user_leagues associations
+        cursor.execute("DELETE FROM user_leagues WHERE league_id = %s", (league_id,))
+        
+        # 7. Finally delete the league itself
+        cursor.execute("DELETE FROM leagues WHERE id = %s", (league_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Deleted league {league_name} (id={league_id}) by user {user['id']}")
+        return jsonify({'success': True, 'message': f'League {league_name} deleted'})
+        
+    except Exception as e:
+        logging.error(f"Error deleting league: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-ai-messaging-columns', methods=['POST'])
 def setup_ai_messaging_columns():
