@@ -1284,6 +1284,13 @@ def dashboard_create_league():
             conn.close()
             return render_create_league(user, error=f'The slug "{slug}" is already taken. Please choose another.')
         
+        # Check if league name already exists
+        cursor.execute("SELECT id FROM leagues WHERE LOWER(display_name) = LOWER(%s)", (league_name,))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return render_create_league(user, error=f'A league named "{league_name}" already exists. Please choose another name.')
+        
         # Create the league
         cursor.execute("""
             INSERT INTO leagues (name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
@@ -1307,7 +1314,7 @@ def dashboard_create_league():
         logging.error(f"Error creating league: {e}")
         import traceback
         logging.error(traceback.format_exc())
-        return render_create_league(user, error='Failed to create league. Please try again.')
+        return render_create_league(user, error=f'Failed to create league: {str(e)}')
 
 @app.route('/dashboard/league/<int:league_id>')
 def dashboard_league(league_id):
