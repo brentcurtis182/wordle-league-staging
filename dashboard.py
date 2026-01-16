@@ -475,7 +475,7 @@ def render_dashboard(user, leagues, message=None, error=None):
             <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
-                <a href="https://www.wordplayleague.com/{wix_path}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                <a href="{f'https://app.wordplayleague.com/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
             </div>
         </div>
         """

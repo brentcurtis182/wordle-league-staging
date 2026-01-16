@@ -278,7 +278,7 @@ def get_user_leagues(user_id):
     
     try:
         cursor.execute("""
-            SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid
+            SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid, l.slug
             FROM user_leagues ul
             JOIN leagues l ON ul.league_id = l.id
             WHERE ul.user_id = %s
@@ -292,7 +292,8 @@ def get_user_leagues(user_id):
                 'name': row[1],
                 'display_name': row[2],
                 'role': row[3],
-                'conversation_sid': row[4]
+                'conversation_sid': row[4],
+                'slug': row[5]
             })
         return leagues
         
