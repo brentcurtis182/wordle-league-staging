@@ -186,6 +186,10 @@ def get_base_styles():
             padding: 16px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
+            transition: opacity 0.5s ease;
+        }}
+        .alert.fade-out {{
+            opacity: 0;
         }}
         .alert-success {{ background: rgba(76, 175, 80, 0.2); border: 1px solid {COLORS['success']}; }}
         .alert-error {{ background: rgba(244, 67, 54, 0.2); border: 1px solid {COLORS['error']}; }}
@@ -535,6 +539,15 @@ def render_dashboard(user, leagues, message=None, error=None):
                 {league_cards}
             </div>
         </div>
+        <script>
+            // Auto-hide alerts after 5 seconds
+            setTimeout(function() {{
+                document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {{ alert.remove(); }}, 500);
+                }});
+            }}, 5000);
+        </script>
     </body>
     </html>
     """
@@ -1426,6 +1439,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         </form>
         
         <script>
+            // Auto-hide alerts after 5 seconds
+            setTimeout(function() {{
+                document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {{ alert.remove(); }}, 500);
+                }});
+            }}, 5000);
+            
             let currentEditPlayerId = null;
             let currentRemovePlayerId = null;
             
