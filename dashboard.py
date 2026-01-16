@@ -1140,23 +1140,42 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         <div class="modal-overlay" id="activateModal">
             <div class="modal" style="max-width: 500px;">
                 <h3 style="color: {COLORS['accent']};">🚀 Activate Your League</h3>
-                <p style="margin-bottom: 20px;">Follow these steps to connect your group chat:</p>
                 
-                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
-                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
-                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']};">
-                        +1 (858) 666-6827
+                <!-- Passcode Gate -->
+                <div id="activatePasscodeGate">
+                    <div style="background: {COLORS['accent_orange']}20; border: 1px solid {COLORS['accent_orange']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="color: {COLORS['text']}; margin: 0 0 12px 0;"><strong>🔒 Activation Locked</strong></p>
+                        <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.9em;">League activation is currently restricted. Enter the admin passcode to continue, or contact support to get access.</p>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label>Admin Passcode</label>
+                        <input type="password" id="activatePasscode" placeholder="Enter passcode" style="width: 100%;">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="checkActivatePasscode()">Unlock</button>
                     </div>
                 </div>
                 
-                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
-                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
-                    <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;" id="verificationCode">
-                        {league.get('verification_code') or 'Loading...'}
+                <!-- Activation Steps (hidden until passcode entered) -->
+                <div id="activateSteps" style="display: none;">
+                    <p style="margin-bottom: 20px;">Follow these steps to connect your group chat:</p>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
+                        <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']};">
+                            +1 (858) 666-6827
+                        </div>
                     </div>
-                </div>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
+                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;" id="verificationCode">
+                            {league.get('verification_code') or 'Loading...'}
+                        </div>
+                    </div>
                 
                 <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                     <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">Step 3: Wait for confirmation</h4>
@@ -1166,6 +1185,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Close</button>
                     <button type="button" class="btn btn-primary" onclick="checkActivationStatus()">Check Status</button>
+                </div>
                 </div>
             </div>
         </div>
@@ -1612,12 +1632,26 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // Activate League functions
             function showActivateModal() {{
                 document.getElementById('activateModal').classList.add('active');
-                // Always generate a fresh code phrase when modal opens
-                generateNewCode();
+                // Reset to passcode gate view
+                document.getElementById('activatePasscodeGate').style.display = 'block';
+                document.getElementById('activateSteps').style.display = 'none';
+                document.getElementById('activatePasscode').value = '';
             }}
             
             function closeActivateModal() {{
                 document.getElementById('activateModal').classList.remove('active');
+            }}
+            
+            function checkActivatePasscode() {{
+                const passcode = document.getElementById('activatePasscode').value;
+                if (passcode === 'monkeybottom') {{
+                    document.getElementById('activatePasscodeGate').style.display = 'none';
+                    document.getElementById('activateSteps').style.display = 'block';
+                    // Generate code phrase after unlocking
+                    generateNewCode();
+                }} else {{
+                    alert('Incorrect passcode. Contact support for access.');
+                }}
             }}
             
             function generateNewCode() {{
