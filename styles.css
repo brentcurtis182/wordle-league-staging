@@ -27,11 +27,36 @@ body {
 }
 
 @media (max-width: 600px) {
+    html {
+        font-size: 18px;
+    }
     .container {
-        padding: 10px;
+        padding: 12px;
+        max-width: 100%;
     }
     .title {
-        font-size: 20px !important;
+        font-size: 1.5rem !important;
+    }
+    .score-card {
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+    .player-name {
+        font-size: 1.15rem;
+    }
+    .score-display {
+        font-size: 1.4rem;
+        padding: 10px 14px;
+    }
+    .tab-button {
+        padding: 14px 18px;
+        font-size: 1.05rem;
+    }
+    table {
+        font-size: 1rem;
+    }
+    th, td {
+        padding: 12px 10px;
     }
 }
 header {
