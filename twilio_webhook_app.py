@@ -1291,12 +1291,16 @@ def dashboard_create_league():
             conn.close()
             return render_create_league(user, error=f'A league named "{league_name}" already exists. Please choose another name.')
         
+        # Get next available ID (since id column doesn't auto-increment)
+        cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM leagues")
+        next_id = cursor.fetchone()[0]
+        
         # Create the league
         cursor.execute("""
-            INSERT INTO leagues (name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
-            VALUES (%s, %s, %s, false, true, true, false)
+            INSERT INTO leagues (id, name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
+            VALUES (%s, %s, %s, %s, false, true, true, false)
             RETURNING id
-        """, (slug, league_name, slug))
+        """, (next_id, slug, league_name, slug))
         
         league_id = cursor.fetchone()[0]
         conn.commit()
