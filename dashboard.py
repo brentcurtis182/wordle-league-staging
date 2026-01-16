@@ -1748,12 +1748,21 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 daily_loser_severity: {league.get('ai_daily_loser_severity', 2)}
             }};
             
+            // Track what's actually saved to DB (updated when message config saves)
+            const savedToDbSettings = {{
+                perfect_score_severity: {league.get('ai_perfect_score_severity', 2)},
+                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)},
+                daily_loser_severity: {league.get('ai_daily_loser_severity', 2)}
+            }};
+            
             // Player data for config modal
             const players = {str([{'id': p['id'], 'name': p['name']} for p in players])};
             
             // Message config state
             let currentMessageType = null;
             let messagePlayerSettings = {str(player_ai_settings).replace('True', 'true').replace('False', 'false').replace('None', 'null')};
+            // Track which player settings have been saved to DB (to avoid showing as pending in main save)
+            let savedPlayerSettings = JSON.parse(JSON.stringify(messagePlayerSettings));
             
             function openMessageConfig(messageType, title) {{
                 currentMessageType = messageType;
@@ -1933,10 +1942,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     if (data.success) {{
                         // Update local state
                         originalAISettings[messageType + '_severity'] = severity;
+                        // Also update savedToDbSettings so main save button knows this is already saved
+                        savedToDbSettings[messageType + '_severity'] = severity;
                         document.getElementById(messageType + '_tone_label').textContent = severityNames[severity - 1];
                         
                         // Update player settings in memory
                         Object.assign(messagePlayerSettings, playerSettingsToSave);
+                        // Also mark these as saved to DB
+                        Object.assign(savedPlayerSettings, playerSettingsToSave);
                         
                         // Update players label
                         const playersLabel = enabledCount === players.length ? 'All' : enabledCount + '/' + players.length;
@@ -1991,19 +2004,26 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
                 }}
                 
-                // Check for per-message severity changes
-                if (originalAISettings.perfect_score_severity !== {league.get('ai_perfect_score_severity', 2)}) {{
+                // Check for per-message severity changes (compare against what's saved to DB, not page load)
+                if (originalAISettings.perfect_score_severity !== savedToDbSettings.perfect_score_severity) {{
                     changes.push('🎯 Perfect Score Tone: ' + severityNames[originalAISettings.perfect_score_severity - 1]);
                 }}
-                if (originalAISettings.failure_roast_severity !== {league.get('ai_failure_roast_severity', 2)}) {{
+                if (originalAISettings.failure_roast_severity !== savedToDbSettings.failure_roast_severity) {{
                     changes.push('🔥 Failure Roast Tone: ' + severityNames[originalAISettings.failure_roast_severity - 1]);
                 }}
-                if (originalAISettings.daily_loser_severity !== {league.get('ai_daily_loser_severity', 2)}) {{
+                if (originalAISettings.daily_loser_severity !== savedToDbSettings.daily_loser_severity) {{
                     changes.push('😈 Daily Loser Tone: ' + severityNames[originalAISettings.daily_loser_severity - 1]);
                 }}
                 
-                // Check for player setting changes
-                if (Object.keys(messagePlayerSettings).length > 0) {{
+                // Check for player setting changes (compare against what's saved to DB)
+                let hasUnsavedPlayerChanges = false;
+                for (const key of Object.keys(messagePlayerSettings)) {{
+                    if (JSON.stringify(messagePlayerSettings[key]) !== JSON.stringify(savedPlayerSettings[key])) {{
+                        hasUnsavedPlayerChanges = true;
+                        break;
+                    }}
+                }}
+                if (hasUnsavedPlayerChanges) {{
                     changes.push('👥 Player settings updated');
                 }}
                 
