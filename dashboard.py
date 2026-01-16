@@ -1483,10 +1483,50 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('deleteLeagueConfirmName').value = '';
                 document.getElementById('confirmDeleteBtn').disabled = true;
                 
-                // Add input listener to enable button when name matches
-                document.getElementById('deleteLeagueConfirmName').addEventListener('input', function() {{
+                // Clear any previous error
+                const existingError = document.getElementById('deleteNameError');
+                if (existingError) existingError.remove();
+                
+                const input = document.getElementById('deleteLeagueConfirmName');
+                input.style.borderColor = '';
+                
+                // Add input listener to show feedback as user types
+                input.addEventListener('input', function() {{
                     const inputName = this.value.trim();
-                    document.getElementById('confirmDeleteBtn').disabled = (inputName !== leagueNameToConfirm);
+                    const matches = (inputName === leagueNameToConfirm);
+                    document.getElementById('confirmDeleteBtn').disabled = !matches;
+                    
+                    // Show visual feedback
+                    if (inputName.length > 0) {{
+                        if (matches) {{
+                            this.style.borderColor = '{COLORS['success']}';
+                            const err = document.getElementById('deleteNameError');
+                            if (err) err.remove();
+                        }} else {{
+                            this.style.borderColor = '{COLORS['error']}';
+                            // Show hint if close but not exact
+                            let errorMsg = document.getElementById('deleteNameError');
+                            if (!errorMsg) {{
+                                errorMsg = document.createElement('p');
+                                errorMsg.id = 'deleteNameError';
+                                errorMsg.style.color = '{COLORS['error']}';
+                                errorMsg.style.fontSize = '0.85em';
+                                errorMsg.style.marginTop = '4px';
+                                this.parentNode.appendChild(errorMsg);
+                            }}
+                            if (leagueNameToConfirm.toLowerCase().startsWith(inputName.toLowerCase())) {{
+                                errorMsg.textContent = 'Keep typing...';
+                                errorMsg.style.color = '{COLORS['text_muted']}';
+                            }} else {{
+                                errorMsg.textContent = 'Name does not match';
+                                errorMsg.style.color = '{COLORS['error']}';
+                            }}
+                        }}
+                    }} else {{
+                        this.style.borderColor = '';
+                        const err = document.getElementById('deleteNameError');
+                        if (err) err.remove();
+                    }}
                 }});
             }}
             
