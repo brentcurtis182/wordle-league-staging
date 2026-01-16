@@ -1212,12 +1212,11 @@ def auth_login():
         
         if result['success']:
             response = make_response(redirect('/dashboard'))
+            logging.info(f"Setting session cookie: {result['session_token'][:20]}...")
             response.set_cookie('session_token', result['session_token'], 
                               max_age=30*24*60*60,  # 30 days
                               httponly=True,
-                              secure=True,
-                              samesite='None',
-                              path='/')
+                              samesite='Lax')
             return response
         else:
             return render_login_page(error=result['error'])
