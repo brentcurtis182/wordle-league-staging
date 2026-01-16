@@ -671,12 +671,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     
     player_rows = ""
     for player in players:
+        pending_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">PENDING</span>' if player.get('pending_activation') else ''
         player_rows += f"""
         <div class="player-item" id="player-{player['id']}">
             <!-- Read-only view -->
             <div class="player-view" id="view-{player['id']}">
                 <div class="player-info">
-                    <div class="name">{player['name']}</div>
+                    <div class="name">{player['name']}{pending_badge}</div>
                     <div class="phone">{player['phone'] or 'No phone'}</div>
                 </div>
                 <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
@@ -860,6 +861,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             {'<div class="alert alert-success">' + message + '</div>' if message else ''}
             {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+            
+            {f'''<div class="alert" style="background: {COLORS['accent_orange']}20; border: 1px solid {COLORS['accent_orange']}; color: {COLORS['text']};">
+                <strong>⚠️ Pending Players:</strong> You have {len([p for p in players if p.get('pending_activation')])} new player(s) not yet in your group chat. 
+                They won't receive messages until you add them to your group and re-link.
+                <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: #000; margin-left: 12px;" onclick="showActivateModal()">Re-link Group Chat</button>
+            </div>''' if any(p.get('pending_activation') for p in players) else ''}
             
             <div class="card">
                 <h2>⚙️ {league['display_name']}</h2>
@@ -2004,7 +2011,7 @@ def get_league_players(league_id):
     
     try:
         cursor.execute("""
-            SELECT id, name, phone_number
+            SELECT id, name, phone_number, COALESCE(pending_activation, FALSE)
             FROM players
             WHERE league_id = %s AND active = TRUE
             ORDER BY name
@@ -2015,7 +2022,8 @@ def get_league_players(league_id):
             players.append({
                 'id': row[0],
                 'name': row[1],
-                'phone': row[2]
+                'phone': row[2],
+                'pending_activation': row[3]
             })
         return players
     finally:

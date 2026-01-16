@@ -1022,6 +1022,14 @@ def webhook():
                         SET twilio_conversation_sid = %s, verification_code = NULL 
                         WHERE id = %s
                     """, (conv_sid, league_id))
+                    
+                    # Clear pending_activation flag for all players in this league
+                    cursor.execute("""
+                        UPDATE players 
+                        SET pending_activation = FALSE 
+                        WHERE league_id = %s
+                    """, (league_id,))
+                    
                     conn.commit()
                     
                     logging.info(f"✅ League {league_name} (id={league_id}) activated with conversation {conv_sid}")
@@ -1535,11 +1543,16 @@ def dashboard_add_player(league_id):
             conn.close()
             return redirect(f'/dashboard/league/{league_id}?error=Phone number already exists in this league')
         
-        # Insert new player
+        # Check if league is already active (has a conversation_sid)
+        cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+        league_result = cursor.fetchone()
+        is_active_league = league_result and league_result[0] is not None
+        
+        # Insert new player - mark as pending_activation if league is already active
         cursor.execute("""
-            INSERT INTO players (name, phone_number, league_id, active)
-            VALUES (%s, %s, %s, TRUE)
-        """, (name, phone, league_id))
+            INSERT INTO players (name, phone_number, league_id, active, pending_activation)
+            VALUES (%s, %s, %s, TRUE, %s)
+        """, (name, phone, league_id, is_active_league))
         conn.commit()
         cursor.close()
         conn.close()
@@ -1552,8 +1565,12 @@ def dashboard_add_player(league_id):
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
         
-        logging.info(f"Added player {name} ({phone}) to league {league_id} - HTML regenerated")
-        return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
+        logging.info(f"Added player {name} ({phone}) to league {league_id} - pending_activation={is_active_league} - HTML regenerated")
+        
+        if is_active_league:
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added. Note: They won\'t receive messages until you re-link your group chat.')
+        else:
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
     except Exception as e:
         logging.error(f"Error adding player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to add player')
@@ -1824,6 +1841,27 @@ def setup_verification_code_column():
         return jsonify({'success': True, 'message': 'verification_code column added'})
     except Exception as e:
         logging.error(f"Error adding verification_code column: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/setup-pending-activation-column', methods=['POST'])
+def setup_pending_activation_column():
+    """One-time migration to add pending_activation column to players table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            ALTER TABLE players 
+            ADD COLUMN IF NOT EXISTS pending_activation BOOLEAN DEFAULT FALSE
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'pending_activation column added to players'})
+    except Exception as e:
+        logging.error(f"Error adding pending_activation column: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-ai-messaging-columns', methods=['POST'])
