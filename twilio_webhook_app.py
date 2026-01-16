@@ -1647,15 +1647,20 @@ def dashboard_delete_league(league_id):
         
         league_name = league_row[1] or league_row[0]
         
-        # Delete in order - use IF EXISTS style queries to avoid errors
+        # Get player IDs for this league first (scores table uses player_id, not league_id)
+        cursor.execute("SELECT id FROM players WHERE league_id = %s", (league_id,))
+        player_ids = [row[0] for row in cursor.fetchall()]
+        
+        # Delete in order
         # 1. Delete weekly winners
         cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
         
         # 2. Delete latest scores  
         cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
         
-        # 3. Delete scores
-        cursor.execute("DELETE FROM scores WHERE league_id = %s", (league_id,))
+        # 3. Delete scores (via player_ids since scores table doesn't have league_id)
+        if player_ids:
+            cursor.execute("DELETE FROM scores WHERE player_id = ANY(%s)", (player_ids,))
         
         # 4. Delete players
         cursor.execute("DELETE FROM players WHERE league_id = %s", (league_id,))
