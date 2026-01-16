@@ -893,7 +893,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <!-- Add Player Section -->
             <div class="card section">
                 <h2>➕ Add Player</h2>
-                <form method="POST" action="/dashboard/league/{league['id']}/add-player">
+                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="showLoading('Adding player...')">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>Player Name</label>
