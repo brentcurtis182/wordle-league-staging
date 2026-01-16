@@ -868,6 +868,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {'✓ Active' if league.get('conversation_sid') else '⚠ Inactive'}
                     </span>
+                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">Activate League</button>' if not league.get('conversation_sid') else ''}
                     {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
             </div>
@@ -1099,6 +1100,41 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeMessageConfigConfirm()">Cancel</button>
                     <button type="button" class="btn btn-primary btn-small" onclick="confirmMessageConfig()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activate League Modal -->
+        <div class="modal-overlay" id="activateModal">
+            <div class="modal" style="max-width: 500px;">
+                <h3 style="color: {COLORS['accent']};">🚀 Activate Your League</h3>
+                <p style="margin-bottom: 20px;">Follow these steps to connect your group chat:</p>
+                
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
+                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']};">
+                        +1 (858) 256-3516
+                    </div>
+                </div>
+                
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the verification code</h4>
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this code in the group chat:</p>
+                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.4em; text-align: center; color: {COLORS['accent']}; letter-spacing: 2px;" id="verificationCode">
+                        {league.get('verification_code') or 'Loading...'}
+                    </div>
+                    <button type="button" class="btn btn-small" style="margin-top: 12px; width: 100%;" onclick="generateNewCode()">Generate New Code</button>
+                </div>
+                
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">Step 3: Wait for confirmation</h4>
+                    <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond in your group chat once connected. This page will update automatically.</p>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="checkActivationStatus()">Check Status</button>
                 </div>
             </div>
         </div>
@@ -1532,6 +1568,48 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             function closeDeleteLeagueModal() {{
                 document.getElementById('deleteLeagueModal').classList.remove('active');
+            }}
+            
+            // Activate League functions
+            function showActivateModal() {{
+                document.getElementById('activateModal').classList.add('active');
+                // Generate code if not already present
+                if (document.getElementById('verificationCode').textContent === 'Loading...') {{
+                    generateNewCode();
+                }}
+            }}
+            
+            function closeActivateModal() {{
+                document.getElementById('activateModal').classList.remove('active');
+            }}
+            
+            function generateNewCode() {{
+                fetch('/dashboard/league/{league['id']}/generate-code', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }}
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    if (data.success) {{
+                        document.getElementById('verificationCode').textContent = data.code;
+                    }} else {{
+                        alert('Error generating code: ' + data.error);
+                    }}
+                }})
+                .catch(error => alert('Error: ' + error));
+            }}
+            
+            function checkActivationStatus() {{
+                fetch('/dashboard/league/{league['id']}/check-status')
+                .then(response => response.json())
+                .then(data => {{
+                    if (data.active) {{
+                        window.location.reload();
+                    }} else {{
+                        alert('League not yet activated. Make sure you\\'ve added the bot to your group and sent the verification code.');
+                    }}
+                }})
+                .catch(error => alert('Error: ' + error));
             }}
             
             function confirmDeleteLeague() {{

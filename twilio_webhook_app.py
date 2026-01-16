@@ -992,6 +992,57 @@ def webhook():
             logging.info(f"Ignoring quoted Wordle score (reaction to someone else's score)")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
+        # Check for verification code (6-character alphanumeric, uppercase)
+        # This is used to link a new group chat to a league
+        stripped_message = message_body.strip().upper()
+        if re.match(r'^[A-Z0-9]{6}$', stripped_message):
+            logging.info(f"Potential verification code received: {stripped_message}")
+            # Get conversation SID
+            conv_sid = None
+            if request.is_json:
+                conv_sid = request.get_json().get('ConversationSid')
+            else:
+                conv_sid = request.form.get('ConversationSid')
+            
+            if conv_sid:
+                # Check if this code matches any pending league activation
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT id, display_name FROM leagues 
+                    WHERE verification_code = %s AND twilio_conversation_sid IS NULL
+                """, (stripped_message,))
+                league = cursor.fetchone()
+                
+                if league:
+                    league_id, league_name = league
+                    # Link the conversation to the league
+                    cursor.execute("""
+                        UPDATE leagues 
+                        SET twilio_conversation_sid = %s, verification_code = NULL 
+                        WHERE id = %s
+                    """, (conv_sid, league_id))
+                    conn.commit()
+                    
+                    logging.info(f"✅ League {league_name} (id={league_id}) activated with conversation {conv_sid}")
+                    
+                    # Send confirmation message to the group
+                    try:
+                        from twilio.rest import Client
+                        twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+                        twilio_client.conversations.v1.conversations(conv_sid).messages.create(
+                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!"
+                        )
+                    except Exception as e:
+                        logging.error(f"Error sending confirmation message: {e}")
+                    
+                    cursor.close()
+                    conn.close()
+                    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+                
+                cursor.close()
+                conn.close()
+        
         # CRITICAL: Reject messages that don't start with "Wordle" (after stripping whitespace)
         # Legitimate submissions from NYT app always start with "Wordle"
         # Anything before "Wordle" is a reaction/comment
@@ -1682,6 +1733,97 @@ def dashboard_delete_league(league_id):
         logging.error(f"Error deleting league: {e}")
         import traceback
         logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/dashboard/league/<int:league_id>/generate-code', methods=['POST'])
+def dashboard_generate_code(league_id):
+    """Generate a verification code for league activation"""
+    from auth import validate_session, can_manage_league
+    import random
+    import string
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        # Generate a 6-character alphanumeric code (uppercase for easy reading)
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Store the code in the leagues table
+        cursor.execute("""
+            UPDATE leagues SET verification_code = %s WHERE id = %s
+        """, (code, league_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Generated verification code {code} for league {league_id}")
+        return jsonify({'success': True, 'code': code})
+        
+    except Exception as e:
+        logging.error(f"Error generating verification code: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/dashboard/league/<int:league_id>/check-status')
+def dashboard_check_status(league_id):
+    """Check if a league has been activated"""
+    from auth import validate_session, can_manage_league
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        active = result and result[0] is not None
+        return jsonify({'success': True, 'active': active})
+        
+    except Exception as e:
+        logging.error(f"Error checking league status: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/setup-verification-code-column', methods=['POST'])
+def setup_verification_code_column():
+    """One-time migration to add verification_code column to leagues table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            ALTER TABLE leagues 
+            ADD COLUMN IF NOT EXISTS verification_code VARCHAR(10)
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'verification_code column added'})
+    except Exception as e:
+        logging.error(f"Error adding verification_code column: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-ai-messaging-columns', methods=['POST'])
