@@ -1041,23 +1041,27 @@ def webhook():
                     league_slug = slug_row[0] if slug_row and slug_row[0] else str(league_id)
                     
                     # Update Twilio conversation name and send confirmation
+                    from twilio.rest import Client
+                    twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+                    
+                    # Name the conversation for easy identification in Twilio console
                     try:
-                        from twilio.rest import Client
-                        twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
-                        
-                        # Name the conversation for easy identification in Twilio console
                         twilio_client.conversations.v1.conversations(conv_sid).update(
                             friendly_name=f"{league_name}",
                             unique_name=f"league-{league_id}-{league_slug}"
                         )
                         logging.info(f"Named Twilio conversation: league-{league_id}-{league_slug}")
-                        
-                        # Send confirmation message to the group
+                    except Exception as e:
+                        logging.error(f"Error naming conversation (non-fatal): {e}")
+                    
+                    # Send confirmation message to the group (separate try so it always attempts)
+                    try:
                         twilio_client.conversations.v1.conversations(conv_sid).messages.create(
                             body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!"
                         )
+                        logging.info(f"Sent confirmation message to conversation {conv_sid}")
                     except Exception as e:
-                        logging.error(f"Error updating conversation or sending message: {e}")
+                        logging.error(f"Error sending confirmation message: {e}")
                     
                     cursor.close()
                     conn.close()
