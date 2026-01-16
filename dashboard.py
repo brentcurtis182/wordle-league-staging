@@ -1152,6 +1152,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 0% {{ transform: rotate(0deg); }}
                 100% {{ transform: rotate(360deg); }}
             }}
+            @keyframes shake {{
+                0%, 100% {{ transform: translateX(0); }}
+                20%, 60% {{ transform: translateX(-5px); }}
+                40%, 80% {{ transform: translateX(5px); }}
+            }}
             .loading-spinner p {{
                 font-size: 1.1em;
                 margin: 0;
@@ -1492,7 +1497,25 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             function confirmDeleteLeague() {{
                 const inputName = document.getElementById('deleteLeagueConfirmName').value.trim();
                 if (inputName !== leagueNameToConfirm) {{
-                    alert('League name does not match. Please type the exact name to confirm deletion.');
+                    // Show inline error message
+                    const input = document.getElementById('deleteLeagueConfirmName');
+                    input.style.borderColor = '{COLORS['error']}';
+                    
+                    // Show/create error message
+                    let errorMsg = document.getElementById('deleteNameError');
+                    if (!errorMsg) {{
+                        errorMsg = document.createElement('p');
+                        errorMsg.id = 'deleteNameError';
+                        errorMsg.style.color = '{COLORS['error']}';
+                        errorMsg.style.fontSize = '0.85em';
+                        errorMsg.style.marginTop = '4px';
+                        input.parentNode.appendChild(errorMsg);
+                    }}
+                    errorMsg.textContent = 'League name does not match. Please type "' + leagueNameToConfirm + '" exactly.';
+                    
+                    // Shake the input
+                    input.style.animation = 'shake 0.5s';
+                    setTimeout(() => input.style.animation = '', 500);
                     return;
                 }}
                 
