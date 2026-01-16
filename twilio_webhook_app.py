@@ -1035,15 +1035,29 @@ def webhook():
                     
                     logging.info(f"✅ League {league_name} (id={league_id}) activated with conversation {conv_sid}")
                     
-                    # Send confirmation message to the group
+                    # Get the league slug for naming
+                    cursor.execute("SELECT slug FROM leagues WHERE id = %s", (league_id,))
+                    slug_row = cursor.fetchone()
+                    league_slug = slug_row[0] if slug_row and slug_row[0] else str(league_id)
+                    
+                    # Update Twilio conversation name and send confirmation
                     try:
                         from twilio.rest import Client
                         twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+                        
+                        # Name the conversation for easy identification in Twilio console
+                        twilio_client.conversations.v1.conversations(conv_sid).update(
+                            friendly_name=f"{league_name}",
+                            unique_name=f"league-{league_id}-{league_slug}"
+                        )
+                        logging.info(f"Named Twilio conversation: league-{league_id}-{league_slug}")
+                        
+                        # Send confirmation message to the group
                         twilio_client.conversations.v1.conversations(conv_sid).messages.create(
                             body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!"
                         )
                     except Exception as e:
-                        logging.error(f"Error sending confirmation message: {e}")
+                        logging.error(f"Error updating conversation or sending message: {e}")
                     
                     cursor.close()
                     conn.close()
