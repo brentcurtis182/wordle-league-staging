@@ -618,15 +618,18 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
-        # Map league_id to conversation SID
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
+        # Get conversation SID from database
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+            result = cursor.fetchone()
+            conversation_sid = result[0] if result else None
+            cursor.close()
+            conn.close()
+        else:
+            conversation_sid = None
         
-        conversation_sid = conversation_sids.get(league_id)
         if not conversation_sid:
             logging.error(f"No conversation SID for league {league_id}")
             return
@@ -701,7 +704,7 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         import traceback
         logging.error(traceback.format_exc())
 
-def send_perfect_score_congrats(player_name, score, league_id):
+def send_perfect_score_congrats(player_name, score, league_id, player_id=None):
     """Send a congratulations message for 1/6 or 2/6 scores"""
     try:
         from openai import OpenAI
@@ -715,21 +718,35 @@ def send_perfect_score_congrats(player_name, score, league_id):
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
-        # Map league_id to conversation SID
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
+        # Get conversation SID from database
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+            result = cursor.fetchone()
+            conversation_sid = result[0] if result else None
+            cursor.close()
+            conn.close()
+        else:
+            conversation_sid = None
         
-        conversation_sid = conversation_sids.get(league_id)
         if not conversation_sid:
             logging.error(f"No conversation SID for league {league_id}")
             return
         
-        # Get per-message severity setting for this league
+        # Get league-level severity setting
         severity = get_ai_message_severity(league_id, 'perfect_score')
+        
+        # Check player-specific severity override if player_id provided
+        if player_id:
+            enabled, player_severity = get_player_ai_settings(league_id, player_id, 'perfect_score')
+            if not enabled:
+                logging.info(f"Perfect score congrats disabled for player {player_name} (id={player_id})")
+                return
+            if player_severity is not None:
+                severity = player_severity
+                logging.info(f"Using player {player_name}'s severity override: {severity}")
+        
         severity_instruction = get_severity_prompt(severity, 'congrats')
         
         # Generate AI congratulations message
@@ -762,7 +779,7 @@ def send_perfect_score_congrats(player_name, score, league_id):
         import traceback
         logging.error(traceback.format_exc())
 
-def send_failure_roast(player_name, league_id):
+def send_failure_roast(player_name, league_id, player_id=None):
     """Send an AI-generated roast message when a player fails (X/6)"""
     try:
         from openai import OpenAI
@@ -776,21 +793,35 @@ def send_failure_roast(player_name, league_id):
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
-        # Map league_id to conversation SID
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
+        # Get conversation SID from database
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+            result = cursor.fetchone()
+            conversation_sid = result[0] if result else None
+            cursor.close()
+            conn.close()
+        else:
+            conversation_sid = None
         
-        conversation_sid = conversation_sids.get(league_id)
         if not conversation_sid:
             logging.error(f"No conversation SID for league {league_id}")
             return
         
-        # Get per-message severity setting for this league
+        # Get league-level severity setting
         severity = get_ai_message_severity(league_id, 'failure_roast')
+        
+        # Check player-specific severity override if player_id provided
+        if player_id:
+            enabled, player_severity = get_player_ai_settings(league_id, player_id, 'failure_roast')
+            if not enabled:
+                logging.info(f"Failure roast disabled for player {player_name} (id={player_id})")
+                return
+            if player_severity is not None:
+                severity = player_severity
+                logging.info(f"Using player {player_name}'s severity override: {severity}")
+        
         severity_instruction = get_severity_prompt(severity, 'roast')
         
         # Generate AI roast message
@@ -915,7 +946,7 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                     logging.info(f"Skipping instant X/6 roast for {player_name} - they're last to post, will be included in daily loser roast")
                 elif is_ai_message_enabled(league_id, 'failure_roast'):
                     try:
-                        send_failure_roast(player_name, league_id)
+                        send_failure_roast(player_name, league_id, player_id)
                     except Exception as e:
                         logging.error(f"Failed to send roast message: {e}")
                 else:
@@ -924,7 +955,7 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             # Perfect score congrats (1/6 or 2/6) - check if enabled for this league
             if score in [1, 2] and is_ai_message_enabled(league_id, 'perfect_score'):
                 try:
-                    send_perfect_score_congrats(player_name, score, league_id)
+                    send_perfect_score_congrats(player_name, score, league_id, player_id)
                 except Exception as e:
                     logging.error(f"Failed to send perfect score message: {e}")
             
