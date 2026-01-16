@@ -1942,6 +1942,34 @@ def dashboard_check_status(league_id):
         logging.error(f"Error checking league status: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/admin/test-daily-loser/<int:league_id>')
+def admin_test_daily_loser(league_id):
+    """Test endpoint to manually trigger daily loser check"""
+    try:
+        wordle_num = get_todays_wordle_number()
+        
+        # Check if daily_loser is enabled
+        enabled = is_ai_message_enabled(league_id, 'daily_loser')
+        logging.info(f"[TEST] League {league_id} daily_loser enabled: {enabled}")
+        
+        if not enabled:
+            return jsonify({'error': 'daily_loser not enabled for this league', 'enabled': False})
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Could not connect to database'})
+        
+        # Run the check
+        check_and_roast_daily_losers(league_id, wordle_num, conn)
+        conn.close()
+        
+        return jsonify({'success': True, 'message': f'Triggered daily loser check for league {league_id}, wordle {wordle_num}'})
+    except Exception as e:
+        logging.error(f"Error in test endpoint: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/league-debug/<int:league_id>')
 def admin_league_debug(league_id):
     """Debug endpoint to check league settings"""
