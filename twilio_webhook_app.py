@@ -1851,14 +1851,15 @@ def dashboard_check_status(league_id):
 
 @app.route('/setup-verification-code-column', methods=['POST'])
 def setup_verification_code_column():
-    """One-time migration to add verification_code column to leagues table"""
+    """One-time migration to add/resize verification_code column to leagues table"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Resize column to fit word phrases like "dancing banana"
         cursor.execute("""
             ALTER TABLE leagues 
-            ADD COLUMN IF NOT EXISTS verification_code VARCHAR(10)
+            ALTER COLUMN verification_code TYPE VARCHAR(50)
         """)
         
         conn.commit()
