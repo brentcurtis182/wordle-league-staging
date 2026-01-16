@@ -18,7 +18,7 @@ body {
     left: 0 !important;
     z-index: 2 !important;
     background-color: #1a1a1b !important;
-    min-width: 120px;
+    min-width: 150px;
     white-space: nowrap;
 }
 .container {
