@@ -534,6 +534,7 @@ def get_severity_prompt(severity, message_type):
 def check_and_roast_daily_losers(league_id, wordle_num, conn):
     """Check if all players have posted, then roast the lowest scorer(s)"""
     try:
+        logging.info(f"[DAILY_LOSER] Starting check for league {league_id}, wordle {wordle_num}")
         cursor = conn.cursor()
         
         # Count active players in league
@@ -551,12 +552,15 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
         """, (league_id, wordle_num))
         posted_count = cursor.fetchone()[0]
         
-        logging.info(f"League {league_id}: {posted_count}/{total_players} players posted for Wordle #{wordle_num}")
+        logging.info(f"[DAILY_LOSER] League {league_id}: {posted_count}/{total_players} players posted for Wordle #{wordle_num}")
         
         # If not all players have posted, don't send message yet
         if posted_count < total_players:
+            logging.info(f"[DAILY_LOSER] Not all players posted yet, skipping roast")
             cursor.close()
             return
+        
+        logging.info(f"[DAILY_LOSER] All players posted! Finding worst score...")
         
         # All players have posted! Find the lowest score(s)
         cursor.execute("""
@@ -570,10 +574,12 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
         
         worst_result = cursor.fetchone()
         if not worst_result:
+            logging.info(f"[DAILY_LOSER] No worst result found, returning")
             cursor.close()
             return
         
         worst_score = worst_result[1]
+        logging.info(f"[DAILY_LOSER] Worst score: {worst_score}")
         
         # Get all players with the worst score (include player IDs for severity lookup)
         cursor.execute("""
@@ -587,14 +593,15 @@ def check_and_roast_daily_losers(league_id, wordle_num, conn):
         cursor.close()
         
         if not loser_data:
+            logging.info(f"[DAILY_LOSER] No loser data found, returning")
             return
         
-        # Check if we already sent a roast for this day (to avoid duplicates)
-        # We'll use a simple check: if a message was sent in the last hour, skip
-        # This prevents duplicate roasts if multiple people post at the same time
+        logging.info(f"[DAILY_LOSER] Losers: {loser_data}")
         
         # Send the roast!
+        logging.info(f"[DAILY_LOSER] Calling send_daily_loser_roast...")
         send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num)
+        logging.info(f"[DAILY_LOSER] send_daily_loser_roast completed")
         
     except Exception as e:
         logging.error(f"Error checking daily losers: {e}")
@@ -607,6 +614,7 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
     loser_data: list of (player_id, player_name) tuples
     """
     try:
+        logging.info(f"[SEND_ROAST] Starting send_daily_loser_roast for league {league_id}")
         from openai import OpenAI
         from twilio.rest import Client
         
@@ -615,10 +623,13 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
         
+        logging.info(f"[SEND_ROAST] Twilio SID: {twilio_sid[:10]}..., Phone: {twilio_phone}")
+        
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         
         # Get conversation SID from database
+        logging.info(f"[SEND_ROAST] Looking up conversation SID for league {league_id}")
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
@@ -627,11 +638,13 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
             conversation_sid = result[0] if result else None
             cursor.close()
             conn.close()
+            logging.info(f"[SEND_ROAST] Found conversation SID: {conversation_sid}")
         else:
             conversation_sid = None
+            logging.error(f"[SEND_ROAST] Could not get DB connection")
         
         if not conversation_sid:
-            logging.error(f"No conversation SID for league {league_id}")
+            logging.error(f"[SEND_ROAST] No conversation SID for league {league_id}")
             return
         
         # Get today's Wordle word (if available)
