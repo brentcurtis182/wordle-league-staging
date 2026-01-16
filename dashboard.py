@@ -1271,6 +1271,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             .toggle-label input[type="checkbox"] {{
                 width: 20px;
                 height: 20px;
+                min-width: 20px;
+                min-height: 20px;
+                flex-shrink: 0;
                 margin-top: 2px;
                 accent-color: {COLORS['accent']};
                 cursor: pointer;
