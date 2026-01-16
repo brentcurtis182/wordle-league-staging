@@ -1005,7 +1005,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                                 <input type="checkbox" id="ai_daily_loser" {ai_daily_checked}>
                                 <span class="toggle-text">
                                     <strong>😈 Daily Loser Roast</strong>
-                                    <small>Roast the worst scorer when all post</small>
+                                    <small>Roast the worst scorer(s) when all players have posted, using the Wordle word subtly</small>
                                 </span>
                             </label>
                             <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('daily_loser', '😈 Daily Loser Roast')">Edit ✏️</button>

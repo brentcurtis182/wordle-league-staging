@@ -665,6 +665,15 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         # Format score for context: 7 = failed (X/6), otherwise actual score
         score_display = "X/6 (failed)" if worst_score == 7 else f"{worst_score}/6"
         
+        # Determine tone based on how bad the score actually was
+        # Scores 4-5 are decent - be gentler. Scores 6-7 deserve more roasting.
+        if worst_score <= 5:
+            score_context = "IMPORTANT: Their score wasn't that bad - they did reasonably well but just happened to be last. Be more playful than harsh. Acknowledge they did okay but just not quite good enough today. Light teasing only."
+        elif worst_score == 6:
+            score_context = "They barely scraped by with a 6/6. They can handle some roasting but they did solve it."
+        else:  # X/6 (7)
+            score_context = "They completely failed to solve it (X/6). Full roast mode engaged."
+        
         # Get per-message severity setting for this league (default)
         league_severity = get_ai_message_severity(league_id, 'daily_loser')
         
@@ -686,9 +695,9 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         severity_instruction = get_severity_prompt(severity, 'roast')
         
         if wordle_word:
-            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today (they got {score_display}). Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT state their score directly in the message - everyone already saw it. Do NOT highlight the Wordle word with asterisks, caps, or quotes - just use it naturally. Use varied emojis. Keep it under 280 characters. {severity_instruction}"
+            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today (they got {score_display}). {score_context} Today's Wordle word was '{wordle_word}' - weave this word SUBTLY into your roast using clever puns and wordplay. Do NOT state their score directly in the message - everyone already saw it. Do NOT highlight the Wordle word with asterisks, caps, or quotes - just use it naturally. Use varied emojis. Keep it under 280 characters. {severity_instruction}"
         else:
-            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today. Do NOT state their score directly - everyone already saw it. Use varied emojis. Keep it under 200 characters. {severity_instruction}"
+            prompt = f"Everyone in the league has posted! Generate a roast for {losers_text} who had the worst score today. {score_context} Do NOT state their score directly - everyone already saw it. Use varied emojis. Keep it under 200 characters. {severity_instruction}"
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
