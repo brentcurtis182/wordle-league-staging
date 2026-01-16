@@ -1075,16 +1075,24 @@ def webhook():
         else:
             conversation_sid = request.form.get('ConversationSid')
         
-        # Conversation to League mapping
-        conversation_to_league = {
-            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # League 1: Warriorz
-            'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # League 3: PAL
-            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # League 4: Party
-            'CH4438ff5531514178bb13c5c0e96d5579': 7,  # League 7: BellyUp
-        }
+        # Look up league by conversation SID from database (dynamic lookup)
+        league_id = None
+        if conversation_sid:
+            try:
+                conn_lookup = get_db_connection()
+                cursor_lookup = conn_lookup.cursor()
+                cursor_lookup.execute("""
+                    SELECT id FROM leagues WHERE twilio_conversation_sid = %s
+                """, (conversation_sid,))
+                result = cursor_lookup.fetchone()
+                if result:
+                    league_id = result[0]
+                cursor_lookup.close()
+                conn_lookup.close()
+            except Exception as e:
+                logging.error(f"Error looking up league by conversation SID: {e}")
         
-        # If no conversation SID or not mapped, log error and return
-        league_id = conversation_to_league.get(conversation_sid)
+        # If no league found, log error and return
         if not league_id:
             logging.error(f"Unknown conversation SID: {conversation_sid}")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
