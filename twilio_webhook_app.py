@@ -1910,6 +1910,42 @@ def dashboard_check_status(league_id):
         logging.error(f"Error checking league status: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/admin/league-debug/<int:league_id>')
+def admin_league_debug(league_id):
+    """Debug endpoint to check league settings"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, display_name, slug, twilio_conversation_sid,
+                   ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast,
+                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
+            FROM leagues WHERE id = %s
+        """, (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'League not found'}), 404
+        
+        return jsonify({
+            'id': result[0],
+            'name': result[1],
+            'display_name': result[2],
+            'slug': result[3],
+            'twilio_conversation_sid': result[4],
+            'ai_perfect_score_congrats': result[5],
+            'ai_failure_roast': result[6],
+            'ai_sunday_race_update': result[7],
+            'ai_daily_loser_roast': result[8],
+            'ai_perfect_score_severity': result[9],
+            'ai_failure_roast_severity': result[10],
+            'ai_daily_loser_severity': result[11]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/delete-conversation', methods=['POST'])
 def admin_delete_conversation():
     """Delete a Twilio conversation by SID (admin only)"""
