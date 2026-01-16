@@ -251,13 +251,15 @@ def render_login_page(error=None, success=None):
             .auth-card {{
                 background: {COLORS['bg_card']};
                 border-radius: 16px;
-                padding: 40px;
+                padding: 40px 20px;
                 border: 1px solid #333;
             }}
             .auth-card h1 {{
                 text-align: center;
                 margin-bottom: 8px;
                 color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
             }}
             .auth-card .subtitle {{
                 text-align: center;
@@ -271,6 +273,10 @@ def render_login_page(error=None, success=None):
             }}
             .auth-footer a {{ color: {COLORS['accent']}; }}
             .orange {{ color: {COLORS['accent_orange']}; }}
+            @media (max-width: 400px) {{
+                .auth-card h1 {{ font-size: 1.3rem; }}
+                .auth-card {{ padding: 30px 16px; }}
+            }}
         </style>
     </head>
     <body>
@@ -322,13 +328,19 @@ def render_register_page(error=None):
             .auth-card {{
                 background: {COLORS['bg_card']};
                 border-radius: 16px;
-                padding: 40px;
+                padding: 40px 20px;
                 border: 1px solid #333;
             }}
             .auth-card h1 {{
                 text-align: center;
                 margin-bottom: 8px;
                 color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
+            }}
+            @media (max-width: 400px) {{
+                .auth-card h1 {{ font-size: 1.3rem; }}
+                .auth-card {{ padding: 30px 16px; }}
             }}
             .auth-card .subtitle {{
                 text-align: center;
