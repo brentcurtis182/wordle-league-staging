@@ -1580,8 +1580,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // Activate League functions
             function showActivateModal() {{
                 document.getElementById('activateModal').classList.add('active');
-                // Generate code if not already present
-                if (document.getElementById('verificationCode').textContent === 'Loading...') {{
+                // Generate code if not already present or if it says Loading
+                const codeEl = document.getElementById('verificationCode');
+                const currentCode = codeEl.textContent.trim();
+                if (!currentCode || currentCode === 'Loading...' || currentCode.length !== 6) {{
                     generateNewCode();
                 }}
             }}
