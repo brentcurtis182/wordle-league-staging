@@ -944,27 +944,44 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
             if score == 7:  # X/6 = 7 in our system
                 if is_last_to_post:
                     logging.info(f"Skipping instant X/6 roast for {player_name} - they're last to post, will be included in daily loser roast")
-                elif is_ai_message_enabled(league_id, 'failure_roast'):
-                    try:
-                        send_failure_roast(player_name, league_id, player_id)
-                    except Exception as e:
-                        logging.error(f"Failed to send roast message: {e}")
                 else:
-                    logging.info(f"Failure roast disabled for league {league_id}")
+                    failure_enabled = is_ai_message_enabled(league_id, 'failure_roast')
+                    logging.info(f"League {league_id} failure_roast enabled: {failure_enabled}")
+                    if failure_enabled:
+                        try:
+                            logging.info(f"Attempting to send failure roast for {player_name} in league {league_id}")
+                            send_failure_roast(player_name, league_id, player_id)
+                        except Exception as e:
+                            logging.error(f"Failed to send roast message: {e}")
+                            import traceback
+                            logging.error(traceback.format_exc())
+                    else:
+                        logging.info(f"Failure roast disabled for league {league_id}")
             
             # Perfect score congrats (1/6 or 2/6) - check if enabled for this league
-            if score in [1, 2] and is_ai_message_enabled(league_id, 'perfect_score'):
-                try:
-                    send_perfect_score_congrats(player_name, score, league_id, player_id)
-                except Exception as e:
-                    logging.error(f"Failed to send perfect score message: {e}")
+            if score in [1, 2]:
+                perfect_enabled = is_ai_message_enabled(league_id, 'perfect_score')
+                logging.info(f"League {league_id} perfect_score enabled: {perfect_enabled}")
+                if perfect_enabled:
+                    try:
+                        logging.info(f"Attempting to send perfect score congrats for {player_name} in league {league_id}")
+                        send_perfect_score_congrats(player_name, score, league_id, player_id)
+                    except Exception as e:
+                        logging.error(f"Failed to send perfect score message: {e}")
+                        import traceback
+                        logging.error(traceback.format_exc())
             
             # Daily loser roast when all players posted - check if enabled for this league
-            if is_ai_message_enabled(league_id, 'daily_loser'):
+            daily_loser_enabled = is_ai_message_enabled(league_id, 'daily_loser')
+            logging.info(f"League {league_id} daily_loser enabled: {daily_loser_enabled}")
+            if daily_loser_enabled:
                 try:
+                    logging.info(f"Checking daily losers for league {league_id}, wordle {wordle_num}")
                     check_and_roast_daily_losers(league_id, wordle_num, conn)
                 except Exception as e:
                     logging.error(f"Failed to check/send daily loser roast: {e}")
+                    import traceback
+                    logging.error(traceback.format_exc())
             
             return "new"
             
@@ -1087,8 +1104,10 @@ def webhook():
                     
                     # Send confirmation message to the group (separate try so it always attempts)
                     try:
+                        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
                         twilio_client.conversations.v1.conversations(conv_sid).messages.create(
-                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!"
+                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!",
+                            author=twilio_phone
                         )
                         logging.info(f"Sent confirmation message to conversation {conv_sid}")
                     except Exception as e:
