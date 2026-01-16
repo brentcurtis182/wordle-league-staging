@@ -2438,29 +2438,43 @@ def recent_messages(league_id):
     try:
         from twilio.rest import Client
         
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
+        # Get conversation SID and league name from database
+        conn = get_db_connection()
+        if not conn:
+            return f"<h2>Database connection failed</h2>", 500
         
-        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
+        cursor = conn.cursor()
+        cursor.execute("SELECT display_name, twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
         
-        conversation_sid = conversation_sids.get(league_id)
-        if not conversation_sid:
-            return f"<h2>League {league_id} not found</h2>", 404
+        if not result or not result[1]:
+            return f"<h2>League {league_id} not found or not activated</h2>", 404
+        
+        league_name = result[0]
+        conversation_sid = result[1]
         
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         
         # Fetch last 20 messages (most recent first)
         messages = client.conversations.v1.conversations(conversation_sid).messages.list(limit=20, order='desc')
         
+        # Get all active leagues for navigation
+        conn2 = get_db_connection()
+        cursor2 = conn2.cursor()
+        cursor2.execute("SELECT id, display_name FROM leagues WHERE twilio_conversation_sid IS NOT NULL ORDER BY id")
+        all_leagues = cursor2.fetchall()
+        cursor2.close()
+        conn2.close()
+        
+        nav_links = ' | '.join([f'<a href="/recent-messages/{lid}">{lname}</a>' for lid, lname in all_leagues])
+        
         # Build HTML response
         html = f"""
         <html>
         <head>
-            <title>Recent Messages - {league_names.get(league_id, f'League {league_id}')}</title>
+            <title>Recent Messages - {league_name}</title>
             <style>
                 body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #1a1a1b; color: #d7dadc; }}
                 h1 {{ color: #00E8DA; }}
@@ -2473,8 +2487,8 @@ def recent_messages(league_id):
             </style>
         </head>
         <body>
-            <h1>📱 Recent Messages - {league_names.get(league_id, f'League {league_id}')}</h1>
-            <p><a href="/recent-messages/1">League 1</a> | <a href="/recent-messages/3">League 3</a> | <a href="/recent-messages/4">League 4</a> | <a href="/recent-messages/7">League 7</a></p>
+            <h1>📱 Recent Messages - {league_name}</h1>
+            <p>{nav_links}</p>
             <p style="color: #818384;">Showing last 20 messages (newest first)</p>
         """
         
