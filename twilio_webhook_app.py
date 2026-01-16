@@ -1914,6 +1914,38 @@ def setup_auth_tables():
         logging.error(f"Error setting up auth tables: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/update-conversation-sids', methods=['POST'])
+def update_conversation_sids():
+    """One-time endpoint to update existing leagues with their conversation SIDs"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Mapping of league_id to conversation_sid
+        league_sids = {
+            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
+            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
+            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # Party
+            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # BellyUp
+        }
+        
+        for league_id, conversation_sid in league_sids.items():
+            cursor.execute("""
+                UPDATE leagues 
+                SET twilio_conversation_sid = %s 
+                WHERE id = %s
+            """, (conversation_sid, league_id))
+            logging.info(f"Updated league {league_id} with conversation_sid {conversation_sid}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Updated 4 leagues with conversation SIDs'})
+    except Exception as e:
+        logging.error(f"Error updating conversation SIDs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/assign-leagues-to-user', methods=['POST'])
 def assign_leagues_to_user():
     """Admin endpoint to assign existing leagues to a user"""
