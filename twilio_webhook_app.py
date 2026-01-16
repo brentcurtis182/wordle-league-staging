@@ -1732,8 +1732,8 @@ def dashboard_delete_league(league_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get league name for logging
-        cursor.execute("SELECT name, display_name FROM leagues WHERE id = %s", (league_id,))
+        # Get league name and conversation SID for cleanup
+        cursor.execute("SELECT name, display_name, twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
         league_row = cursor.fetchone()
         if not league_row:
             cursor.close()
@@ -1741,6 +1741,18 @@ def dashboard_delete_league(league_id):
             return jsonify({'success': False, 'error': 'League not found'}), 404
         
         league_name = league_row[1] or league_row[0]
+        conversation_sid = league_row[2]
+        
+        # Delete Twilio conversation if it exists
+        if conversation_sid:
+            try:
+                from twilio.rest import Client
+                twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+                twilio_client.conversations.v1.conversations(conversation_sid).delete()
+                logging.info(f"Deleted Twilio conversation {conversation_sid} for league {league_id}")
+            except Exception as e:
+                logging.error(f"Error deleting Twilio conversation {conversation_sid}: {e}")
+                # Continue with league deletion even if Twilio delete fails
         
         # Get player IDs for this league first (scores table uses player_id, not league_id)
         cursor.execute("SELECT id FROM players WHERE league_id = %s", (league_id,))
@@ -1865,6 +1877,30 @@ def dashboard_check_status(league_id):
         
     except Exception as e:
         logging.error(f"Error checking league status: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/delete-conversation', methods=['POST'])
+def admin_delete_conversation():
+    """Delete a Twilio conversation by SID (admin only)"""
+    try:
+        data = request.get_json()
+        conversation_sid = data.get('conversation_sid')
+        
+        if not conversation_sid:
+            return jsonify({'success': False, 'error': 'conversation_sid required'}), 400
+        
+        if not conversation_sid.startswith('CH'):
+            return jsonify({'success': False, 'error': 'Invalid conversation SID format'}), 400
+        
+        from twilio.rest import Client
+        twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+        twilio_client.conversations.v1.conversations(conversation_sid).delete()
+        
+        logging.info(f"Deleted Twilio conversation {conversation_sid}")
+        return jsonify({'success': True, 'message': f'Conversation {conversation_sid} deleted'})
+        
+    except Exception as e:
+        logging.error(f"Error deleting conversation: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-verification-code-column', methods=['POST'])
