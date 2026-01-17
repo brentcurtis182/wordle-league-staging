@@ -165,13 +165,13 @@ header {
 /* Emoji pattern styles */
 .emoji-pattern {
     font-size: 0.5rem;
-    line-height: 1;
+    line-height: 1.2;
     display: inline-block;
     margin-left: auto;
 }
 .emoji-row {
     white-space: nowrap;
-    height: 1em;
+    letter-spacing: 0.1em;
 }
 .player-score {
     font-weight: bold;
