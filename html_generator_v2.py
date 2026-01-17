@@ -309,12 +309,12 @@ def generate_season_stats_html(league_data):
         sorted_standings = sorted(season_standings.items(), key=sort_key)
         for player_name, data in sorted_standings:
             wins = data['wins']
-            # Convert Wordle numbers to dates
-            weeks_display = ', '.join([f"{wordle_to_date_string(w)} ({s})" for w, s in zip(data['weeks'], data['scores'])])
+            # Convert Wordle numbers to dates - each on its own line
+            weeks_display = '<br>'.join([f"{wordle_to_date_string(w)} ({s})" for w, s in zip(data['weeks'], data['scores'])])
             html += f'<tr>\n'
             html += f'    <td><strong>{player_name}</strong></td>\n'
             html += f'    <td>{wins}</td>\n'
-            html += f'    <td>{weeks_display if weeks_display else "-"}</td>\n'
+            html += f'    <td style="white-space: nowrap;">{weeks_display if weeks_display else "-"}</td>\n'
             html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
@@ -470,11 +470,11 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <div class="tab-container">
 <div class="tab-buttons tabs">
 <div style="width: 100%; display: flex; justify-content: center; gap: 8px;">
-<button class="tab-button active" data-tab="latest" style="min-height: 44px;">Latest Scores</button>
-<button class="tab-button" data-tab="weekly" style="min-height: 44px;">Weekly Totals</button>
+<button class="tab-button active" data-tab="latest" style="min-height: 48px; padding: 12px 20px;">Latest Scores</button>
+<button class="tab-button" data-tab="weekly" style="min-height: 48px; padding: 12px 20px;">Weekly Totals</button>
 </div>
 <div style="width: 100%; display: flex; justify-content: center; margin-top: 8px;">
-<button class="tab-button" data-tab="stats" style="min-height: 44px;">Season / All-Time Stats</button>
+<button class="tab-button" data-tab="stats" style="min-height: 48px; padding: 12px 20px;">Season / All-Time Stats</button>
 </div>
 </div>
 <div class="tab-content active" id="latest">
