@@ -468,10 +468,14 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </header>
 <div class="container">
 <div class="tab-container">
-<div class="tab-buttons tabs" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;">
+<div class="tab-buttons tabs">
+<div style="width: 100%; display: flex; justify-content: center; gap: 8px;">
 <button class="tab-button active" data-tab="latest" style="min-height: 44px;">Latest Scores</button>
 <button class="tab-button" data-tab="weekly" style="min-height: 44px;">Weekly Totals</button>
+</div>
+<div style="width: 100%; display: flex; justify-content: center; margin-top: 8px;">
 <button class="tab-button" data-tab="stats" style="min-height: 44px;">Season / All-Time Stats</button>
+</div>
 </div>
 <div class="tab-content active" id="latest">
 {latest_html}
