@@ -188,7 +188,7 @@ def generate_weekly_totals_html(league_data):
     weekly_stats = league_data['weekly_stats']
     
     html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+<p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
 <div class="table-container" style="overflow-x: auto;">
 <table>
 <thead>
@@ -262,7 +262,7 @@ def generate_weekly_totals_html(league_data):
         html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
-    html += '<p class="note" style="font-style: italic; margin-top: 10px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
+    html += '<p class="note" style="font-style: italic; margin-top: 20px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
     html += '<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your best 5 scores. Additional scores appear in \'Thrown Out\'</p>\n'
     html += '</div>\n'
     
@@ -295,8 +295,18 @@ def generate_season_stats_html(league_data):
     
     # Add current season standings
     if season_standings:
-        # Sort by wins descending
-        sorted_standings = sorted(season_standings.items(), key=lambda x: x[1]['wins'], reverse=True)
+        # Sort by wins descending, then by when they reached that win count (first to reach stays on top)
+        # Use the Wordle number of their Nth win as tiebreaker (lower = earlier = higher rank)
+        def sort_key(item):
+            player_name, data = item
+            wins = data['wins']
+            # Get the Wordle number when they achieved their current win count
+            # (the last entry in their weeks list is when they got their most recent win)
+            last_win_wordle = data['weeks'][-1] if data['weeks'] else 9999
+            # Sort by: wins DESC, then last_win_wordle ASC (earlier wins rank higher)
+            return (-wins, last_win_wordle)
+        
+        sorted_standings = sorted(season_standings.items(), key=sort_key)
         for player_name, data in sorted_standings:
             wins = data['wins']
             # Convert Wordle numbers to dates
@@ -458,14 +468,10 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </header>
 <div class="container">
 <div class="tab-container">
-<div class="tab-buttons tabs">
-<div style="width: 100%; display: flex; justify-content: center;">
-<button class="tab-button active" data-tab="latest">Latest Scores</button>
-<button class="tab-button" data-tab="weekly">Weekly Totals</button>
-</div>
-<div style="width: 100%; display: flex; justify-content: center;">
-<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
-</div>
+<div class="tab-buttons tabs" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;">
+<button class="tab-button active" data-tab="latest" style="min-height: 44px;">Latest Scores</button>
+<button class="tab-button" data-tab="weekly" style="min-height: 44px;">Weekly Totals</button>
+<button class="tab-button" data-tab="stats" style="min-height: 44px;">Season / All-Time Stats</button>
 </div>
 <div class="tab-content active" id="latest">
 {latest_html}
