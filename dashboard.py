@@ -30,6 +30,11 @@ def get_base_styles():
     """Return base CSS styles for all dashboard pages"""
     return f"""
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        html, body {{
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
+        }}
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: {COLORS['bg_dark']};
@@ -758,6 +763,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 border-radius: 8px;
                 margin-bottom: 8px;
                 padding: 12px 16px;
+                width: 100%;
+                max-width: 100%;
+                overflow: hidden;
             }}
             .player-view {{
                 display: flex;
@@ -766,14 +774,20 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             .player-info {{
                 flex: 1;
+                min-width: 0;
+                overflow: hidden;
             }}
             .player-info .name {{
                 font-weight: 500;
                 color: {COLORS['text']};
+                overflow: hidden;
+                text-overflow: ellipsis;
             }}
             .player-info .phone {{
                 color: {COLORS['text_muted']};
                 font-size: 0.9em;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }}
             .btn-icon {{
                 background: transparent;
@@ -799,6 +813,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 12px;
+                width: 100%;
+                max-width: 100%;
             }}
             .edit-input {{
                 padding: 10px 12px;
@@ -806,11 +822,22 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 border: 1px solid #444;
                 background: {COLORS['bg_card']};
                 color: {COLORS['text']};
-                font-size: 0.95em;
+                font-size: 16px;
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
             }}
             .edit-input:focus {{
                 outline: none;
                 border-color: {COLORS['accent']};
+            }}
+            @media (max-width: 600px) {{
+                .edit-fields {{
+                    grid-template-columns: 1fr;
+                }}
+                .edit-input {{
+                    font-size: 16px;
+                }}
             }}
             .edit-actions {{
                 display: flex;
