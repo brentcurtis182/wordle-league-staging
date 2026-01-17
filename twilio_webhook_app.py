@@ -4473,6 +4473,23 @@ def regenerate_league4():
         traceback.print_exc()
         return {'error': str(e)}, 500
 
+@app.route('/regenerate-league/<int:league_id>', methods=['POST'])
+def regenerate_league_generic(league_id):
+    """Manually regenerate HTML for any league"""
+    try:
+        from update_pipeline import run_update_pipeline
+        result = run_update_pipeline(league_id)
+        return jsonify({
+            'success': True,
+            'result': result,
+            'message': f'League {league_id} HTML regenerated'
+        })
+    except Exception as e:
+        logging.error(f"Error regenerating League {league_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}, 500
+
 @app.route('/insert-league4-scores', methods=['POST'])
 def insert_league4_scores_endpoint():
     """Insert League 4 scores manually"""
