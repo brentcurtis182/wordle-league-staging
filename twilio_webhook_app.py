@@ -1127,8 +1127,10 @@ def webhook():
                     # Send confirmation message to the group (separate try so it always attempts)
                     try:
                         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+                        # Build the public league URL
+                        league_url = f"https://www.wordplayleague.com/leagues/{league_slug}"
                         twilio_client.conversations.v1.conversations(conv_sid).messages.create(
-                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!",
+                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!\n\n📊 View your league standings: {league_url}",
                             author=twilio_phone
                         )
                         logging.info(f"Sent confirmation message to conversation {conv_sid}")
