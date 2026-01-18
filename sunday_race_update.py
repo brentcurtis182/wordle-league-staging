@@ -651,8 +651,8 @@ IMPORTANT RULES:
 
 def run_sunday_race_updates():
     """Run Sunday race updates for all active leagues"""
-    # Active leagues: 1 (Warriorz), 3 (PAL), 4 (Party), 7 (BellyUp)
-    leagues = [1, 3, 4, 7]
+    # Active leagues: 1 (Warriorz), 3 (PAL), 4 (Party), 7 (BellyUp), 8 (Nerds Only)
+    leagues = [1, 3, 4, 7, 8]
     
     all_success = True
     for league_id in leagues:
