@@ -292,18 +292,20 @@ def send_sunday_race_update(league_id, force_season_image=False):
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
         
-        # Map league_id to conversation SID
-        conversation_sids = {
-            1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-            3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-            4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-            7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-        }
+        # Get conversation SID from database (dynamic lookup)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT twilio_conversation_sid, display_name FROM leagues WHERE id = %s", (league_id,))
+        league_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
         
-        conversation_sid = conversation_sids.get(league_id)
-        if not conversation_sid:
+        if not league_row or not league_row[0]:
             logging.error(f"No conversation SID for league {league_id}")
             return False
+        
+        conversation_sid = league_row[0]
+        league_display_name = league_row[1] or f"League {league_id}"
         
         # Get week start
         pacific = pytz.timezone('America/Los_Angeles')
@@ -331,8 +333,13 @@ def send_sunday_race_update(league_id, force_season_image=False):
         potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
         
         if not eligible:
-            logging.warning(f"No eligible players (5+ games) in league {league_id}")
-            prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly race. Keep playing to get in the running! Use emojis. Keep it under 200 characters."
+            logging.info(f"No eligible players (5+ games) in league {league_id} - sending 'no winner this week' message")
+            prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly win. You need at least 5 scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
+        elif len(eligible) == 1:
+            # Only one eligible player - they have it locked!
+            winner = eligible[0]
+            logging.info(f"Only one eligible player in league {league_id}: {winner['name']} has it locked")
+            prompt = f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at {winner['best_5_total']}! No one else has enough scores to compete. Congratulate the winner! Use emojis. Keep it under 200 characters."
         else:
             # Find current leader(s) among eligible players
             leader_total = eligible[0]['best_5_total']
@@ -458,12 +465,17 @@ def send_sunday_race_update(league_id, force_season_image=False):
                             # Too many fails, can't qualify this week
                             eliminated.append(player['name'])
                 
-                # Build scenario text
+                # Build scenario text - ONLY mention players who can realistically catch up
+                # Do NOT mention eliminated players - they just clutter the message
                 scenario_parts = [leader_text]
                 if catch_up_scenarios:
                     scenario_parts.append(". ".join(catch_up_scenarios[:3]))  # Max 3 catch-up scenarios
-                if eliminated:
-                    scenario_parts.append(f"{', '.join(eliminated)} eliminated")
+                elif not catch_up_scenarios and len(eligible) > 1:
+                    # No one can catch up but there are other eligible players who already posted
+                    # Check if leader has it locked
+                    other_eligible = [p for p in eligible if p['name'] not in leader_names]
+                    if other_eligible and all(p['posted_today'] for p in other_eligible):
+                        scenario_parts.append(f"No one else can catch up - {leader_names[0]} has this locked!")
                 
                 scenarios.append(". ".join(scenario_parts))
             
@@ -542,9 +554,8 @@ IMPORTANT RULES:
         conversation = client.conversations.v1.conversations(conversation_sid).fetch()
         chat_service_sid = conversation.chat_service_sid
         
-        # Generate weekly standings image
-        league_names = {1: 'Warriorz', 3: 'PAL', 4: 'The Party', 7: 'Belly Up'}
-        league_name = league_names.get(league_id, f'League {league_id}')
+        # Generate weekly standings image - use dynamic name from database
+        league_name = league_display_name
         
         # Format week date string (e.g., "Jan 05")
         week_date_str = week_start.strftime("%b %d")
