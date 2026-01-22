@@ -295,7 +295,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
         # Get conversation SID from database (dynamic lookup)
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT twilio_conversation_sid, display_name FROM leagues WHERE id = %s", (league_id,))
+        cursor.execute("SELECT twilio_conversation_sid, display_name, slug FROM leagues WHERE id = %s", (league_id,))
         league_row = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -306,6 +306,8 @@ def send_sunday_race_update(league_id, force_season_image=False):
         
         conversation_sid = league_row[0]
         league_display_name = league_row[1] or f"League {league_id}"
+        league_slug = league_row[2] or f"league{league_id}"
+        league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
         
         # Get week start
         pacific = pytz.timezone('America/Los_Angeles')
@@ -620,6 +622,9 @@ IMPORTANT RULES:
             except Exception as img_error:
                 logging.error(f"Failed to generate/upload season image: {img_error}")
         
+        # Append league URL to the race message
+        race_message_with_url = f"{race_message}\n\n📊 {league_url}"
+        
         # Send message with images if available
         if media_sids:
             # Send each image as a separate message, then the text
@@ -630,13 +635,13 @@ IMPORTANT RULES:
                 )
             # Send text message after images
             client.conversations.v1.conversations(conversation_sid).messages.create(
-                body=race_message,
+                body=race_message_with_url,
                 author=twilio_phone
             )
         else:
             # No images, just send text
             client.conversations.v1.conversations(conversation_sid).messages.create(
-                body=race_message,
+                body=race_message_with_url,
                 author=twilio_phone
             )
         
