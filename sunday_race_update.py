@@ -351,14 +351,27 @@ def send_sunday_race_update(league_id, force_season_image=False):
             # Check if all eligible players have posted today
             all_eligible_posted = all(s['posted_today'] for s in eligible)
             
+            # Check if ALL players in the league have posted today (race is completely over)
+            all_players_posted = all(s['posted_today'] for s in standings)
+            
             # Check players who haven't posted today but could still qualify or catch up
             not_posted_today = [s for s in standings if not s['posted_today']]
+            
+            logging.info(f"League {league_id} scenario analysis: eligible={len(eligible)}, leaders={leader_names}, all_eligible_posted={all_eligible_posted}, all_players_posted={all_players_posted}, not_posted_today={[p['name'] for p in not_posted_today]}")
             
             # SCENARIO ANALYSIS
             scenarios = []
             
-            # Scenario 1: Multiple leaders = they will share the win
-            if len(leaders) > 1 and all_eligible_posted:
+            # Scenario 0: ALL players have posted - race is OVER, declare winner(s)
+            if all_players_posted:
+                if len(leaders) > 1:
+                    leader_list = " and ".join(leader_names)
+                    scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")
+                else:
+                    scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! Congratulations!")
+            
+            # Scenario 1: Multiple leaders = they will share the win (if no one else can catch up)
+            elif len(leaders) > 1 and all_eligible_posted and not not_posted_today:
                 leader_list = " and ".join(leader_names)
                 scenarios.append(f"{leader_list} are tied at {leader_total} and will share the win!")
             
