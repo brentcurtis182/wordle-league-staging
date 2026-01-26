@@ -259,12 +259,33 @@ tr.highlight {
 .tab-content.active {
     display: block;
 }
+
+/* Season table column sizing */
+.season-table {
+    table-layout: auto;
+}
+.season-table th:nth-child(1),
+.season-table td:nth-child(1) {
+    width: 55%;
+    white-space: nowrap;
+}
+.season-table th:nth-child(2),
+.season-table td:nth-child(2) {
+    width: 12%;
+    white-space: nowrap;
+}
+.season-table th:nth-child(3),
+.season-table td:nth-child(3) {
+    width: 33%;
+}
+
 @media (max-width: 768px) {
     .score-card {
         flex-direction: row;
         align-items: center;
         padding: 8px;
     }
+
     .player-info {
         flex: 1;
     }
