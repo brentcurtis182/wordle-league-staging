@@ -362,15 +362,42 @@ def send_sunday_race_update(league_id, force_season_image=False):
             # SCENARIO ANALYSIS
             scenarios = []
             
-            # Scenario 0: ALL players have posted - race is OVER, declare winner(s)
-            if all_players_posted:
+            # Check if any non-posted players can realistically catch up
+            # (eligible players who haven't posted, or players with 4 games who could qualify)
+            players_who_can_catch_up = []
+            for player in not_posted_today:
+                if player['name'] in leader_names:
+                    continue  # Leaders don't need to catch up
+                if player['eligible']:
+                    # Check if they can improve enough to tie/win
+                    diff = player['best_5_total'] - leader_total
+                    if diff > 0:
+                        non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                        sorted_scores = sorted(non_fail_scores)[:5]
+                        if sorted_scores:
+                            worst_best_5 = sorted_scores[-1]
+                            score_to_tie = worst_best_5 - diff
+                            if score_to_tie >= 1 and score_to_tie <= 6:
+                                players_who_can_catch_up.append(player['name'])
+                elif player['days_posted'] >= 4:
+                    non_fail_scores = [s for s in player['scores'].values() if s != 7]
+                    if len(non_fail_scores) == 4:
+                        current_total = sum(sorted(non_fail_scores)[:4])
+                        score_to_tie = leader_total - current_total
+                        if score_to_tie >= 1 and score_to_tie <= 6:
+                            players_who_can_catch_up.append(player['name'])
+            
+            race_is_decided = all_eligible_posted and len(players_who_can_catch_up) == 0
+            
+            # Scenario 0: Race is DECIDED - all eligible posted AND no one else can catch up
+            if all_players_posted or race_is_decided:
                 if len(leaders) > 1:
                     leader_list = " and ".join(leader_names)
                     scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")
                 else:
                     scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! Congratulations!")
             
-            # Scenario 1: Multiple leaders = they will share the win (if no one else can catch up)
+            # Scenario 1: Multiple leaders tied, race still open
             elif len(leaders) > 1 and all_eligible_posted and not not_posted_today:
                 leader_list = " and ".join(leader_names)
                 scenarios.append(f"{leader_list} are tied at {leader_total} and will share the win!")
@@ -540,7 +567,15 @@ def send_sunday_race_update(league_id, force_season_image=False):
             
             # Build final prompt
             scenario_text = " ".join(scenarios) + season_clinch_text
-            prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+            logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
+            logging.info(f"League {league_id} potential_season_clinchers: {potential_season_clinchers}")
+            logging.info(f"League {league_id} leaders_who_could_clinch: {leaders_who_could_clinch}")
+            
+            # If there's season stakes, make it very prominent in the prompt
+            if season_clinch_text:
+                prompt = f"It's Sunday morning Wordle race update! {scenario_text} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+            else:
+                prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -553,8 +588,10 @@ IMPORTANT RULES:
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
-6. Include SEASON STAKES info if provided - this is important context about clinching the season!
-7. Use emojis for excitement!"""},
+6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently!
+7. Use emojis for excitement!
+8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
+9. When someone clinches the SEASON (not just the week), make it a BIG DEAL - this is a major accomplishment!"""},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=200,
