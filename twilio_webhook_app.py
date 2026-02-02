@@ -1372,10 +1372,11 @@ def slack_oauth_callback():
 @app.route('/slack/install', methods=['GET'])
 def slack_install():
     """Redirect to Slack OAuth to install the app"""
+    from urllib.parse import urlencode
+    
     league_id = request.args.get('league_id')
     
     client_id = os.environ.get('SLACK_CLIENT_ID')
-    # Force HTTPS for the redirect URI
     redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
     
     # Scopes needed for the bot
@@ -1384,7 +1385,14 @@ def slack_install():
     # State parameter to track which league this is for
     state = league_id or ""
     
-    slack_url = f"https://slack.com/oauth/v2/authorize?client_id={client_id}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
+    # Build URL with proper encoding
+    params = urlencode({
+        'client_id': client_id,
+        'scope': scopes,
+        'redirect_uri': redirect_uri,
+        'state': state
+    })
+    slack_url = f"https://slack.com/oauth/v2/authorize?{params}"
     
     return redirect(slack_url)
 
