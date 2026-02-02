@@ -164,7 +164,7 @@ def send_slack_message_with_image(bot_token: str, channel_id: str, text: str,
 def parse_slack_wordle_score(text: str) -> tuple:
     """
     Parse a Wordle score from Slack message text.
-    Returns (wordle_number, score, is_hard_mode) or (None, None, None) if not a Wordle share.
+    Returns (wordle_number, score, is_hard_mode, emoji_pattern) or (None, None, None, None) if not a Wordle share.
     """
     # Standard Wordle pattern: "Wordle 1,234 3/6" or "Wordle 1,234 X/6"
     pattern = r'Wordle\s+([\d,]+)\s+([1-6X])/6(\*)?'
@@ -180,9 +180,54 @@ def parse_slack_wordle_score(text: str) -> tuple:
         else:
             score = int(score_str)
         
-        return wordle_number, score, is_hard_mode
+        # Extract emoji pattern - convert Slack emoji codes to Unicode
+        emoji_pattern = extract_slack_emoji_pattern(text)
+        
+        return wordle_number, score, is_hard_mode, emoji_pattern
     
-    return None, None, None
+    return None, None, None, None
+
+
+def extract_slack_emoji_pattern(text: str) -> str:
+    """
+    Extract and convert Slack emoji codes to Unicode emoji for Wordle patterns.
+    Slack uses :emoji_name: format instead of Unicode.
+    """
+    # Slack emoji code to Unicode mapping for Wordle squares
+    slack_to_unicode = {
+        ':large_green_square:': '🟩',
+        ':large_yellow_square:': '🟨',
+        ':black_large_square:': '⬛',
+        ':white_large_square:': '⬜',
+        # Alternative names Slack might use
+        ':green_square:': '🟩',
+        ':yellow_square:': '🟨',
+        ':black_square:': '⬛',
+        ':white_square:': '⬜',
+    }
+    
+    # Find all lines after the "Wordle X,XXX X/6" line that contain emoji codes
+    lines = text.split('\n')
+    emoji_lines = []
+    found_header = False
+    
+    for line in lines:
+        if 'Wordle' in line and '/6' in line:
+            found_header = True
+            continue
+        if found_header and (':' in line or '🟩' in line or '🟨' in line or '⬛' in line or '⬜' in line):
+            # Convert Slack emoji codes to Unicode
+            converted_line = line
+            for slack_code, unicode_char in slack_to_unicode.items():
+                converted_line = converted_line.replace(slack_code, unicode_char)
+            # Only keep lines that have Wordle emoji squares
+            if any(c in converted_line for c in ['🟩', '🟨', '⬛', '⬜']):
+                # Clean up - keep only the emoji characters
+                clean_line = ''.join(c for c in converted_line if c in '🟩🟨⬛⬜')
+                if clean_line:
+                    emoji_lines.append(clean_line)
+    
+    return '\n'.join(emoji_lines) if emoji_lines else ""
 
 
 def get_slack_user_info(bot_token: str, user_id: str) -> dict:
@@ -313,11 +358,13 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
             return {"status": "channel_linked", "league_id": league_id}
     
     # Try to parse as Wordle score
-    wordle_number, score, is_hard_mode = parse_slack_wordle_score(text)
+    wordle_number, score, is_hard_mode, emoji_pattern = parse_slack_wordle_score(text)
     
     if wordle_number is None:
         cursor.close()
         return {"status": "ignored", "reason": "not_wordle_score"}
+    
+    logging.info(f"Parsed Wordle score: #{wordle_number}, score={score}, emoji_pattern={emoji_pattern[:20] if emoji_pattern else 'none'}...")
     
     # Look up the league by Slack team + channel
     cursor = db_connection.cursor()
@@ -411,6 +458,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
         player_name=player_name,
         wordle_number=wordle_number,
         score=score,
+        emoji_pattern=emoji_pattern,
         is_hard_mode=is_hard_mode,
         channel_type='slack'
     )
