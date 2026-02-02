@@ -278,7 +278,8 @@ def get_user_leagues(user_id):
     
     try:
         cursor.execute("""
-            SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid, l.slug
+            SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid, l.slug,
+                   l.channel_type, l.slack_channel_id, l.discord_channel_id
             FROM user_leagues ul
             JOIN leagues l ON ul.league_id = l.id
             WHERE ul.user_id = %s
@@ -293,7 +294,10 @@ def get_user_leagues(user_id):
                 'display_name': row[2],
                 'role': row[3],
                 'conversation_sid': row[4],
-                'slug': row[5]
+                'slug': row[5],
+                'channel_type': row[6] or 'sms',
+                'slack_channel_id': row[7],
+                'discord_channel_id': row[8]
             })
         return leagues
         

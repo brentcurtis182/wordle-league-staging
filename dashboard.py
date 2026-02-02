@@ -483,14 +483,31 @@ def get_league_wix_url(league_id):
     return wix_paths.get(league_id, f'league{league_id}')
 
 def render_dashboard(user, leagues, message=None, error=None):
-    """Render the main dashboard"""
-    league_cards = ""
-    for league in leagues:
+    """Render the main dashboard with leagues grouped by platform"""
+    
+    # Group leagues by channel type
+    sms_leagues = [l for l in leagues if (l.get('channel_type') or 'sms') == 'sms']
+    slack_leagues = [l for l in leagues if l.get('channel_type') == 'slack']
+    discord_leagues = [l for l in leagues if l.get('channel_type') == 'discord']
+    
+    def render_league_card(league):
         wix_path = get_league_wix_url(league['id'])
-        is_active = league.get('conversation_sid') is not None
+        channel_type = league.get('channel_type') or 'sms'
+        
+        # Determine active status based on channel type
+        if channel_type == 'sms':
+            is_active = league.get('conversation_sid') is not None
+        elif channel_type == 'slack':
+            is_active = league.get('slack_channel_id') is not None
+        elif channel_type == 'discord':
+            is_active = league.get('discord_channel_id') is not None
+        else:
+            is_active = False
+        
         status_color = '#2ECC71' if is_active else COLORS['accent_orange']
-        status_text = '✓ Active' if is_active else '⚠ Inactive'
-        league_cards += f"""
+        status_text = '✓ Active' if is_active else '⚠ Setup Required'
+        
+        return f"""
         <div class="league-card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <h3>{league['display_name']}</h3>
@@ -504,13 +521,48 @@ def render_dashboard(user, leagues, message=None, error=None):
         </div>
         """
     
+    def render_platform_section(icon, title, leagues_list, empty_text):
+        if not leagues_list:
+            cards = f'<p style="color: {COLORS["text_muted"]}; padding: 20px; text-align: center;">{empty_text}</p>'
+        else:
+            cards = "".join([render_league_card(l) for l in leagues_list])
+        
+        return f"""
+        <div class="platform-section">
+            <h3 class="platform-title">{icon} {title}</h3>
+            <div class="league-grid">
+                {cards}
+            </div>
+        </div>
+        """
+    
+    # Build platform sections
+    sms_section = render_platform_section(
+        "📱", "SMS Text Leagues", 
+        sms_leagues, 
+        "No SMS leagues yet"
+    )
+    slack_section = render_platform_section(
+        "💬", "Slack Leagues", 
+        slack_leagues, 
+        "No Slack leagues yet"
+    )
+    discord_section = render_platform_section(
+        "🎮", "Discord Leagues", 
+        discord_leagues, 
+        "No Discord leagues yet"
+    )
+    
+    # If no leagues at all, show a different message
     if not leagues:
-        league_cards = """
+        all_sections = """
         <div class="card" style="text-align: center; padding: 40px;">
             <p style="color: #818384; margin-bottom: 20px;">You don't have any leagues yet.</p>
             <a href="/dashboard/create-league" class="btn btn-primary">Create Your First League</a>
         </div>
         """
+    else:
+        all_sections = sms_section + slack_section + discord_section
     
     return f"""
     <!DOCTYPE html>
@@ -518,7 +570,23 @@ def render_dashboard(user, leagues, message=None, error=None):
     <head>
         <title>Dashboard - WordPlayLeague.com</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>{get_base_styles()}</style>
+        <style>
+            {get_base_styles()}
+            .platform-section {{
+                margin-bottom: 30px;
+                background: {COLORS['bg_card']};
+                border-radius: 12px;
+                padding: 20px;
+                border: 1px solid {COLORS['border']};
+            }}
+            .platform-title {{
+                color: {COLORS['text']};
+                font-size: 1.1em;
+                margin-bottom: 16px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid {COLORS['border']};
+            }}
+        </style>
     </head>
     <body>
         <div class="container">
@@ -543,9 +611,7 @@ def render_dashboard(user, leagues, message=None, error=None):
                 <a href="/dashboard/create-league" class="btn btn-primary btn-small">+ Create League</a>
             </div>
             
-            <div class="league-grid">
-                {league_cards}
-            </div>
+            {all_sections}
         </div>
         <script>
             // Auto-hide alerts after 5 seconds
@@ -562,7 +628,7 @@ def render_dashboard(user, leagues, message=None, error=None):
 
 
 def render_create_league(user, error=None):
-    """Render the create league page"""
+    """Render the create league page with platform selection"""
     return f"""
     <!DOCTYPE html>
     <html>
@@ -623,6 +689,58 @@ def render_create_league(user, error=None):
                 margin: 0;
                 font-size: 0.9em;
             }}
+            .platform-options {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+                margin-bottom: 24px;
+            }}
+            @media (max-width: 600px) {{
+                .platform-options {{
+                    grid-template-columns: 1fr;
+                }}
+            }}
+            .platform-option {{
+                background: {COLORS['bg_dark']};
+                border: 2px solid {COLORS['border']};
+                border-radius: 12px;
+                padding: 20px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.2s;
+            }}
+            .platform-option:hover {{
+                border-color: {COLORS['accent']};
+            }}
+            .platform-option.selected {{
+                border-color: {COLORS['accent']};
+                background: rgba(0, 232, 218, 0.1);
+            }}
+            .platform-option input {{
+                display: none;
+            }}
+            .platform-option .icon {{
+                font-size: 2.5em;
+                margin-bottom: 12px;
+            }}
+            .platform-option .name {{
+                font-weight: 600;
+                color: {COLORS['text']};
+                margin-bottom: 6px;
+            }}
+            .platform-option .desc {{
+                font-size: 0.85em;
+                color: {COLORS['text_muted']};
+            }}
+            .platform-option .price {{
+                margin-top: 10px;
+                font-size: 0.9em;
+                color: {COLORS['accent']};
+                font-weight: 600;
+            }}
+            .platform-option .price.free {{
+                color: #2ECC71;
+            }}
         </style>
     </head>
     <body>
@@ -640,10 +758,37 @@ def render_create_league(user, error=None):
             <div class="card">
                 <h2>🏆 Create New League</h2>
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 24px;">
-                    Set up a new Wordle league for your group chat.
+                    Set up a new Wordle league for your group.
                 </p>
                 
                 <form method="POST" action="/dashboard/create-league">
+                    <div class="form-group">
+                        <label>Choose Your Platform</label>
+                        <div class="platform-options">
+                            <label class="platform-option selected" onclick="selectPlatform(this, 'sms')">
+                                <input type="radio" name="channel_type" value="sms" checked>
+                                <div class="icon">📱</div>
+                                <div class="name">SMS Text</div>
+                                <div class="desc">iMessage or group text</div>
+                                <div class="price">~$5/month</div>
+                            </label>
+                            <label class="platform-option" onclick="selectPlatform(this, 'slack')">
+                                <input type="radio" name="channel_type" value="slack">
+                                <div class="icon">💬</div>
+                                <div class="name">Slack</div>
+                                <div class="desc">Slack workspace channel</div>
+                                <div class="price free">Free</div>
+                            </label>
+                            <label class="platform-option" onclick="selectPlatform(this, 'discord')">
+                                <input type="radio" name="channel_type" value="discord">
+                                <div class="icon">🎮</div>
+                                <div class="name">Discord</div>
+                                <div class="desc">Discord server channel</div>
+                                <div class="price free">Free</div>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label for="league_name">League Name</label>
                         <input type="text" id="league_name" name="league_name" 
@@ -662,8 +807,8 @@ def render_create_league(user, error=None):
                     </div>
                     
                     <div class="status-info">
-                        <h4>⚠️ League Status: Inactive</h4>
-                        <p>After creating your league, you'll need to connect your group chat to start tracking scores. We'll guide you through this process.</p>
+                        <h4>⚠️ What's Next?</h4>
+                        <p id="platform-hint">After creating your league, you'll receive a phone number to add to your group chat.</p>
                     </div>
                     
                     <div style="margin-top: 24px; display: flex; gap: 12px;">
@@ -675,6 +820,23 @@ def render_create_league(user, error=None):
         </div>
         
         <script>
+            function selectPlatform(element, platform) {{
+                // Remove selected from all
+                document.querySelectorAll('.platform-option').forEach(el => el.classList.remove('selected'));
+                // Add selected to clicked
+                element.classList.add('selected');
+                // Check the radio
+                element.querySelector('input').checked = true;
+                
+                // Update hint text
+                const hints = {{
+                    'sms': "After creating your league, you'll receive a phone number to add to your group chat.",
+                    'slack': "After creating your league, you'll connect your Slack workspace and select a channel.",
+                    'discord': "After creating your league, you'll add our bot to your Discord server and select a channel."
+                }};
+                document.getElementById('platform-hint').textContent = hints[platform];
+            }}
+            
             function updateSlugPreview(name) {{
                 const slug = name.toLowerCase()
                     .replace(/[^a-z0-9\\s-]/g, '')

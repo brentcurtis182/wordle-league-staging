@@ -1650,6 +1650,11 @@ def dashboard_create_league():
     # POST - create the league
     league_name = request.form.get('league_name', '').strip()
     slug = request.form.get('slug', '').strip().lower()
+    channel_type = request.form.get('channel_type', 'sms').strip()
+    
+    # Validate channel_type
+    if channel_type not in ('sms', 'slack', 'discord'):
+        channel_type = 'sms'
     
     if not league_name or not slug:
         return render_create_league(user, error='League name and slug are required')
@@ -1683,10 +1688,10 @@ def dashboard_create_league():
         
         # Create the league (all AI messages default to OFF)
         cursor.execute("""
-            INSERT INTO leagues (id, name, display_name, slug, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
-            VALUES (%s, %s, %s, %s, false, false, false, false)
+            INSERT INTO leagues (id, name, display_name, slug, channel_type, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
+            VALUES (%s, %s, %s, %s, %s, false, false, false, false)
             RETURNING id
-        """, (next_id, slug, league_name, slug))
+        """, (next_id, slug, league_name, slug, channel_type))
         
         league_id = cursor.fetchone()[0]
         conn.commit()
@@ -1696,9 +1701,17 @@ def dashboard_create_league():
         # Assign league to user as owner
         assign_league_to_user(user['id'], league_id, 'owner')
         
-        logging.info(f"Created new league: {league_name} (id={league_id}, slug={slug}) by user {user['id']}")
+        logging.info(f"Created new league: {league_name} (id={league_id}, slug={slug}, channel={channel_type}) by user {user['id']}")
         
-        return redirect(f'/dashboard/league/{league_id}?message=League created! Now add players and connect your group chat.')
+        # Redirect message varies by platform
+        if channel_type == 'slack':
+            redirect_msg = 'League created! Now connect your Slack workspace.'
+        elif channel_type == 'discord':
+            redirect_msg = 'League created! Now add our bot to your Discord server.'
+        else:
+            redirect_msg = 'League created! Now add players and connect your group chat.'
+        
+        return redirect(f'/dashboard/league/{league_id}?message={redirect_msg}')
         
     except Exception as e:
         logging.error(f"Error creating league: {e}")
