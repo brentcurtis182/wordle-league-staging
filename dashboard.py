@@ -770,21 +770,18 @@ def render_create_league(user, error=None):
                                 <div class="icon">📱</div>
                                 <div class="name">SMS Text</div>
                                 <div class="desc">iMessage or group text</div>
-                                <div class="price">~$5/month</div>
                             </label>
                             <label class="platform-option" onclick="selectPlatform(this, 'slack')">
                                 <input type="radio" name="channel_type" value="slack">
                                 <div class="icon">💬</div>
                                 <div class="name">Slack</div>
                                 <div class="desc">Slack workspace channel</div>
-                                <div class="price free">Free</div>
                             </label>
                             <label class="platform-option" onclick="selectPlatform(this, 'discord')">
                                 <input type="radio" name="channel_type" value="discord">
                                 <div class="icon">🎮</div>
                                 <div class="name">Discord</div>
                                 <div class="desc">Discord server channel</div>
-                                <div class="price free">Free</div>
                             </label>
                         </div>
                     </div>
@@ -858,22 +855,51 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     if player_ai_settings is None:
         player_ai_settings = {}
     
+    # Get channel type for platform-specific UI
+    channel_type = league.get('channel_type') or 'sms'
+    
     # Pre-compute AI settings checkbox states
     ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
     ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
     ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
     ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
     
+    # Platform-specific labels
+    if channel_type == 'slack':
+        identifier_label = 'Slack Username'
+        identifier_placeholder = '@username'
+        identifier_empty = 'No Slack username'
+    elif channel_type == 'discord':
+        identifier_label = 'Discord Username'
+        identifier_placeholder = 'username#1234'
+        identifier_empty = 'No Discord username'
+    else:
+        identifier_label = 'Phone Number'
+        identifier_placeholder = '18585551234'
+        identifier_empty = 'No phone'
+    
     player_rows = ""
     for player in players:
         pending_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">PENDING</span>' if player.get('pending_activation') else ''
+        
+        # Get the appropriate identifier based on channel type
+        if channel_type == 'slack':
+            identifier_value = player.get('slack_user_id') or ''
+            identifier_display = player.get('slack_user_id') or identifier_empty
+        elif channel_type == 'discord':
+            identifier_value = player.get('discord_user_id') or ''
+            identifier_display = player.get('discord_user_id') or identifier_empty
+        else:
+            identifier_value = player.get('phone') or ''
+            identifier_display = player.get('phone') or identifier_empty
+        
         player_rows += f"""
         <div class="player-item" id="player-{player['id']}">
             <!-- Read-only view -->
             <div class="player-view" id="view-{player['id']}">
                 <div class="player-info">
                     <div class="name">{player['name']}{pending_badge}</div>
-                    <div class="phone">{player['phone'] or 'No phone'}</div>
+                    <div class="phone">{identifier_display}</div>
                 </div>
                 <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
                     ✏️
@@ -885,7 +911,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <input type="hidden" name="player_id" value="{player['id']}">
                     <div class="edit-fields">
                         <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name">
-                        <input type="tel" name="phone" value="{player['phone'] or ''}" class="edit-input" placeholder="Phone">
+                        <input type="text" name="identifier" value="{identifier_value}" class="edit-input" placeholder="{identifier_placeholder}">
                     </div>
                     <div class="edit-actions">
                         <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{player['name']}')">Save</button>
@@ -1089,10 +1115,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <h2>⚙️ {league['display_name']}</h2>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                     <span style="color: {COLORS['text_muted']};">League ID: {league['id']}</span>
-                    <span style="background: {'#2ECC71' if league.get('conversation_sid') else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
-                        {'✓ Active' if league.get('conversation_sid') else '⚠ Inactive'}
+                    <span style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 4px 10px; border-radius: 12px; font-size: 0.8em;">
+                        {'📱 SMS' if channel_type == 'sms' else '💬 Slack' if channel_type == 'slack' else '🎮 Discord'}
                     </span>
-                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">Activate League</button>' if not league.get('conversation_sid') else ''}
+                    <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
+                        {'✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else '⚠ Setup Required'}
+                    </span>
+                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">Connect Channel</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
             </div>
@@ -1125,8 +1154,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <input type="text" name="name" required placeholder="John Doe">
                         </div>
                         <div class="form-group">
-                            <label>Phone Number</label>
-                            <input type="tel" name="phone" required placeholder="18585551234">
+                            <label>{identifier_label}</label>
+                            <input type="text" name="identifier" required placeholder="{identifier_placeholder}">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Add Player</button>
@@ -1331,7 +1360,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         <!-- Activate League Modal -->
         <div class="modal-overlay" id="activateModal">
             <div class="modal" style="max-width: 500px;">
-                <h3 style="color: {COLORS['accent']};">🚀 Activate Your League</h3>
+                <h3 style="color: {COLORS['accent']};">🚀 {'Connect Your Channel' if channel_type != 'sms' else 'Activate Your League'}</h3>
                 
                 <!-- Passcode Gate -->
                 <div id="activatePasscodeGate">
@@ -1351,8 +1380,42 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 <!-- Activation Steps (hidden until passcode entered) -->
                 <div id="activateSteps" style="display: none;">
-                    <p style="margin-bottom: 20px;">Follow these steps to connect your group chat:</p>
+                    {'<p style="margin-bottom: 20px;">Follow these steps to connect your Slack channel:</p>' if channel_type == 'slack' else '<p style="margin-bottom: 20px;">Follow these steps to connect your Discord channel:</p>' if channel_type == 'discord' else '<p style="margin-bottom: 20px;">Follow these steps to connect your group chat:</p>'}
                     
+                    {f"""
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Install the Wordle League app</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 12px;">Click the button below to add the Wordle League bot to your Slack workspace:</p>
+                        <a href="/slack/install?league_id={league['id']}" class="btn btn-primary" style="display: inline-block; text-decoration: none;">Add to Slack</a>
+                    </div>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Invite the bot to your channel</h4>
+                        <p style="color: {COLORS['text_muted']}; margin: 0;">In your Slack channel, type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/invite @WordleLeague</code> to add the bot.</p>
+                    </div>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 3: Link your channel</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Send this verification code in the channel:</p>
+                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
+                            {league.get('verification_code') or 'Loading...'}
+                        </div>
+                    </div>
+                    """ if channel_type == 'slack' else f"""
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle League bot</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 12px;">Click the button below to add the Wordle League bot to your Discord server:</p>
+                        <a href="/discord/install?league_id={league['id']}" class="btn btn-primary" style="display: inline-block; text-decoration: none;">Add to Discord</a>
+                    </div>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Link your channel</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">In your Discord channel, use the slash command with this code:</p>
+                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.1em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
+                            /wordle-link {league.get('verification_code') or 'Loading...'}
+                        </div>
+                    </div>
+                    """ if channel_type == 'discord' else f"""
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
@@ -1364,14 +1427,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;" id="verificationCode">
+                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
                             {league.get('verification_code') or 'Loading...'}
                         </div>
                     </div>
+                    """}
                 
                 <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">Step 3: Wait for confirmation</h4>
-                    <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond in your group chat once connected. Click "Check Status" below to verify.</p>
+                    <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">{'Step 4' if channel_type == 'slack' else 'Step 3'}: Wait for confirmation</h4>
+                    <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond once connected. Click "Check Status" below to verify.</p>
                 </div>
                 
                 <div class="modal-actions">
@@ -2290,7 +2354,8 @@ def get_league_players(league_id):
     
     try:
         cursor.execute("""
-            SELECT id, name, phone_number, COALESCE(pending_activation, FALSE)
+            SELECT id, name, phone_number, COALESCE(pending_activation, FALSE),
+                   slack_user_id, discord_user_id
             FROM players
             WHERE league_id = %s AND active = TRUE
             ORDER BY name
@@ -2302,7 +2367,9 @@ def get_league_players(league_id):
                 'id': row[0],
                 'name': row[1],
                 'phone': row[2],
-                'pending_activation': row[3]
+                'pending_activation': row[3],
+                'slack_user_id': row[4],
+                'discord_user_id': row[5]
             })
         return players
     finally:
@@ -2347,34 +2414,21 @@ def get_ai_player_settings(league_id, message_type):
         conn.close()
 
 def get_league_info(league_id):
-    """Get league information including AI messaging settings"""
+    """Get league information including AI messaging settings and channel type"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Try with slug column first
-        try:
-            cursor.execute("""
-                SELECT id, name, display_name, twilio_conversation_sid,
-                       ai_perfect_score_congrats, ai_failure_roast, 
-                       ai_sunday_race_update, ai_daily_loser_roast,
-                       ai_message_severity,
-                       ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
-                       slug
-                FROM leagues
-                WHERE id = %s
-            """, (league_id,))
-        except:
-            # Fallback without slug if column doesn't exist
-            cursor.execute("""
-                SELECT id, name, display_name, twilio_conversation_sid,
-                       ai_perfect_score_congrats, ai_failure_roast, 
-                       ai_sunday_race_update, ai_daily_loser_roast,
-                       ai_message_severity,
-                       ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
-                FROM leagues
-                WHERE id = %s
-            """, (league_id,))
+        cursor.execute("""
+            SELECT id, name, display_name, twilio_conversation_sid,
+                   ai_perfect_score_congrats, ai_failure_roast, 
+                   ai_sunday_race_update, ai_daily_loser_roast,
+                   ai_message_severity,
+                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
+                   slug, channel_type, slack_channel_id, discord_channel_id, verification_code
+            FROM leagues
+            WHERE id = %s
+        """, (league_id,))
         
         row = cursor.fetchone()
         if row:
@@ -2388,10 +2442,14 @@ def get_league_info(league_id):
                 'ai_sunday_race_update': row[6] if row[6] is not None else True,
                 'ai_daily_loser_roast': row[7] if row[7] is not None else False,
                 'ai_message_severity': row[8] if row[8] is not None else 2,
-                'ai_perfect_score_severity': row[9] if len(row) > 9 and row[9] is not None else 2,
-                'ai_failure_roast_severity': row[10] if len(row) > 10 and row[10] is not None else 2,
-                'ai_daily_loser_severity': row[11] if len(row) > 11 and row[11] is not None else 2,
-                'slug': row[12] if len(row) > 12 else None
+                'ai_perfect_score_severity': row[9] if row[9] is not None else 2,
+                'ai_failure_roast_severity': row[10] if row[10] is not None else 2,
+                'ai_daily_loser_severity': row[11] if row[11] is not None else 2,
+                'slug': row[12],
+                'channel_type': row[13] or 'sms',
+                'slack_channel_id': row[14],
+                'discord_channel_id': row[15],
+                'verification_code': row[16]
             }
         return None
     finally:

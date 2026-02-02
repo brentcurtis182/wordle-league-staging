@@ -1864,35 +1864,65 @@ def dashboard_add_player(league_id):
         return redirect('/dashboard?error=You do not have access to this league')
     
     name = request.form.get('name', '').strip()
-    phone = request.form.get('phone', '').strip()
+    identifier = request.form.get('identifier', '').strip()
     
-    # Clean phone number - remove non-digits
-    phone = re.sub(r'\D', '', phone)
+    # Also check for legacy 'phone' field for backwards compatibility
+    if not identifier:
+        identifier = request.form.get('phone', '').strip()
     
-    if not name or not phone:
-        return redirect(f'/dashboard/league/{league_id}?error=Name and phone are required')
+    if not name or not identifier:
+        return redirect(f'/dashboard/league/{league_id}?error=Name and identifier are required')
     
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Check if phone already exists in this league
-        cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number = %s", (league_id, phone))
+        # Get league channel type
+        cursor.execute("SELECT channel_type, twilio_conversation_sid, slack_channel_id, discord_channel_id FROM leagues WHERE id = %s", (league_id,))
+        league_result = cursor.fetchone()
+        channel_type = league_result[0] or 'sms' if league_result else 'sms'
+        
+        # Determine which column to use based on channel type
+        if channel_type == 'slack':
+            id_column = 'slack_user_id'
+            id_value = identifier.lstrip('@')  # Remove @ prefix if present
+            phone = None
+            is_active_league = league_result[2] is not None  # slack_channel_id
+        elif channel_type == 'discord':
+            id_column = 'discord_user_id'
+            id_value = identifier
+            phone = None
+            is_active_league = league_result[3] is not None  # discord_channel_id
+        else:
+            id_column = 'phone_number'
+            id_value = re.sub(r'\D', '', identifier)  # Clean phone number
+            phone = id_value
+            is_active_league = league_result[1] is not None  # twilio_conversation_sid
+        
+        # Check if identifier already exists in this league
+        cursor.execute(f"SELECT id FROM players WHERE league_id = %s AND {id_column} = %s", (league_id, id_value))
         if cursor.fetchone():
             cursor.close()
             conn.close()
-            return redirect(f'/dashboard/league/{league_id}?error=Phone number already exists in this league')
-        
-        # Check if league is already active (has a conversation_sid)
-        cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
-        league_result = cursor.fetchone()
-        is_active_league = league_result and league_result[0] is not None
+            return redirect(f'/dashboard/league/{league_id}?error=This identifier already exists in this league')
         
         # Insert new player - mark as pending_activation if league is already active
-        cursor.execute("""
-            INSERT INTO players (name, phone_number, league_id, active, pending_activation)
-            VALUES (%s, %s, %s, TRUE, %s)
-        """, (name, phone, league_id, is_active_league))
+        if channel_type == 'slack':
+            cursor.execute("""
+                INSERT INTO players (name, league_id, active, pending_activation, slack_user_id)
+                VALUES (%s, %s, TRUE, %s, %s)
+            """, (name, league_id, is_active_league, id_value))
+        elif channel_type == 'discord':
+            cursor.execute("""
+                INSERT INTO players (name, league_id, active, pending_activation, discord_user_id)
+                VALUES (%s, %s, TRUE, %s, %s)
+            """, (name, league_id, is_active_league, id_value))
+        else:
+            cursor.execute("""
+                INSERT INTO players (name, phone_number, league_id, active, pending_activation)
+                VALUES (%s, %s, %s, TRUE, %s)
+            """, (name, id_value, league_id, is_active_league))
+        
         conn.commit()
         cursor.close()
         conn.close()
@@ -1905,10 +1935,10 @@ def dashboard_add_player(league_id):
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
         
-        logging.info(f"Added player {name} ({phone}) to league {league_id} - pending_activation={is_active_league} - HTML regenerated")
+        logging.info(f"Added player {name} ({id_value}) to league {league_id} (channel={channel_type}) - pending_activation={is_active_league} - HTML regenerated")
         
         if is_active_league:
-            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added. Note: They won\'t receive messages until you re-link your group chat.')
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added. Note: They won\'t receive messages until you re-link your channel.')
         else:
             return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
     except Exception as e:
@@ -1917,7 +1947,7 @@ def dashboard_add_player(league_id):
 
 @app.route('/dashboard/league/<int:league_id>/edit-player', methods=['POST'])
 def dashboard_edit_player(league_id):
-    """Edit a player's name and/or phone number"""
+    """Edit a player's name and/or identifier (phone/slack/discord)"""
     from auth import validate_session, can_manage_league
     
     session_token = request.cookies.get('session_token')
@@ -1931,17 +1961,23 @@ def dashboard_edit_player(league_id):
     
     player_id = request.form.get('player_id')
     new_name = request.form.get('name', '').strip()
-    new_phone = request.form.get('phone', '').strip()
+    new_identifier = request.form.get('identifier', '').strip()
+    
+    # Also check for legacy 'phone' field
+    if not new_identifier:
+        new_identifier = request.form.get('phone', '').strip()
     
     if not player_id or not new_name:
         return redirect(f'/dashboard/league/{league_id}?error=Player ID and name are required')
     
-    # Clean phone number
-    new_phone = re.sub(r'\D', '', new_phone)
-    
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Get league channel type
+        cursor.execute("SELECT channel_type FROM leagues WHERE id = %s", (league_id,))
+        league_result = cursor.fetchone()
+        channel_type = league_result[0] or 'sms' if league_result else 'sms'
         
         # Get current player info
         cursor.execute("SELECT name, phone_number FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
@@ -1953,10 +1989,23 @@ def dashboard_edit_player(league_id):
         
         old_name, old_phone = result
         
-        # Update player
-        cursor.execute("""
-            UPDATE players SET name = %s, phone_number = %s WHERE id = %s AND league_id = %s
-        """, (new_name, new_phone if new_phone else None, player_id, league_id))
+        # Update player based on channel type
+        if channel_type == 'slack':
+            id_value = new_identifier.lstrip('@') if new_identifier else None
+            cursor.execute("""
+                UPDATE players SET name = %s, slack_user_id = %s WHERE id = %s AND league_id = %s
+            """, (new_name, id_value, player_id, league_id))
+        elif channel_type == 'discord':
+            id_value = new_identifier if new_identifier else None
+            cursor.execute("""
+                UPDATE players SET name = %s, discord_user_id = %s WHERE id = %s AND league_id = %s
+            """, (new_name, id_value, player_id, league_id))
+        else:
+            new_phone = re.sub(r'\D', '', new_identifier) if new_identifier else None
+            cursor.execute("""
+                UPDATE players SET name = %s, phone_number = %s WHERE id = %s AND league_id = %s
+            """, (new_name, new_phone, player_id, league_id))
+        
         conn.commit()
         cursor.close()
         conn.close()
