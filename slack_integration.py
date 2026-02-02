@@ -340,7 +340,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     # Look up or create player by Slack user ID
     cursor.execute("""
         SELECT id, name FROM players 
-        WHERE league_id = %s AND slack_user_id = %s AND is_active = TRUE
+        WHERE league_id = %s AND slack_user_id = %s AND active = TRUE
     """, (league_id, user_id))
     
     player_row = cursor.fetchone()
@@ -353,8 +353,8 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
                        user_info.get("name", f"SlackUser_{user_id[:8]}")
         
         cursor.execute("""
-            INSERT INTO players (league_id, name, slack_user_id, is_active, created_at)
-            VALUES (%s, %s, %s, TRUE, NOW())
+            INSERT INTO players (league_id, name, slack_user_id, active)
+            VALUES (%s, %s, %s, TRUE)
             RETURNING id, name
         """, (league_id, display_name, user_id))
         

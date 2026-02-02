@@ -876,8 +876,128 @@ def send_failure_roast(player_name, league_id, player_id=None):
         import traceback
         logging.error(traceback.format_exc())
 
+def process_wordle_score(league_id, player_id, player_name, wordle_number, score, emoji_pattern="", is_hard_mode=False, channel_type='sms'):
+    """
+    Process and save a Wordle score from any channel (SMS, Slack, Discord).
+    This is the unified score processing function.
+    
+    Returns: 'new', 'exists', 'old_score', or 'error'
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            logging.error("Failed to get database connection")
+            return "error"
+        
+        # Get today's Wordle number for validation
+        todays_wordle = get_todays_wordle_number()
+        
+        # Only accept today's Wordle
+        if wordle_number != todays_wordle:
+            logging.warning(f"Rejecting Wordle #{wordle_number} - only today's #{todays_wordle} allowed")
+            conn.close()
+            return "old_score"
+        
+        # Calculate date for this Wordle
+        ref_date = date(2025, 7, 31)
+        ref_wordle = 1503
+        days_offset = wordle_number - ref_wordle
+        wordle_date = ref_date + timedelta(days=days_offset)
+        
+        cursor = conn.cursor()
+        
+        # Check if score already exists
+        cursor.execute("""
+            SELECT score, emoji_pattern FROM scores 
+            WHERE player_id = %s AND wordle_number = %s
+        """, (player_id, wordle_number))
+        
+        existing_score = cursor.fetchone()
+        now = datetime.now()
+        
+        if existing_score:
+            logging.info(f"Score already exists for {player_name}, Wordle #{wordle_number} - LOCKED")
+            cursor.close()
+            conn.close()
+            return "exists"
+        
+        # Insert new score into scores table
+        cursor.execute("""
+            INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (player_id, wordle_number, score, wordle_date, emoji_pattern, now))
+        
+        # Also insert into latest_scores table for daily tracking
+        cursor.execute("""
+            INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (player_id) 
+            DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score, 
+                          emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp, 
+                          league_id = EXCLUDED.league_id
+        """, (player_id, league_id, wordle_number, score, emoji_pattern, now))
+        
+        conn.commit()
+        logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_number} via {channel_type}")
+        
+        # Trigger AI messages if enabled (failure roast, perfect score, etc.)
+        # Check if this player is the last to post
+        cursor.execute("""
+            SELECT COUNT(*) FROM players 
+            WHERE league_id = %s AND active = TRUE
+        """, (league_id,))
+        total_players = cursor.fetchone()[0]
+        
+        cursor.execute("""
+            SELECT COUNT(*) FROM scores s
+            JOIN players p ON s.player_id = p.id
+            WHERE p.league_id = %s AND s.wordle_number = %s
+        """, (league_id, wordle_number))
+        posted_count = cursor.fetchone()[0]
+        
+        is_last_to_post = (posted_count >= total_players)
+        logging.info(f"Player {player_name} is_last_to_post: {is_last_to_post} ({posted_count}/{total_players})")
+        
+        cursor.close()
+        
+        # Auto-roast X/6 failures
+        if score == 7 and not is_last_to_post:
+            failure_enabled = is_ai_message_enabled(league_id, 'failure_roast')
+            if failure_enabled:
+                try:
+                    send_failure_roast(player_name, league_id, player_id)
+                except Exception as e:
+                    logging.error(f"Failed to send roast message: {e}")
+        
+        # Perfect score congrats (1/6 or 2/6)
+        if score in [1, 2]:
+            perfect_enabled = is_ai_message_enabled(league_id, 'perfect_score')
+            if perfect_enabled:
+                try:
+                    send_perfect_score_congrats(player_name, score, league_id, player_id)
+                except Exception as e:
+                    logging.error(f"Failed to send perfect score message: {e}")
+        
+        # Daily loser roast when all players posted
+        daily_loser_enabled = is_ai_message_enabled(league_id, 'daily_loser')
+        if daily_loser_enabled:
+            try:
+                check_and_roast_daily_losers(league_id, wordle_number, conn)
+            except Exception as e:
+                logging.error(f"Failed to check/send daily loser roast: {e}")
+        
+        conn.close()
+        return "new"
+        
+    except Exception as e:
+        logging.error(f"Error in process_wordle_score: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return "error"
+
+
 def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, conn):
-    """Save score to PostgreSQL database"""
+    """Save score to PostgreSQL database (legacy function for SMS)"""
     try:
         # Get today's Wordle number for validation
         todays_wordle = get_todays_wordle_number()
