@@ -1322,8 +1322,8 @@ def slack_oauth_callback():
     if not code:
         return redirect("/dashboard?error=slack_oauth_no_code")
     
-    # Exchange code for tokens
-    redirect_uri = f"{request.host_url}slack/oauth/callback"
+    # Exchange code for tokens - must match the redirect_uri used in /slack/install
+    redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
     result = exchange_slack_code(code, redirect_uri)
     
     if not result.get("ok"):
