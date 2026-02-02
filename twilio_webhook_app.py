@@ -1375,7 +1375,8 @@ def slack_install():
     league_id = request.args.get('league_id')
     
     client_id = os.environ.get('SLACK_CLIENT_ID')
-    redirect_uri = f"{request.host_url}slack/oauth/callback"
+    # Force HTTPS for the redirect URI
+    redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
     
     # Scopes needed for the bot
     scopes = "chat:write,channels:history,channels:read,users:read,files:write"
