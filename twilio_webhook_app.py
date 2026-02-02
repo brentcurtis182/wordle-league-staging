@@ -1396,6 +1396,8 @@ def slack_events():
     """Handle incoming Slack events (messages, etc.)"""
     from slack_integration import verify_slack_signature, handle_slack_event
     
+    logging.info("=== SLACK EVENT RECEIVED ===")
+    
     # Verify request is from Slack
     timestamp = request.headers.get('X-Slack-Request-Timestamp', '')
     signature = request.headers.get('X-Slack-Signature', '')
@@ -1405,6 +1407,7 @@ def slack_events():
         return jsonify({"error": "Invalid signature"}), 401
     
     data = request.get_json()
+    logging.info(f"Slack event type: {data.get('type')}")
     
     # Handle URL verification challenge (required for Slack app setup)
     if data.get("type") == "url_verification":
@@ -1412,6 +1415,8 @@ def slack_events():
     
     # Handle events
     if data.get("type") == "event_callback":
+        event = data.get("event", {})
+        logging.info(f"Slack event_callback: event_type={event.get('type')}, text={event.get('text', '')[:50]}")
         try:
             conn = get_db_connection()
             result = handle_slack_event(data, conn)
@@ -1421,8 +1426,11 @@ def slack_events():
             return jsonify({"status": "ok"})
         except Exception as e:
             logging.error(f"Slack event error: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
             return jsonify({"status": "error", "message": str(e)}), 500
     
+    logging.info(f"Slack event ignored: {data.get('type')}")
     return jsonify({"status": "ignored"})
 
 
