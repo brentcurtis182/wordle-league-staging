@@ -1268,6 +1268,232 @@ def health():
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
 
 # =============================================================================
+# SLACK INTEGRATION ROUTES
+# =============================================================================
+
+@app.route('/slack/events', methods=['POST'])
+def slack_events():
+    """Handle incoming Slack events (messages, etc.)"""
+    from slack_integration import verify_slack_signature, handle_slack_event
+    
+    # Verify request is from Slack
+    timestamp = request.headers.get('X-Slack-Request-Timestamp', '')
+    signature = request.headers.get('X-Slack-Signature', '')
+    
+    if not verify_slack_signature(request.get_data(), timestamp, signature):
+        logging.warning("Invalid Slack signature")
+        return jsonify({"error": "Invalid signature"}), 401
+    
+    data = request.get_json()
+    
+    # Handle URL verification challenge (required for Slack app setup)
+    if data.get("type") == "url_verification":
+        return jsonify({"challenge": data.get("challenge")})
+    
+    # Handle events
+    if data.get("type") == "event_callback":
+        try:
+            conn = get_db_connection()
+            result = handle_slack_event(data, conn)
+            if conn:
+                conn.close()
+            logging.info(f"Slack event handled: {result}")
+            return jsonify({"status": "ok"})
+        except Exception as e:
+            logging.error(f"Slack event error: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    
+    return jsonify({"status": "ignored"})
+
+
+@app.route('/slack/oauth/callback', methods=['GET'])
+def slack_oauth_callback():
+    """Handle Slack OAuth callback when user installs the app to their workspace"""
+    from slack_integration import exchange_slack_code
+    
+    code = request.args.get('code')
+    error = request.args.get('error')
+    state = request.args.get('state')  # Contains league_id
+    
+    if error:
+        logging.error(f"Slack OAuth error: {error}")
+        return redirect(f"/dashboard?error=slack_oauth_failed&message={error}")
+    
+    if not code:
+        return redirect("/dashboard?error=slack_oauth_no_code")
+    
+    # Exchange code for tokens
+    redirect_uri = f"{request.host_url}slack/oauth/callback"
+    result = exchange_slack_code(code, redirect_uri)
+    
+    if not result.get("ok"):
+        logging.error(f"Slack token exchange failed: {result.get('error')}")
+        return redirect(f"/dashboard?error=slack_oauth_failed&message={result.get('error')}")
+    
+    # Extract workspace and channel info
+    team_id = result.get("team", {}).get("id")
+    team_name = result.get("team", {}).get("name")
+    bot_token = result.get("access_token")
+    incoming_webhook = result.get("incoming_webhook", {})
+    channel_id = incoming_webhook.get("channel_id")
+    channel_name = incoming_webhook.get("channel")
+    
+    # Get league_id from state parameter
+    league_id = state
+    
+    if league_id and team_id and channel_id and bot_token:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Update league with Slack credentials
+            cursor.execute("""
+                UPDATE leagues 
+                SET channel_type = 'slack',
+                    slack_team_id = %s,
+                    slack_channel_id = %s,
+                    slack_bot_token = %s
+                WHERE id = %s
+            """, (team_id, channel_id, bot_token, league_id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            logging.info(f"League {league_id} connected to Slack workspace {team_name} channel {channel_name}")
+            return redirect(f"/dashboard/league/{league_id}?success=slack_connected")
+        except Exception as e:
+            logging.error(f"Error saving Slack credentials: {e}")
+            return redirect(f"/dashboard?error=slack_save_failed")
+    
+    return redirect("/dashboard?error=slack_missing_data")
+
+
+@app.route('/slack/install', methods=['GET'])
+def slack_install():
+    """Redirect to Slack OAuth to install the app"""
+    league_id = request.args.get('league_id')
+    
+    client_id = os.environ.get('SLACK_CLIENT_ID')
+    redirect_uri = f"{request.host_url}slack/oauth/callback"
+    
+    # Scopes needed for the bot
+    scopes = "chat:write,channels:history,channels:read,users:read,files:write"
+    
+    # State parameter to track which league this is for
+    state = league_id or ""
+    
+    slack_url = f"https://slack.com/oauth/v2/authorize?client_id={client_id}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
+    
+    return redirect(slack_url)
+
+# =============================================================================
+# DISCORD INTEGRATION ROUTES
+# =============================================================================
+
+@app.route('/discord/interactions', methods=['POST'])
+def discord_interactions():
+    """Handle Discord interactions (slash commands, etc.)"""
+    from discord_integration import verify_discord_signature, handle_discord_interaction
+    
+    # Verify request is from Discord
+    public_key = os.environ.get('DISCORD_PUBLIC_KEY', '')
+    signature = request.headers.get('X-Signature-Ed25519', '')
+    timestamp = request.headers.get('X-Signature-Timestamp', '')
+    body = request.get_data(as_text=True)
+    
+    if not verify_discord_signature(public_key, signature, timestamp, body):
+        logging.warning("Invalid Discord signature")
+        return jsonify({"error": "Invalid signature"}), 401
+    
+    data = request.get_json()
+    
+    try:
+        conn = get_db_connection()
+        result = handle_discord_interaction(data, conn)
+        if conn:
+            conn.close()
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Discord interaction error: {e}")
+        return jsonify({"type": 4, "data": {"content": "An error occurred"}}), 500
+
+
+@app.route('/discord/oauth/callback', methods=['GET'])
+def discord_oauth_callback():
+    """Handle Discord OAuth callback when user adds the bot to their server"""
+    from discord_integration import exchange_discord_code
+    
+    code = request.args.get('code')
+    error = request.args.get('error')
+    state = request.args.get('state')  # Contains league_id
+    guild_id = request.args.get('guild_id')
+    
+    if error:
+        logging.error(f"Discord OAuth error: {error}")
+        return redirect(f"/dashboard?error=discord_oauth_failed&message={error}")
+    
+    if not code:
+        return redirect("/dashboard?error=discord_oauth_no_code")
+    
+    # Exchange code for tokens (optional - we mainly need the guild_id)
+    redirect_uri = f"{request.host_url}discord/oauth/callback"
+    result = exchange_discord_code(code, redirect_uri)
+    
+    # Get guild info from the OAuth response
+    guild = result.get("guild", {})
+    guild_id = guild.get("id") or guild_id
+    guild_name = guild.get("name", "Unknown Server")
+    
+    # Get league_id from state parameter
+    league_id = state
+    
+    if league_id and guild_id:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Update league with Discord guild ID (channel will be set separately)
+            cursor.execute("""
+                UPDATE leagues 
+                SET channel_type = 'discord',
+                    discord_guild_id = %s
+                WHERE id = %s
+            """, (guild_id, league_id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            logging.info(f"League {league_id} connected to Discord server {guild_name}")
+            return redirect(f"/dashboard/league/{league_id}?success=discord_connected&guild={guild_name}")
+        except Exception as e:
+            logging.error(f"Error saving Discord credentials: {e}")
+            return redirect(f"/dashboard?error=discord_save_failed")
+    
+    return redirect("/dashboard?error=discord_missing_data")
+
+
+@app.route('/discord/install', methods=['GET'])
+def discord_install():
+    """Redirect to Discord OAuth to add the bot to a server"""
+    league_id = request.args.get('league_id')
+    
+    client_id = os.environ.get('DISCORD_CLIENT_ID')
+    redirect_uri = f"{request.host_url}discord/oauth/callback"
+    
+    # Permissions needed: Send Messages, Read Message History, Embed Links, Attach Files
+    permissions = 117760  # Calculated from Discord permissions calculator
+    
+    # State parameter to track which league this is for
+    state = league_id or ""
+    
+    # bot scope for bot user, applications.commands for slash commands
+    discord_url = f"https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands&redirect_uri={redirect_uri}&response_type=code&state={state}"
+    
+    return redirect(discord_url)
+
+# =============================================================================
 # AUTH ROUTES - User Registration, Login, Logout
 # =============================================================================
 
