@@ -5015,6 +5015,45 @@ def index():
     """Root endpoint"""
     return {'message': 'Wordle League Twilio Webhook', 'status': 'running'}
 
+@app.route('/run-migration/slack-discord', methods=['POST'])
+def run_slack_discord_migration():
+    """Run the Slack/Discord integration migration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return {'error': 'Database connection failed'}, 500
+        
+        cursor = conn.cursor()
+        
+        # Run migration statements
+        migrations = [
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS channel_type VARCHAR(20) DEFAULT 'sms'",
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS slack_team_id VARCHAR(50)",
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS slack_channel_id VARCHAR(50)",
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS slack_bot_token TEXT",
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS discord_guild_id VARCHAR(50)",
+            "ALTER TABLE leagues ADD COLUMN IF NOT EXISTS discord_channel_id VARCHAR(50)",
+            "ALTER TABLE players ADD COLUMN IF NOT EXISTS slack_user_id VARCHAR(50)",
+            "ALTER TABLE players ADD COLUMN IF NOT EXISTS discord_user_id VARCHAR(50)",
+        ]
+        
+        results = []
+        for sql in migrations:
+            try:
+                cursor.execute(sql)
+                results.append({"sql": sql[:50] + "...", "status": "success"})
+            except Exception as e:
+                results.append({"sql": sql[:50] + "...", "status": "error", "error": str(e)})
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return {'status': 'migration complete', 'results': results}, 200
+    except Exception as e:
+        logging.error(f"Migration error: {e}")
+        return {'error': str(e)}, 500
+
 @app.route('/test-sunday-update/<int:league_id>', methods=['POST'])
 def test_sunday_update(league_id):
     """Test endpoint to trigger Sunday race update with images for a specific league"""
