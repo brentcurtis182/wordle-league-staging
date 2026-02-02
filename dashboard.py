@@ -1397,7 +1397,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 3: Link your channel</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Send this verification code in the channel:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
+                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
                             {league.get('verification_code') or 'Loading...'}
                         </div>
                     </div>
@@ -1411,7 +1411,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Link your channel</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">In your Discord channel, use the slash command with this code:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.1em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
+                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.1em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
                             /wordle-link {league.get('verification_code') or 'Loading...'}
                         </div>
                     </div>
@@ -1427,7 +1427,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
+                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
                             {league.get('verification_code') or 'Loading...'}
                         </div>
                     </div>
@@ -1921,7 +1921,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 .then(response => response.json())
                 .then(data => {{
                     if (data.success) {{
-                        document.getElementById('verificationCode').textContent = data.code;
+                        const codeEl = document.getElementById('verificationCode');
+                        if (codeEl) {{
+                            // For Discord, keep the /wordle-link prefix
+                            const channelType = '{channel_type}';
+                            if (channelType === 'discord') {{
+                                codeEl.textContent = '/wordle-link ' + data.code;
+                            }} else {{
+                                codeEl.textContent = data.code;
+                            }}
+                        }}
                     }} else {{
                         alert('Error generating code: ' + data.error);
                     }}
