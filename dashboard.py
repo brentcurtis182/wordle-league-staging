@@ -1391,7 +1391,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Invite the bot to your channel</h4>
-                        <p style="color: {COLORS['text_muted']}; margin: 0;">In your Slack channel, type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/invite @WordleLeague</code> to add the bot.</p>
+                        <p style="color: {COLORS['text_muted']}; margin: 0;">In your Slack channel, type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/invite @WordPlayLeague</code> to add the bot.</p>
                     </div>
                     
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">

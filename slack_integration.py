@@ -269,16 +269,54 @@ def handle_slack_event(event_data: dict, db_connection) -> dict:
 def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     """
     Handle an incoming Slack message event.
-    Check if it's a Wordle score and process it.
+    Check if it's a verification code or Wordle score and process it.
     """
     channel_id = event.get("channel")
     user_id = event.get("user")
-    text = event.get("text", "")
+    text = event.get("text", "").strip()
+    
+    logging.info(f"Slack message received: team={team_id}, channel={channel_id}, text={text[:50]}")
+    
+    # First, check if this is a verification code to link a channel
+    cursor = db_connection.cursor()
+    cursor.execute("""
+        SELECT id, slack_bot_token, display_name, verification_code
+        FROM leagues 
+        WHERE channel_type = 'slack' 
+        AND slack_team_id = %s 
+        AND slack_channel_id IS NULL
+        AND verification_code IS NOT NULL
+    """, (team_id,))
+    
+    pending_leagues = cursor.fetchall()
+    
+    for league_row in pending_leagues:
+        league_id, bot_token, league_name, verification_code = league_row
+        if verification_code and text.upper() == verification_code.upper():
+            # Match! Link this channel to the league
+            cursor.execute("""
+                UPDATE leagues 
+                SET slack_channel_id = %s
+                WHERE id = %s
+            """, (channel_id, league_id))
+            db_connection.commit()
+            
+            # Send confirmation message
+            send_slack_message(
+                bot_token, 
+                channel_id, 
+                f"🎉 Success! This channel is now connected to **{league_name}**. Players can start posting their Wordle scores!"
+            )
+            
+            logging.info(f"League {league_id} linked to Slack channel {channel_id}")
+            cursor.close()
+            return {"status": "channel_linked", "league_id": league_id}
     
     # Try to parse as Wordle score
     wordle_number, score, is_hard_mode = parse_slack_wordle_score(text)
     
     if wordle_number is None:
+        cursor.close()
         return {"status": "ignored", "reason": "not_wordle_score"}
     
     # Look up the league by Slack team + channel
