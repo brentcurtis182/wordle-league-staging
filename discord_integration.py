@@ -149,7 +149,7 @@ def send_discord_message_with_image(channel_id: str, text: str,
 def parse_discord_wordle_score(content: str) -> tuple:
     """
     Parse a Wordle score from Discord message content.
-    Returns (wordle_number, score, is_hard_mode) or (None, None, None) if not a Wordle share.
+    Returns (wordle_number, score, is_hard_mode, emoji_pattern) or (None, None, None, None) if not a Wordle share.
     """
     # Standard Wordle pattern: "Wordle 1,234 3/6" or "Wordle 1,234 X/6"
     pattern = r'Wordle\s+([\d,]+)\s+([1-6X])/6(\*)?'
@@ -165,9 +165,35 @@ def parse_discord_wordle_score(content: str) -> tuple:
         else:
             score = int(score_str)
         
-        return wordle_number, score, is_hard_mode
+        # Extract emoji pattern from the content
+        emoji_pattern = extract_discord_emoji_pattern(content)
+        
+        return wordle_number, score, is_hard_mode, emoji_pattern
     
-    return None, None, None
+    return None, None, None, None
+
+
+def extract_discord_emoji_pattern(text: str) -> str:
+    """
+    Extract emoji pattern from Discord Wordle share.
+    Discord preserves Unicode emoji directly (unlike Slack which uses :emoji_name: format).
+    """
+    # Find all lines after the "Wordle X,XXX X/6" line that contain emoji
+    lines = text.split('\n')
+    emoji_lines = []
+    found_header = False
+    
+    for line in lines:
+        if 'Wordle' in line and '/6' in line:
+            found_header = True
+            continue
+        if found_header:
+            # Keep only Wordle emoji characters
+            clean_line = ''.join(c for c in line if c in '🟩🟨⬛⬜')
+            if clean_line:
+                emoji_lines.append(clean_line)
+    
+    return '\n'.join(emoji_lines) if emoji_lines else ""
 
 
 def get_discord_user_info(user_id: str) -> dict:
@@ -301,22 +327,54 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         }
     
     if command_name == "wordle":
-        # Get the score option
+        # Get the score option - can be just "4" or full pasted Wordle share
         options = data.get("options", [])
-        score = None
+        score_input = None
         for opt in options:
             if opt.get("name") == "score":
-                score = opt.get("value")
+                score_input = opt.get("value")
                 break
         
-        if score is None:
+        if score_input is None:
             return {
                 "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
                 "data": {
-                    "content": "Please provide your Wordle score (1-6 or X for fail)",
+                    "content": "Please provide your Wordle score. You can type just the number (1-6 or X) or paste your full Wordle share!",
                     "flags": 64  # Ephemeral (only visible to user)
                 }
             }
+        
+        # Try to parse as full Wordle share first
+        wordle_number, score_int, is_hard_mode, emoji_pattern = parse_discord_wordle_score(score_input)
+        
+        if wordle_number is None:
+            # Not a full share - try as simple score (1-6 or X)
+            if str(score_input).upper() == 'X':
+                score_int = 7
+                emoji_pattern = ""
+            else:
+                try:
+                    score_int = int(score_input)
+                    if score_int < 1 or score_int > 6:
+                        return {
+                            "type": 4,
+                            "data": {
+                                "content": "Score must be 1-6 or X. You can also paste your full Wordle share!",
+                                "flags": 64
+                            }
+                        }
+                    emoji_pattern = ""
+                except ValueError:
+                    return {
+                        "type": 4,
+                        "data": {
+                            "content": "Invalid score. Use 1-6, X, or paste your full Wordle share!",
+                            "flags": 64
+                        }
+                    }
+            # Use today's Wordle number for simple scores
+            from twilio_webhook_app import get_todays_wordle_number
+            wordle_number = get_todays_wordle_number()
         
         # Get user and channel info
         user = interaction_data.get("member", {}).get("user", {}) or interaction_data.get("user", {})
@@ -371,33 +429,6 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         player_id, player_name = player_row
         cursor.close()
         
-        # Get today's Wordle number
-        from twilio_webhook_app import get_todays_wordle_number
-        wordle_number = get_todays_wordle_number()
-        
-        # Convert score
-        if str(score).upper() == 'X':
-            score_int = 7
-        else:
-            try:
-                score_int = int(score)
-                if score_int < 1 or score_int > 6:
-                    return {
-                        "type": 4,
-                        "data": {
-                            "content": "Score must be 1-6 or X",
-                            "flags": 64
-                        }
-                    }
-            except ValueError:
-                return {
-                    "type": 4,
-                    "data": {
-                        "content": "Invalid score. Use 1-6 or X",
-                        "flags": 64
-                    }
-                }
-        
         # Process the score
         from twilio_webhook_app import process_wordle_score
         result = process_wordle_score(
@@ -406,7 +437,8 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
             player_name=player_name,
             wordle_number=wordle_number,
             score=score_int,
-            is_hard_mode=False,
+            emoji_pattern=emoji_pattern,
+            is_hard_mode=is_hard_mode if 'is_hard_mode' in dir() else False,
             channel_type='discord'
         )
         
@@ -562,11 +594,11 @@ def register_discord_commands() -> dict:
         },
         {
             "name": "wordle",
-            "description": "Submit your Wordle score",
+            "description": "Submit your Wordle score (paste full share or just the number)",
             "options": [
                 {
                     "name": "score",
-                    "description": "Your score (1-6 or X for fail)",
+                    "description": "Paste your Wordle share OR just type 1-6/X",
                     "type": 3,  # STRING
                     "required": True
                 }
