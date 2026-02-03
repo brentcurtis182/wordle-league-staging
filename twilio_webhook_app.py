@@ -1532,28 +1532,37 @@ def discord_interactions():
     logging.info("=== DISCORD INTERACTION RECEIVED ===")
     from discord_integration import verify_discord_signature, handle_discord_interaction
     
-    # Verify request is from Discord
+    body = request.get_data(as_text=True)
+    data = request.get_json()
+    
+    logging.info(f"Discord interaction type: {data.get('type') if data else 'no data'}")
+    logging.info(f"Discord interaction body preview: {body[:200] if body else 'empty'}...")
+    
+    # Handle PING immediately (type 1) - required for Discord URL verification
+    if data and data.get("type") == 1:
+        logging.info("Discord PING received, responding with PONG")
+        return jsonify({"type": 1})
+    
+    # Verify request is from Discord for all other requests
     public_key = os.environ.get('DISCORD_PUBLIC_KEY', '')
     signature = request.headers.get('X-Signature-Ed25519', '')
     timestamp = request.headers.get('X-Signature-Timestamp', '')
-    body = request.get_data(as_text=True)
-    
-    logging.info(f"Discord interaction body preview: {body[:200] if body else 'empty'}...")
     
     if not verify_discord_signature(public_key, signature, timestamp, body):
-        logging.warning("Invalid Discord signature")
+        logging.warning(f"Invalid Discord signature. public_key={public_key[:10]}..., sig={signature[:20] if signature else 'none'}...")
         return jsonify({"error": "Invalid signature"}), 401
-    
-    data = request.get_json()
     
     try:
         conn = get_db_connection()
         result = handle_discord_interaction(data, conn)
         if conn:
             conn.close()
+        logging.info(f"Discord interaction result: {result}")
         return jsonify(result)
     except Exception as e:
         logging.error(f"Discord interaction error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return jsonify({"type": 4, "data": {"content": "An error occurred"}}), 500
 
 
