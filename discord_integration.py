@@ -177,23 +177,22 @@ def extract_discord_emoji_pattern(text: str) -> str:
     """
     Extract emoji pattern from Discord Wordle share.
     Discord preserves Unicode emoji directly (unlike Slack which uses :emoji_name: format).
+    Note: Discord slash commands flatten newlines to spaces, so we extract all emoji and split into rows of 5.
     """
-    # Find all lines after the "Wordle X,XXX X/6" line that contain emoji
-    lines = text.split('\n')
-    emoji_lines = []
-    found_header = False
+    # Extract all Wordle emoji characters
+    emoji_chars = [c for c in text if c in '🟩🟨⬛⬜']
     
-    for line in lines:
-        if 'Wordle' in line and '/6' in line:
-            found_header = True
-            continue
-        if found_header:
-            # Keep only Wordle emoji characters
-            clean_line = ''.join(c for c in line if c in '🟩🟨⬛⬜')
-            if clean_line:
-                emoji_lines.append(clean_line)
+    if not emoji_chars:
+        return ""
     
-    return '\n'.join(emoji_lines) if emoji_lines else ""
+    # Group into rows of 5 (standard Wordle row length)
+    rows = []
+    for i in range(0, len(emoji_chars), 5):
+        row = ''.join(emoji_chars[i:i+5])
+        if len(row) == 5:  # Only include complete rows
+            rows.append(row)
+    
+    return '\n'.join(rows) if rows else ""
 
 
 def get_discord_user_info(user_id: str) -> dict:
