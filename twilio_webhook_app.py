@@ -2392,13 +2392,28 @@ def dashboard_check_status(league_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+        cursor.execute("""
+            SELECT channel_type, twilio_conversation_sid, slack_channel_id, discord_channel_id 
+            FROM leagues WHERE id = %s
+        """, (league_id,))
         result = cursor.fetchone()
         
         cursor.close()
         conn.close()
         
-        active = result and result[0] is not None
+        if not result:
+            return jsonify({'success': True, 'active': False})
+        
+        channel_type = result[0] or 'sms'
+        if channel_type == 'sms':
+            active = result[1] is not None
+        elif channel_type == 'slack':
+            active = result[2] is not None
+        elif channel_type == 'discord':
+            active = result[3] is not None
+        else:
+            active = False
+            
         return jsonify({'success': True, 'active': active})
         
     except Exception as e:

@@ -1124,6 +1124,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">Connect Channel</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
+                {f"""
+                <div style="margin-top: 16px; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; border-left: 3px solid {COLORS['accent']};">
+                    <p style="margin: 0 0 8px 0; color: {COLORS['text']}; font-weight: 600;">📋 How to Submit Scores</p>
+                    <p style="margin: 0; color: {COLORS['text_muted']}; font-size: 0.9em;">Players type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordplay</code> and paste their full Wordle share (with emoji pattern).</p>
+                </div>
+                """ if channel_type == 'discord' and league.get('discord_channel_id') else ''}
             </div>
             
             <!-- Rename League Section -->
@@ -1359,7 +1365,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         
         <!-- Activate League Modal -->
         <div class="modal-overlay" id="activateModal">
-            <div class="modal" style="max-width: 500px;">
+            <div class="modal" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
                 <h3 style="color: {COLORS['accent']};">🚀 {'Connect Your Channel' if channel_type != 'sms' else 'Activate Your League'}</h3>
                 
                 <!-- Passcode Gate -->
@@ -1418,13 +1424,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 3: Submit scores</h4>
-                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Players submit their daily Wordle scores using the <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordplay</code> command:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 0.95em; color: {COLORS['text_muted']};">
-                            <p style="margin: 0 0 8px 0;"><strong style="color: {COLORS['accent']};">Option 1:</strong> Paste your full Wordle share</p>
-                            <code style="display: block; background: {COLORS['bg_dark']}; padding: 8px; border-radius: 4px; margin-bottom: 12px; white-space: pre-wrap;">/wordplay Wordle 1,689 3/6\n⬛⬛🟨⬛⬛\n🟨⬛⬛🟩⬛\n🟩🟩🟩🟩🟩</code>
-                            <p style="margin: 0 0 8px 0;"><strong style="color: {COLORS['accent']};">Option 2:</strong> Just type your score</p>
-                            <code style="display: block; background: {COLORS['bg_dark']}; padding: 8px; border-radius: 4px;">/wordplay 3</code>
-                        </div>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Players submit their daily Wordle scores by typing <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordplay</code> and pasting their full Wordle share:</p>
+                        <code style="display: block; background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-size: 0.95em; white-space: pre-wrap;">/wordplay Wordle 1,689 3/6\n⬛⬛🟨⬛⬛\n🟨⬛⬛🟩⬛\n🟩🟩🟩🟩🟩</code>
                     </div>
                     """ if channel_type == 'discord' else f"""
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
