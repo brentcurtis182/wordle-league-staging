@@ -326,7 +326,7 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
             }
         }
     
-    if command_name == "wordle":
+    if command_name == "wordplay":
         # Get the score option - can be just "4" or full pasted Wordle share
         options = data.get("options", [])
         score_input = None
@@ -626,7 +626,7 @@ def register_discord_commands() -> dict:
             ]
         },
         {
-            "name": "wordle",
+            "name": "wordplay",
             "description": "Submit your Wordle score (paste full share or just the number)",
             "options": [
                 {
