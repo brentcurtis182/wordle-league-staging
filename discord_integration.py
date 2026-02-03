@@ -409,22 +409,51 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         # Look up or create player
         cursor.execute("""
             SELECT id, name FROM players 
-            WHERE league_id = %s AND discord_user_id = %s AND is_active = TRUE
+            WHERE league_id = %s AND discord_user_id = %s AND active = TRUE
         """, (league_id, user_id))
         
         player_row = cursor.fetchone()
         
         if not player_row:
-            # Create new player
+            # Check if player exists by name (might not have discord_user_id set yet)
             cursor.execute("""
-                INSERT INTO players (league_id, name, discord_user_id, is_active, created_at)
-                VALUES (%s, %s, %s, TRUE, NOW())
-                RETURNING id, name
-            """, (league_id, username, user_id))
+                SELECT id, name FROM players 
+                WHERE league_id = %s AND name = %s AND active = TRUE
+            """, (league_id, username))
             
             player_row = cursor.fetchone()
-            db_connection.commit()
-            logging.info(f"Created new Discord player: {username} in league {league_id}")
+            
+            if player_row:
+                # Player exists by name - update their discord_user_id
+                cursor.execute("""
+                    UPDATE players SET discord_user_id = %s WHERE id = %s
+                """, (user_id, player_row[0]))
+                db_connection.commit()
+                logging.info(f"Linked existing player {username} to Discord user {user_id}")
+            else:
+                # Create new player
+                try:
+                    cursor.execute("""
+                        INSERT INTO players (league_id, name, discord_user_id, active)
+                        VALUES (%s, %s, %s, TRUE)
+                        RETURNING id, name
+                    """, (league_id, username, user_id))
+                    
+                    player_row = cursor.fetchone()
+                    db_connection.commit()
+                    logging.info(f"Created new Discord player: {username} in league {league_id}")
+                except Exception as e:
+                    db_connection.rollback()
+                    cursor.execute("""
+                        SELECT id, name FROM players 
+                        WHERE league_id = %s AND name = %s AND active = TRUE
+                    """, (league_id, username))
+                    player_row = cursor.fetchone()
+                    if player_row:
+                        cursor.execute("""
+                            UPDATE players SET discord_user_id = %s WHERE id = %s
+                        """, (user_id, player_row[0]))
+                        db_connection.commit()
         
         player_id, player_name = player_row
         cursor.close()
