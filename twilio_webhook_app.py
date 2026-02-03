@@ -1572,7 +1572,7 @@ def discord_oauth_callback():
         return redirect("/dashboard?error=discord_oauth_no_code")
     
     # Exchange code for tokens (optional - we mainly need the guild_id)
-    redirect_uri = f"{request.host_url}discord/oauth/callback"
+    redirect_uri = "https://app.wordplayleague.com/discord/oauth/callback"
     result = exchange_discord_code(code, redirect_uri)
     
     # Get guild info from the OAuth response
@@ -1612,10 +1612,12 @@ def discord_oauth_callback():
 @app.route('/discord/install', methods=['GET'])
 def discord_install():
     """Redirect to Discord OAuth to add the bot to a server"""
+    from urllib.parse import urlencode
+    
     league_id = request.args.get('league_id')
     
     client_id = os.environ.get('DISCORD_CLIENT_ID')
-    redirect_uri = f"{request.host_url}discord/oauth/callback"
+    redirect_uri = "https://app.wordplayleague.com/discord/oauth/callback"
     
     # Permissions needed: Send Messages, Read Message History, Embed Links, Attach Files
     permissions = 117760  # Calculated from Discord permissions calculator
@@ -1627,6 +1629,15 @@ def discord_install():
     discord_url = f"https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands&redirect_uri={redirect_uri}&response_type=code&state={state}"
     
     return redirect(discord_url)
+
+
+@app.route('/discord/register-commands', methods=['POST'])
+def discord_register_commands():
+    """Register Discord slash commands (one-time setup)"""
+    from discord_integration import register_discord_commands
+    
+    result = register_discord_commands()
+    return jsonify(result)
 
 # =============================================================================
 # AUTH ROUTES - User Registration, Login, Logout

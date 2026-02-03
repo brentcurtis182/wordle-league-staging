@@ -228,10 +228,73 @@ def handle_discord_interaction(interaction_data: dict, db_connection) -> dict:
 def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
     """
     Handle a Discord slash command.
-    Example: /wordle 3 (to submit a score of 3/6)
+    Example: /wordle-link CODE (to link channel to league)
     """
     data = interaction_data.get("data", {})
     command_name = data.get("name")
+    
+    # Handle /wordle-link command for channel verification
+    if command_name == "wordle-link":
+        options = data.get("options", [])
+        code = None
+        for opt in options:
+            if opt.get("name") == "code":
+                code = opt.get("value")
+                break
+        
+        if not code:
+            return {
+                "type": 4,
+                "data": {
+                    "content": "Please provide the verification code from your WordPlayLeague dashboard.",
+                    "flags": 64
+                }
+            }
+        
+        channel_id = interaction_data.get("channel_id")
+        guild_id = interaction_data.get("guild_id")
+        
+        # Look for a league with this verification code and matching guild
+        cursor = db_connection.cursor()
+        cursor.execute("""
+            SELECT id, display_name, verification_code
+            FROM leagues 
+            WHERE channel_type = 'discord' 
+            AND discord_guild_id = %s 
+            AND discord_channel_id IS NULL
+            AND verification_code IS NOT NULL
+        """, (guild_id,))
+        
+        pending_leagues = cursor.fetchall()
+        
+        for league_row in pending_leagues:
+            league_id, league_name, verification_code = league_row
+            if verification_code and code.upper() == verification_code.upper():
+                # Match! Link this channel to the league
+                cursor.execute("""
+                    UPDATE leagues 
+                    SET discord_channel_id = %s
+                    WHERE id = %s
+                """, (channel_id, league_id))
+                db_connection.commit()
+                cursor.close()
+                
+                logging.info(f"League {league_id} linked to Discord channel {channel_id}")
+                return {
+                    "type": 4,
+                    "data": {
+                        "content": f"🎉 Success! This channel is now connected to **{league_name}**. Players can start posting their Wordle scores!"
+                    }
+                }
+        
+        cursor.close()
+        return {
+            "type": 4,
+            "data": {
+                "content": "❌ Invalid verification code. Make sure you're using the code from your WordPlayLeague dashboard and that the bot was added to this server first.",
+                "flags": 64
+            }
+        }
     
     if command_name == "wordle":
         # Get the score option
@@ -460,6 +523,70 @@ def exchange_discord_code(code: str, redirect_uri: str) -> dict:
         return response.json()
     except Exception as e:
         logging.error(f"Discord OAuth exchange failed: {e}")
+        return {"error": str(e)}
+
+
+def register_discord_commands() -> dict:
+    """
+    Register slash commands with Discord.
+    This only needs to be called once (or when commands change).
+    """
+    bot_token = os.environ.get('DISCORD_BOT_TOKEN')
+    client_id = os.environ.get('DISCORD_CLIENT_ID')
+    
+    if not bot_token or not client_id:
+        return {"error": "Missing bot token or client ID"}
+    
+    headers = {
+        "Authorization": f"Bot {bot_token}",
+        "Content-Type": "application/json"
+    }
+    
+    # Define the slash commands
+    commands = [
+        {
+            "name": "wordle-link",
+            "description": "Link this channel to your WordPlayLeague",
+            "options": [
+                {
+                    "name": "code",
+                    "description": "The verification code from your dashboard",
+                    "type": 3,  # STRING
+                    "required": True
+                }
+            ]
+        },
+        {
+            "name": "wordle",
+            "description": "Submit your Wordle score",
+            "options": [
+                {
+                    "name": "score",
+                    "description": "Your score (1-6 or X for fail)",
+                    "type": 3,  # STRING
+                    "required": True
+                }
+            ]
+        }
+    ]
+    
+    try:
+        # Register global commands (available in all servers)
+        response = requests.put(
+            f"{DISCORD_API_BASE}/applications/{client_id}/commands",
+            headers=headers,
+            json=commands,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            logging.info(f"Successfully registered {len(commands)} Discord commands")
+            return {"success": True, "commands": response.json()}
+        else:
+            logging.error(f"Failed to register Discord commands: {response.text}")
+            return {"error": response.text}
+    except Exception as e:
+        logging.error(f"Error registering Discord commands: {e}")
         return {"error": str(e)}
 
 
