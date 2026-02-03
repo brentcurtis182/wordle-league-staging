@@ -1529,6 +1529,7 @@ def slack_install():
 @app.route('/discord/interactions', methods=['POST'])
 def discord_interactions():
     """Handle Discord interactions (slash commands, etc.)"""
+    logging.info("=== DISCORD INTERACTION RECEIVED ===")
     from discord_integration import verify_discord_signature, handle_discord_interaction
     
     # Verify request is from Discord
@@ -1536,6 +1537,8 @@ def discord_interactions():
     signature = request.headers.get('X-Signature-Ed25519', '')
     timestamp = request.headers.get('X-Signature-Timestamp', '')
     body = request.get_data(as_text=True)
+    
+    logging.info(f"Discord interaction body preview: {body[:200] if body else 'empty'}...")
     
     if not verify_discord_signature(public_key, signature, timestamp, body):
         logging.warning("Invalid Discord signature")
