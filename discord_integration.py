@@ -254,32 +254,36 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         channel_id = interaction_data.get("channel_id")
         guild_id = interaction_data.get("guild_id")
         
-        # Look for a league with this verification code and matching guild
+        logging.info(f"Discord /wordle-link: guild_id={guild_id}, channel_id={channel_id}, code={code}")
+        
+        # Look for a league with this verification code (don't require guild_id to be pre-set)
         cursor = db_connection.cursor()
         cursor.execute("""
             SELECT id, display_name, verification_code
             FROM leagues 
             WHERE channel_type = 'discord' 
-            AND discord_guild_id = %s 
             AND discord_channel_id IS NULL
             AND verification_code IS NOT NULL
-        """, (guild_id,))
+        """)
         
         pending_leagues = cursor.fetchall()
+        logging.info(f"Found {len(pending_leagues)} pending Discord leagues")
         
         for league_row in pending_leagues:
             league_id, league_name, verification_code = league_row
+            logging.info(f"Checking league {league_id}: code={verification_code} vs input={code}")
             if verification_code and code.upper() == verification_code.upper():
-                # Match! Link this channel to the league
+                # Match! Link this channel and guild to the league
                 cursor.execute("""
                     UPDATE leagues 
-                    SET discord_channel_id = %s
+                    SET discord_channel_id = %s,
+                        discord_guild_id = %s
                     WHERE id = %s
-                """, (channel_id, league_id))
+                """, (channel_id, guild_id, league_id))
                 db_connection.commit()
                 cursor.close()
                 
-                logging.info(f"League {league_id} linked to Discord channel {channel_id}")
+                logging.info(f"League {league_id} linked to Discord guild {guild_id} channel {channel_id}")
                 return {
                     "type": 4,
                     "data": {
@@ -291,7 +295,7 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         return {
             "type": 4,
             "data": {
-                "content": "❌ Invalid verification code. Make sure you're using the code from your WordPlayLeague dashboard and that the bot was added to this server first.",
+                "content": "❌ Invalid verification code. Make sure you're using the code from your WordPlayLeague dashboard.",
                 "flags": 64
             }
         }
