@@ -1415,6 +1415,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             /wordle-link {league.get('verification_code') or 'Loading...'}
                         </div>
                     </div>
+                    
+                    <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 3: Submit scores</h4>
+                        <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Players submit their daily Wordle scores using the <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordplay</code> command:</p>
+                        <div style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 0.95em; color: {COLORS['text_muted']};">
+                            <p style="margin: 0 0 8px 0;"><strong style="color: {COLORS['accent']};">Option 1:</strong> Paste your full Wordle share</p>
+                            <code style="display: block; background: {COLORS['bg_dark']}; padding: 8px; border-radius: 4px; margin-bottom: 12px; white-space: pre-wrap;">/wordplay Wordle 1,689 3/6\n⬛⬛🟨⬛⬛\n🟨⬛⬛🟩⬛\n🟩🟩🟩🟩🟩</code>
+                            <p style="margin: 0 0 8px 0;"><strong style="color: {COLORS['accent']};">Option 2:</strong> Just type your score</p>
+                            <code style="display: block; background: {COLORS['bg_dark']}; padding: 8px; border-radius: 4px;">/wordplay 3</code>
+                        </div>
+                    </div>
                     """ if channel_type == 'discord' else f"""
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
@@ -1434,7 +1445,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     """}
                 
                 <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">{'Step 4' if channel_type == 'slack' else 'Step 3'}: Wait for confirmation</h4>
+                    <h4 style="margin: 0 0 8px 0; color: {COLORS['text']};">{'Step 4' if channel_type in ['slack', 'discord'] else 'Step 3'}: Wait for confirmation</h4>
                     <p style="color: {COLORS['text_muted']}; margin: 0;">The bot will respond once connected. Click "Check Status" below to verify.</p>
                 </div>
                 
