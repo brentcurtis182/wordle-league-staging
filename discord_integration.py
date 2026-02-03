@@ -335,6 +335,8 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
                 score_input = opt.get("value")
                 break
         
+        logging.info(f"Discord /wordle command: score_input={score_input[:50] if score_input else None}...")
+        
         if score_input is None:
             return {
                 "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
@@ -346,9 +348,11 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
         
         # Try to parse as full Wordle share first
         wordle_number, score_int, is_hard_mode, emoji_pattern = parse_discord_wordle_score(score_input)
+        logging.info(f"Parsed: wordle_number={wordle_number}, score={score_int}, emoji={emoji_pattern[:20] if emoji_pattern else 'none'}")
         
         if wordle_number is None:
             # Not a full share - try as simple score (1-6 or X)
+            is_hard_mode = False
             if str(score_input).upper() == 'X':
                 score_int = 7
                 emoji_pattern = ""
