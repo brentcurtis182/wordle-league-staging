@@ -332,22 +332,26 @@ def generate_full_list_modal(seasons_dict, past_season_breakdowns):
     list_items = ''
     for season_num in sorted(seasons_dict.keys(), reverse=True):
         winners = seasons_dict[season_num]
-        winner_text = _build_season_winner_text(season_num, winners)
+        # Simplified format: "Season N:    Name"
+        if len(winners) == 1:
+            name_text = winners[0]
+        else:
+            name_text = ' &amp; '.join(winners) if len(winners) == 2 else ', '.join(winners[:-1]) + ', &amp; ' + winners[-1]
         has_breakdown = season_num in past_season_breakdowns
         
         if has_breakdown:
-            list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 8px 0; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="showSeasonDetail({season_num})">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+            list_items += f'<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({season_num})"><span style="color:#d7dadc; font-weight:600;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
         else:
-            list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 8px 0;">{winner_text}</p>\n'
+            list_items += f'<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold;">{name_text}</span></div>\n'
     
     # Build breakdown detail views (hidden by default)
     detail_views = ''
     for season_num, breakdown in past_season_breakdowns.items():
         rows_html = _build_breakdown_rows(breakdown)
-        detail_views += f'''<div id="fl-detail-{season_num}" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span onclick="backToFullList()" style="color:#d7dadc; cursor:pointer; font-size:1.1rem; padding:4px 8px;">&#8592; Back</span>
+        detail_views += f'''<div id="fl-detail-{season_num}" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592; Back</span>
         <h3 style="color:#00E8DA; margin:0;">Season {season_num}</h3>
       </div>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
@@ -377,10 +381,10 @@ function backToFullList() {{
 '''
     
     return f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this){{backToFullList();this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div id="fl-list-view">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="color:#00E8DA; margin:0;">Season Winners</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="color:#FFA64D; margin:0;">Season Winners</h3>
         <span onclick="backToFullList();document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
       </div>
       {list_items}
