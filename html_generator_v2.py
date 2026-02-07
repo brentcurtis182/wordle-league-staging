@@ -349,13 +349,11 @@ def generate_full_list_modal(seasons_dict, past_season_breakdowns):
     for season_num, breakdown in past_season_breakdowns.items():
         rows_html = _build_breakdown_rows(breakdown)
         detail_views += f'''<div id="fl-detail-{season_num}" style="display:none; padding-top:4px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592; Back</span>
-        <h3 style="color:#00E8DA; margin:0;">Season {season_num}</h3>
-      </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {season_num}</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody>{rows_html}</tbody>
