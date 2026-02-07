@@ -459,7 +459,12 @@ def get_season_data(league_id):
                         winning_week = wnum
                 
                 if breakdown:
-                    past_season_breakdowns[sn] = breakdown
+                    # Validate: the top player in breakdown should match the recorded season winner
+                    # If not, the weekly_winners data for this season is incomplete/misaligned — skip it
+                    recorded_winners_for_sn = [w['name'] for w in season_winners if w['season'] == sn]
+                    top_player = max(breakdown.items(), key=lambda x: x[1]['wins'])[0]
+                    if top_player in recorded_winners_for_sn and max(d['wins'] for d in breakdown.values()) >= 4:
+                        past_season_breakdowns[sn] = breakdown
     
     cursor.close()
     conn.close()
