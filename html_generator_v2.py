@@ -280,27 +280,34 @@ def wordle_to_date_string(wordle_num):
     
     return target_date.strftime("%b %d")
 
-def generate_season_breakdown_modal(season_num, breakdown):
-    """Generate a hidden modal with the weekly winner breakdown for a past season."""
-    modal_id = f'season-modal-{season_num}'
-    
-    # Sort by wins descending, then by earliest last win
+def _build_breakdown_rows(breakdown):
+    """Build table rows HTML for a season breakdown."""
     def sort_key(item):
         player_name, data = item
         last_win = data['weeks'][-1] if data['weeks'] else 9999
         return (-data['wins'], last_win)
     
-    sorted_breakdown = sorted(breakdown.items(), key=sort_key)
-    
-    rows_html = ''
-    for player_name, data in sorted_breakdown:
+    rows = ''
+    for player_name, data in sorted(breakdown.items(), key=sort_key):
         wins = data['wins']
-        # Highlight the winner row (4+ wins)
-        if wins >= 4:
-            row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"'
-        else:
-            row_style = ''
-        rows_html += f'<tr{row_style}><td><strong>{player_name}</strong></td><td style="text-align:center;">{wins}</td></tr>\n'
+        row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"' if wins >= 4 else ''
+        rows += f'<tr{row_style}><td><strong>{player_name}</strong></td><td style="text-align:center;">{wins}</td></tr>\n'
+    return rows
+
+
+def _build_season_winner_text(season_num, winners_list):
+    """Build display text for a season's winner(s)."""
+    if len(winners_list) == 1:
+        return f'Season {season_num} Winner: {winners_list[0]}'
+    else:
+        winner_list = ' and '.join(winners_list) if len(winners_list) == 2 else ', '.join(winners_list[:-1]) + ', and ' + winners_list[-1]
+        return f'Season {season_num} Winners: {winner_list}'
+
+
+def generate_season_breakdown_modal(season_num, breakdown):
+    """Generate a hidden modal with the weekly winner breakdown for a past season (standalone)."""
+    modal_id = f'season-modal-{season_num}'
+    rows_html = _build_breakdown_rows(breakdown)
     
     return f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
@@ -315,6 +322,73 @@ def generate_season_breakdown_modal(season_num, breakdown):
   </div>
 </div>
 '''
+
+
+def generate_full_list_modal(seasons_dict, past_season_breakdowns):
+    """Generate the 'Season Winners (Full List)' modal with drill-down capability."""
+    modal_id = 'season-full-list-modal'
+    
+    # Build the full list view
+    list_items = ''
+    for season_num in sorted(seasons_dict.keys(), reverse=True):
+        winners = seasons_dict[season_num]
+        winner_text = _build_season_winner_text(season_num, winners)
+        has_breakdown = season_num in past_season_breakdowns
+        
+        if has_breakdown:
+            list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 8px 0; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="showSeasonDetail({season_num})">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+        else:
+            list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 8px 0;">{winner_text}</p>\n'
+    
+    # Build breakdown detail views (hidden by default)
+    detail_views = ''
+    for season_num, breakdown in past_season_breakdowns.items():
+        rows_html = _build_breakdown_rows(breakdown)
+        detail_views += f'''<div id="fl-detail-{season_num}" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span onclick="backToFullList()" style="color:#d7dadc; cursor:pointer; font-size:1.1rem; padding:4px 8px;">&#8592; Back</span>
+        <h3 style="color:#00E8DA; margin:0;">Season {season_num}</h3>
+      </div>
+      <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+</div>
+'''
+    
+    # JS for toggling views
+    js = f'''<script>
+function showSeasonDetail(sn) {{
+  document.getElementById('fl-list-view').style.display = 'none';
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  var el = document.getElementById('fl-detail-' + sn);
+  if (el) el.style.display = 'block';
+}}
+function backToFullList() {{
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  document.getElementById('fl-list-view').style.display = 'block';
+}}
+</script>
+'''
+    
+    return f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this){{backToFullList();this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div id="fl-list-view">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="color:#00E8DA; margin:0;">Season Winners</h3>
+        <span onclick="backToFullList();document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+      </div>
+      {list_items}
+    </div>
+    {detail_views}
+  </div>
+</div>
+{js}'''
 
 
 def generate_season_stats_html(league_data):
@@ -370,22 +444,25 @@ def generate_season_stats_html(league_data):
                 seasons_dict[season_num] = []
             seasons_dict[season_num].append(winner_name)
         
-        # Display each season's winners in REVERSE order (newest first)
-        for season_num in sorted(seasons_dict.keys(), reverse=True):
+        sorted_season_nums = sorted(seasons_dict.keys(), reverse=True)
+        max_inline = 2
+        
+        # Show latest 2 inline
+        for season_num in sorted_season_nums[:max_inline]:
             winners = seasons_dict[season_num]
             has_breakdown = season_num in past_season_breakdowns
-            
-            if len(winners) == 1:
-                winner_text = f'Season {season_num} Winner: {winners[0]}'
-            else:
-                winner_list = ' and '.join(winners) if len(winners) == 2 else ', '.join(winners[:-1]) + ', and ' + winners[-1]
-                winner_text = f'Season {season_num} Winners: {winner_list}'
+            winner_text = _build_season_winner_text(season_num, winners)
             
             if has_breakdown:
-                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'season-modal-{season_num}\').style.display=\'flex\'">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">▸</span></p>\n'
+                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'season-modal-{season_num}\').style.display=\'flex\'">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
                 modals_html += generate_season_breakdown_modal(season_num, past_season_breakdowns[season_num])
             else:
                 html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px;">{winner_text}</p>\n'
+        
+        # If more than 2 seasons, add "Season Winners (Full List)" link + modal
+        if len(sorted_season_nums) > max_inline:
+            html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'season-full-list-modal\').style.display=\'flex\'">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+            modals_html += generate_full_list_modal(seasons_dict, past_season_breakdowns)
     
     html += '</div>\n'
     
