@@ -432,23 +432,31 @@ def get_season_data(league_id):
             """, (league_id, sn))
             bounds = cursor.fetchone()
             if bounds and bounds[0] and bounds[1]:
+                # Order by week so we can replay chronologically and stop at 4 wins
                 cursor.execute("""
                     SELECT ww.player_name, ww.week_wordle_number, ww.score
                     FROM weekly_winners ww
                     WHERE ww.league_id = %s
                       AND ww.week_wordle_number >= %s
                       AND ww.week_wordle_number <= %s
-                    ORDER BY ww.player_name, ww.week_wordle_number
+                    ORDER BY ww.week_wordle_number, ww.player_name
                 """, (league_id, bounds[0], bounds[1]))
                 
+                # Replay week by week, stop after the week where someone hits 4 wins
+                all_rows = cursor.fetchall()
                 breakdown = {}
-                for r in cursor.fetchall():
-                    pname, wnum, wscore = r[0], r[1], r[2]
+                winning_week = None
+                for pname, wnum, wscore in all_rows:
+                    # Stop if we've passed the winning week
+                    if winning_week is not None and wnum > winning_week:
+                        break
                     if pname not in breakdown:
                         breakdown[pname] = {'wins': 0, 'weeks': [], 'scores': []}
                     breakdown[pname]['wins'] += 1
                     breakdown[pname]['weeks'].append(wnum)
                     breakdown[pname]['scores'].append(wscore)
+                    if breakdown[pname]['wins'] >= 4 and winning_week is None:
+                        winning_week = wnum
                 
                 if breakdown:
                     past_season_breakdowns[sn] = breakdown

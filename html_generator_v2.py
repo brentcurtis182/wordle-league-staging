@@ -295,22 +295,21 @@ def generate_season_breakdown_modal(season_num, breakdown):
     rows_html = ''
     for player_name, data in sorted_breakdown:
         wins = data['wins']
-        weeks_display = '<br>'.join([f"{wordle_to_date_string(w)} ({s})" for w, s in zip(data['weeks'], data['scores'])])
         # Highlight the winner row (4+ wins)
         if wins >= 4:
             row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"'
         else:
             row_style = ''
-        rows_html += f'<tr{row_style}><td><strong>{player_name}</strong></td><td>{wins}</td><td style="white-space: nowrap;">{weeks_display}</td></tr>\n'
+        rows_html += f'<tr{row_style}><td><strong>{player_name}</strong></td><td style="text-align:center;">{wins}</td></tr>\n'
     
     return f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:420px; width:90%; max-height:80vh; overflow-y:auto; position:relative; margin:auto; top:50%; transform:translateY(-50%);">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="color:#00E8DA; margin:0;">Season {season_num} Breakdown</h3>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
     <table class="season-table" style="width:100%;">
-      <thead><tr><th>Player</th><th>Wins</th><th>Week (Score)</th></tr></thead>
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody>{rows_html}</tbody>
     </table>
   </div>
