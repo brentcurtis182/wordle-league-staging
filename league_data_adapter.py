@@ -419,13 +419,48 @@ def get_season_data(league_id):
             'wins': row[2]
         })
     
+    # Get past season breakdowns (weekly winners per past season)
+    past_season_breakdowns = {}
+    if season_winners:
+        # Get all past season boundaries
+        past_season_nums = list(set(w['season'] for w in season_winners))
+        for sn in past_season_nums:
+            cursor.execute("""
+                SELECT start_week, end_week
+                FROM seasons
+                WHERE league_id = %s AND season_number = %s
+            """, (league_id, sn))
+            bounds = cursor.fetchone()
+            if bounds and bounds[0] and bounds[1]:
+                cursor.execute("""
+                    SELECT ww.player_name, ww.week_wordle_number, ww.score
+                    FROM weekly_winners ww
+                    WHERE ww.league_id = %s
+                      AND ww.week_wordle_number >= %s
+                      AND ww.week_wordle_number <= %s
+                    ORDER BY ww.player_name, ww.week_wordle_number
+                """, (league_id, bounds[0], bounds[1]))
+                
+                breakdown = {}
+                for r in cursor.fetchall():
+                    pname, wnum, wscore = r[0], r[1], r[2]
+                    if pname not in breakdown:
+                        breakdown[pname] = {'wins': 0, 'weeks': [], 'scores': []}
+                    breakdown[pname]['wins'] += 1
+                    breakdown[pname]['weeks'].append(wnum)
+                    breakdown[pname]['scores'].append(wscore)
+                
+                if breakdown:
+                    past_season_breakdowns[sn] = breakdown
+    
     cursor.close()
     conn.close()
     
     return {
         'current_season': current_season,
         'season_standings': season_standings,
-        'season_winners': season_winners
+        'season_winners': season_winners,
+        'past_season_breakdowns': past_season_breakdowns
     }
 
 if __name__ == "__main__":
