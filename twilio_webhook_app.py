@@ -1821,82 +1821,108 @@ def dashboard_profile():
 @app.route('/dashboard/profile/update', methods=['POST'])
 def dashboard_profile_update():
     """Update user profile"""
-    from auth import validate_session, update_profile
-    
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    data = request.get_json()
-    result = update_profile(
-        user['id'],
-        first_name=data.get('first_name'),
-        last_name=data.get('last_name'),
-        email=data.get('email'),
-        phone=data.get('phone')
-    )
-    return jsonify(result)
+    try:
+        from auth import validate_session, update_profile
+        
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        result = update_profile(
+            user['id'],
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name'),
+            email=data.get('email'),
+            phone=data.get('phone')
+        )
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Profile update error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'})
 
 @app.route('/dashboard/profile/change-password', methods=['POST'])
 def dashboard_change_password():
     """Change user password"""
-    from auth import validate_session, change_password
-    
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    data = request.get_json()
-    current_password = data.get('current_password', '')
-    new_password = data.get('new_password', '')
-    
-    if not current_password or not new_password:
-        return jsonify({'success': False, 'error': 'Both passwords are required'})
-    
-    if len(new_password) < 8:
-        return jsonify({'success': False, 'error': 'New password must be at least 8 characters'})
-    
-    result = change_password(user['id'], current_password, new_password)
-    return jsonify(result)
+    try:
+        from auth import validate_session, change_password
+        
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+        
+        if not current_password or not new_password:
+            return jsonify({'success': False, 'error': 'Both passwords are required'})
+        
+        if len(new_password) < 8:
+            return jsonify({'success': False, 'error': 'New password must be at least 8 characters'})
+        
+        result = change_password(user['id'], current_password, new_password)
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Password change error: {e}")
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'})
 
 @app.route('/dashboard/profile/logout-all', methods=['POST'])
 def dashboard_logout_all():
     """Log out all other sessions"""
-    from auth import validate_session, logout_all_sessions
-    
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    result = logout_all_sessions(user['id'], except_token=session_token)
-    return jsonify(result)
+    try:
+        from auth import validate_session, logout_all_sessions
+        
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        result = logout_all_sessions(user['id'], except_token=session_token)
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Logout all error: {e}")
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'})
 
 @app.route('/dashboard/profile/delete-account', methods=['POST'])
 def dashboard_delete_account():
     """Delete user account"""
-    from auth import validate_session, delete_account
-    
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    data = request.get_json()
-    password = data.get('password', '')
-    
-    if not password:
-        return jsonify({'success': False, 'error': 'Password is required'})
-    
-    result = delete_account(user['id'], password)
-    if result['success']:
-        # Clear the session cookie
-        response = make_response(jsonify(result))
-        response.delete_cookie('session_token')
-        return response
-    return jsonify(result)
+    try:
+        from auth import validate_session, delete_account
+        
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        password = data.get('password', '')
+        
+        if not password:
+            return jsonify({'success': False, 'error': 'Password is required'})
+        
+        result = delete_account(user['id'], password)
+        if result['success']:
+            response = make_response(jsonify(result))
+            response.delete_cookie('session_token')
+            return response
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Delete account error: {e}")
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'})
 
 @app.route('/dashboard/create-league', methods=['GET', 'POST'])
 def dashboard_create_league():

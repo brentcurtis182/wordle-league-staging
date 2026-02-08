@@ -59,6 +59,8 @@ def create_auth_tables():
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN DEFAULT FALSE")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_consent_date TIMESTAMP")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
         except:
             pass  # Columns may already exist
         
