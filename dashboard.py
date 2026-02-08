@@ -683,6 +683,30 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             </div>
         </div>
         
+        <!-- Profile Update Confirmation Modal -->
+        <div class="modal-overlay" id="profileUpdateModal">
+            <div class="modal">
+                <h3>👤 Update Profile?</h3>
+                <div id="profileChanges" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.9em;"></div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeProfileUpdateModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmProfileUpdate()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Password Change Confirmation Modal -->
+        <div class="modal-overlay" id="passwordChangeModal">
+            <div class="modal">
+                <h3>🔒 Change Password?</h3>
+                <p>Are you sure you want to update your password?</p>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closePasswordChangeModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmPasswordChange()">Yes, Change Password</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Delete Account Modal -->
         <div class="modal-overlay" id="deleteAccountModal">
             <div class="modal">
@@ -732,6 +756,15 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 document.getElementById('profileView').style.display = 'block';
             }}
             
+            // Original values for change detection
+            const originalProfile = {{
+                first_name: '{user_details['first_name']}',
+                last_name: '{user_details['last_name']}',
+                email: '{user_details['email']}',
+                phone: '{user_details['phone']}'
+            }};
+            let pendingProfileData = null;
+            
             function saveProfile() {{
                 const form = document.getElementById('editProfileForm');
                 const data = {{
@@ -746,10 +779,36 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     return;
                 }}
                 
+                // Build changes list
+                const changes = [];
+                if (data.first_name !== originalProfile.first_name) changes.push('First Name: ' + originalProfile.first_name + ' → ' + data.first_name);
+                if (data.last_name !== originalProfile.last_name) changes.push('Last Name: ' + originalProfile.last_name + ' → ' + data.last_name);
+                if (data.email !== originalProfile.email) changes.push('Email: ' + originalProfile.email + ' → ' + data.email);
+                if (data.phone !== originalProfile.phone) changes.push('Phone: ' + (originalProfile.phone || 'Not set') + ' → ' + (data.phone || 'Not set'));
+                
+                if (changes.length === 0) {{
+                    showToast('No changes to save', true);
+                    return;
+                }}
+                
+                pendingProfileData = data;
+                document.getElementById('profileChanges').innerHTML = changes.join('<br>');
+                document.getElementById('profileUpdateModal').style.display = 'flex';
+            }}
+            
+            function closeProfileUpdateModal() {{
+                document.getElementById('profileUpdateModal').style.display = 'none';
+                pendingProfileData = null;
+            }}
+            
+            function confirmProfileUpdate() {{
+                if (!pendingProfileData) return;
+                closeProfileUpdateModal();
+                
                 fetch('/dashboard/profile/update', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(pendingProfileData)
                 }})
                 .then(r => r.json())
                 .then(data => {{
@@ -775,13 +834,15 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 document.getElementById('changePasswordForm').reset();
             }}
             
+            let pendingPasswordData = null;
+            
             function changePassword() {{
                 const form = document.getElementById('changePasswordForm');
                 const current = form.querySelector('[name="current_password"]').value;
                 const newPw = form.querySelector('[name="new_password"]').value;
-                const confirm = form.querySelector('[name="confirm_password"]').value;
+                const confirmPw = form.querySelector('[name="confirm_password"]').value;
                 
-                if (!current || !newPw || !confirm) {{
+                if (!current || !newPw || !confirmPw) {{
                     showToast('All fields are required', true);
                     return;
                 }}
@@ -789,15 +850,28 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     showToast('New password must be at least 8 characters', true);
                     return;
                 }}
-                if (newPw !== confirm) {{
+                if (newPw !== confirmPw) {{
                     showToast('New passwords do not match', true);
                     return;
                 }}
                 
+                pendingPasswordData = {{ current_password: current, new_password: newPw }};
+                document.getElementById('passwordChangeModal').style.display = 'flex';
+            }}
+            
+            function closePasswordChangeModal() {{
+                document.getElementById('passwordChangeModal').style.display = 'none';
+                pendingPasswordData = null;
+            }}
+            
+            function confirmPasswordChange() {{
+                if (!pendingPasswordData) return;
+                closePasswordChangeModal();
+                
                 fetch('/dashboard/profile/change-password', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ current_password: current, new_password: newPw }})
+                    body: JSON.stringify(pendingPasswordData)
                 }})
                 .then(r => r.json())
                 .then(data => {{
@@ -809,6 +883,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     }}
                 }})
                 .catch(e => showToast('Error: ' + e, true));
+                pendingPasswordData = null;
             }}
             
             // Session Management
@@ -866,10 +941,20 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             
             // Close modals on escape/overlay click
             document.addEventListener('keydown', function(e) {{
-                if (e.key === 'Escape') closeDeleteAccountModal();
+                if (e.key === 'Escape') {{
+                    closeDeleteAccountModal();
+                    closeProfileUpdateModal();
+                    closePasswordChangeModal();
+                }}
             }});
             document.getElementById('deleteAccountModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeDeleteAccountModal();
+            }});
+            document.getElementById('profileUpdateModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeProfileUpdateModal();
+            }});
+            document.getElementById('passwordChangeModal').addEventListener('click', function(e) {{
+                if (e.target === this) closePasswordChangeModal();
             }});
         </script>
     </body>
