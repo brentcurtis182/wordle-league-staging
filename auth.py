@@ -349,6 +349,195 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def get_user_details(user_id):
+    """Get full user details for profile page"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login
+            FROM users WHERE id = %s
+        """, (user_id,))
+        
+        result = cursor.fetchone()
+        if not result:
+            return None
+        
+        return {
+            'id': result[0],
+            'email': result[1],
+            'first_name': result[2] or '',
+            'last_name': result[3] or '',
+            'phone': result[4] or '',
+            'sms_consent': result[5],
+            'created_at': result[6],
+            'last_login': result[7]
+        }
+    except Exception as e:
+        logging.error(f"Error getting user details: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def change_password(user_id, current_password, new_password):
+    """Change user's password after verifying current password"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            return {'success': False, 'error': 'User not found'}
+        
+        if not check_password_hash(result[0], current_password):
+            return {'success': False, 'error': 'Current password is incorrect'}
+        
+        new_hash = generate_password_hash(new_password)
+        cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
+        conn.commit()
+        
+        logging.info(f"Password changed for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error changing password: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_profile(user_id, first_name=None, last_name=None, email=None, phone=None):
+    """Update user profile fields"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # If email is changing, check it's not taken
+        if email:
+            cursor.execute("SELECT id FROM users WHERE email = %s AND id != %s", (email.lower(), user_id))
+            if cursor.fetchone():
+                return {'success': False, 'error': 'Email already in use by another account'}
+        
+        updates = []
+        params = []
+        
+        if first_name is not None:
+            updates.append("first_name = %s")
+            params.append(first_name)
+        if last_name is not None:
+            updates.append("last_name = %s")
+            params.append(last_name)
+        if email is not None:
+            updates.append("email = %s")
+            params.append(email.lower())
+        if phone is not None:
+            import re
+            phone = re.sub(r'\D', '', phone) if phone else ''
+            updates.append("phone = %s")
+            params.append(phone)
+        
+        if not updates:
+            return {'success': True}
+        
+        params.append(user_id)
+        cursor.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", params)
+        conn.commit()
+        
+        logging.info(f"Profile updated for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error updating profile: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
+def logout_all_sessions(user_id, except_token=None):
+    """Invalidate all sessions for a user, optionally keeping the current one"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if except_token:
+            cursor.execute("""
+                UPDATE user_sessions SET is_valid = FALSE 
+                WHERE user_id = %s AND session_token != %s AND is_valid = TRUE
+            """, (user_id, except_token))
+        else:
+            cursor.execute("""
+                UPDATE user_sessions SET is_valid = FALSE 
+                WHERE user_id = %s AND is_valid = TRUE
+            """, (user_id,))
+        
+        count = cursor.rowcount
+        conn.commit()
+        logging.info(f"Invalidated {count} sessions for user {user_id}")
+        return {'success': True, 'sessions_invalidated': count}
+    except Exception as e:
+        logging.error(f"Error logging out all sessions: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_active_session_count(user_id):
+    """Get count of active sessions for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT COUNT(*) FROM user_sessions 
+            WHERE user_id = %s AND is_valid = TRUE AND expires_at > CURRENT_TIMESTAMP
+        """, (user_id,))
+        return cursor.fetchone()[0]
+    except Exception as e:
+        logging.error(f"Error counting sessions: {e}")
+        return 0
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_account(user_id, password):
+    """Delete a user account after password verification"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            return {'success': False, 'error': 'User not found'}
+        
+        if not check_password_hash(result[0], password):
+            return {'success': False, 'error': 'Password is incorrect'}
+        
+        # Invalidate all sessions
+        cursor.execute("UPDATE user_sessions SET is_valid = FALSE WHERE user_id = %s", (user_id,))
+        
+        # Remove league associations
+        cursor.execute("DELETE FROM user_leagues WHERE user_id = %s", (user_id,))
+        
+        # Deactivate account (soft delete - preserves data integrity)
+        cursor.execute("UPDATE users SET is_active = FALSE, email = %s WHERE id = %s", 
+                       (f"deleted_{user_id}@deleted.account", user_id))
+        
+        conn.commit()
+        logging.info(f"Account deleted (deactivated) for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error deleting account: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
 def can_manage_league(user_id, league_id):
     """Check if a user can manage a specific league"""
     conn = get_db_connection()

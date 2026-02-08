@@ -472,6 +472,411 @@ def render_register_page(error=None):
     """
 
 
+def render_profile_page(user, user_details, leagues, active_sessions, message=None, error=None):
+    """Render the user profile page"""
+    
+    created_str = user_details['created_at'].strftime('%B %d, %Y') if user_details.get('created_at') else 'Unknown'
+    last_login_str = user_details['last_login'].strftime('%B %d, %Y at %I:%M %p') if user_details.get('last_login') else 'Never'
+    
+    league_list_html = ""
+    if leagues:
+        for league in leagues:
+            league_list_html += f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px;">
+                <div>
+                    <strong style="color: {COLORS['text']};">{league['display_name']}</strong>
+                    <span style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-left: 8px;">{league['role']}</span>
+                </div>
+                <a href="/dashboard/league/{league['id']}" style="color: {COLORS['accent']}; text-decoration: none; font-size: 0.9em;">Manage →</a>
+            </div>
+            """
+    else:
+        league_list_html = f'<p style="color: {COLORS["text_muted"]}; text-align: center; padding: 20px;">No leagues yet.</p>'
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Profile - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .profile-section {{
+                margin-bottom: 24px;
+            }}
+            .profile-section h2 {{
+                color: {COLORS['accent']};
+                margin-bottom: 16px;
+                font-size: 1.2em;
+            }}
+            .info-row {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid {COLORS['border']};
+            }}
+            .info-row:last-child {{ border-bottom: none; }}
+            .info-label {{
+                color: {COLORS['text_muted']};
+                font-size: 0.9em;
+            }}
+            .info-value {{
+                color: {COLORS['text']};
+                font-weight: 500;
+            }}
+            .password-form {{
+                display: none;
+            }}
+            .password-form.active {{
+                display: block;
+            }}
+            .edit-form-section {{
+                display: none;
+            }}
+            .edit-form-section.active {{
+                display: block;
+            }}
+            .toast {{
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%) translateY(100px);
+                background: {COLORS['success']};
+                color: #000;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                opacity: 0;
+                transition: all 0.3s ease;
+                z-index: 10000;
+            }}
+            .toast.show {{
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                <div class="nav-links">
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/dashboard/profile" style="color: {COLORS['accent']};">Profile</a>
+                    <a href="/auth/logout" class="logout">Logout</a>
+                </div>
+            </div>
+            
+            {'<div class="alert alert-success">' + message + '</div>' if message else ''}
+            {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+            
+            <a href="/dashboard" style="color: {COLORS['accent']}; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px;">← Back to Dashboard</a>
+            
+            <!-- Profile Info -->
+            <div class="card profile-section">
+                <h2>👤 Profile Information</h2>
+                
+                <div id="profileView">
+                    <div class="info-row">
+                        <span class="info-label">Name</span>
+                        <span class="info-value">{user_details['first_name']} {user_details['last_name']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-value">{user_details['email']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone</span>
+                        <span class="info-value">{user_details['phone'] or 'Not set'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Member Since</span>
+                        <span class="info-value">{created_str}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Last Login</span>
+                        <span class="info-value">{last_login_str}</span>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-small" style="margin-top: 16px;" onclick="showEditProfile()">Edit Profile</button>
+                </div>
+                
+                <div id="profileEdit" class="edit-form-section">
+                    <form id="editProfileForm">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group">
+                                <label>First Name</label>
+                                <input type="text" name="first_name" value="{user_details['first_name']}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" name="last_name" value="{user_details['last_name']}" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" value="{user_details['email']}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="tel" name="phone" value="{user_details['phone']}" placeholder="(858) 555-1234">
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 8px;">
+                            <button type="button" class="btn btn-primary btn-small" onclick="saveProfile()">Save Changes</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="cancelEditProfile()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Change Password -->
+            <div class="card profile-section">
+                <h2>🔒 Change Password</h2>
+                <div id="passwordToggle">
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 12px;">Update your account password.</p>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="showPasswordForm()">Change Password</button>
+                </div>
+                <div id="passwordForm" class="password-form">
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" name="current_password" required placeholder="Enter current password">
+                        </div>
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" name="new_password" required placeholder="Enter new password" minlength="8">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm New Password</label>
+                            <input type="password" name="confirm_password" required placeholder="Confirm new password">
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" class="btn btn-primary btn-small" onclick="changePassword()">Update Password</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="hidePasswordForm()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Leagues -->
+            <div class="card profile-section">
+                <h2>🏆 Your Leagues ({len(leagues)})</h2>
+                {league_list_html}
+            </div>
+            
+            <!-- Session Management -->
+            <div class="card profile-section">
+                <h2>📱 Active Sessions</h2>
+                <div class="info-row">
+                    <span class="info-label">Active sessions</span>
+                    <span class="info-value">{active_sessions}</span>
+                </div>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 12px 0;">Log out of all other devices. Your current session will remain active.</p>
+                <button type="button" class="btn btn-secondary btn-small" onclick="logoutAllSessions()">Log Out All Other Devices</button>
+            </div>
+            
+            <!-- Danger Zone -->
+            <div class="card profile-section" style="border: 1px solid {COLORS['error']};">
+                <h2 style="color: {COLORS['error']};">⚠️ Danger Zone</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 16px;">Permanently delete your account. This will remove your access to all leagues you manage.</p>
+                <button type="button" class="btn btn-small" style="background: {COLORS['error']}; color: white;" onclick="showDeleteAccountModal()">Delete Account</button>
+            </div>
+        </div>
+        
+        <!-- Delete Account Modal -->
+        <div class="modal-overlay" id="deleteAccountModal">
+            <div class="modal">
+                <h3 style="color: {COLORS['error']};">🗑️ Delete Account?</h3>
+                <p>This will permanently deactivate your account and remove your access to all leagues. This cannot be undone.</p>
+                <div class="form-group" style="margin: 16px 0;">
+                    <label>Enter your password to confirm:</label>
+                    <input type="password" id="deleteAccountPassword" placeholder="Your password">
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeDeleteAccountModal()">Cancel</button>
+                    <button type="button" class="btn btn-small" style="background: {COLORS['error']}; color: white;" onclick="confirmDeleteAccount()">Delete Forever</button>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Auto-hide alerts
+            setTimeout(function() {{
+                document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {{ alert.remove(); }}, 500);
+                }});
+            }}, 5000);
+            
+            function showToast(message, isError) {{
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                if (isError) toast.style.background = '{COLORS["error"]}';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {{
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }}, 3000);
+            }}
+            
+            // Edit Profile
+            function showEditProfile() {{
+                document.getElementById('profileView').style.display = 'none';
+                document.getElementById('profileEdit').classList.add('active');
+            }}
+            
+            function cancelEditProfile() {{
+                document.getElementById('profileEdit').classList.remove('active');
+                document.getElementById('profileView').style.display = 'block';
+            }}
+            
+            function saveProfile() {{
+                const form = document.getElementById('editProfileForm');
+                const data = {{
+                    first_name: form.querySelector('[name="first_name"]').value.trim(),
+                    last_name: form.querySelector('[name="last_name"]').value.trim(),
+                    email: form.querySelector('[name="email"]').value.trim(),
+                    phone: form.querySelector('[name="phone"]').value.trim()
+                }};
+                
+                if (!data.first_name || !data.last_name || !data.email) {{
+                    showToast('First name, last name, and email are required', true);
+                    return;
+                }}
+                
+                fetch('/dashboard/profile/update', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify(data)
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        showToast('Profile updated!');
+                        setTimeout(() => window.location.reload(), 1000);
+                    }} else {{
+                        showToast(data.error || 'Error updating profile', true);
+                    }}
+                }})
+                .catch(e => showToast('Error: ' + e, true));
+            }}
+            
+            // Change Password
+            function showPasswordForm() {{
+                document.getElementById('passwordToggle').style.display = 'none';
+                document.getElementById('passwordForm').classList.add('active');
+            }}
+            
+            function hidePasswordForm() {{
+                document.getElementById('passwordForm').classList.remove('active');
+                document.getElementById('passwordToggle').style.display = 'block';
+                document.getElementById('changePasswordForm').reset();
+            }}
+            
+            function changePassword() {{
+                const form = document.getElementById('changePasswordForm');
+                const current = form.querySelector('[name="current_password"]').value;
+                const newPw = form.querySelector('[name="new_password"]').value;
+                const confirm = form.querySelector('[name="confirm_password"]').value;
+                
+                if (!current || !newPw || !confirm) {{
+                    showToast('All fields are required', true);
+                    return;
+                }}
+                if (newPw.length < 8) {{
+                    showToast('New password must be at least 8 characters', true);
+                    return;
+                }}
+                if (newPw !== confirm) {{
+                    showToast('New passwords do not match', true);
+                    return;
+                }}
+                
+                fetch('/dashboard/profile/change-password', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ current_password: current, new_password: newPw }})
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        showToast('Password updated!');
+                        hidePasswordForm();
+                    }} else {{
+                        showToast(data.error || 'Error changing password', true);
+                    }}
+                }})
+                .catch(e => showToast('Error: ' + e, true));
+            }}
+            
+            // Session Management
+            function logoutAllSessions() {{
+                if (!confirm('Log out of all other devices? Your current session will stay active.')) return;
+                
+                fetch('/dashboard/profile/logout-all', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }}
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        showToast(data.sessions_invalidated + ' session(s) logged out');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }} else {{
+                        showToast(data.error || 'Error', true);
+                    }}
+                }})
+                .catch(e => showToast('Error: ' + e, true));
+            }}
+            
+            // Delete Account
+            function showDeleteAccountModal() {{
+                document.getElementById('deleteAccountModal').style.display = 'flex';
+                document.getElementById('deleteAccountPassword').value = '';
+            }}
+            
+            function closeDeleteAccountModal() {{
+                document.getElementById('deleteAccountModal').style.display = 'none';
+            }}
+            
+            function confirmDeleteAccount() {{
+                const password = document.getElementById('deleteAccountPassword').value;
+                if (!password) {{
+                    showToast('Please enter your password', true);
+                    return;
+                }}
+                
+                fetch('/dashboard/profile/delete-account', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ password: password }})
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        window.location.href = '/auth/login?deleted=1';
+                    }} else {{
+                        showToast(data.error || 'Error deleting account', true);
+                    }}
+                }})
+                .catch(e => showToast('Error: ' + e, true));
+            }}
+            
+            // Close modals on escape/overlay click
+            document.addEventListener('keydown', function(e) {{
+                if (e.key === 'Escape') closeDeleteAccountModal();
+            }});
+            document.getElementById('deleteAccountModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeDeleteAccountModal();
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+
 def get_league_wix_url(league_id):
     """Get the correct Wix URL path for a league"""
     wix_paths = {
@@ -594,6 +999,7 @@ def render_dashboard(user, leagues, message=None, error=None):
                 <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
+                    <a href="/dashboard/profile">Profile</a>
                     <a href="/auth/logout" class="logout">Logout</a>
                 </div>
             </div>
@@ -749,6 +1155,7 @@ def render_create_league(user, error=None):
                 <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
+                    <a href="/dashboard/profile">Profile</a>
                     <a href="/auth/logout" class="logout">Logout</a>
                 </div>
             </div>
@@ -1096,6 +1503,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 <div class="nav-links">
                     <a href="/dashboard">Dashboard</a>
+                    <a href="/dashboard/profile">Profile</a>
                     <a href="/auth/logout" class="logout">Logout</a>
                 </div>
             </div>
