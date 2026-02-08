@@ -1665,8 +1665,14 @@ def discord_register_commands():
 def auth_login():
     """Login page and handler"""
     try:
-        from auth import login_user, validate_session
+        from auth import login_user, validate_session, create_auth_tables
         from dashboard import render_login_page
+        
+        # Run migration on first login attempt (creates tables/columns if missing)
+        try:
+            create_auth_tables()
+        except Exception:
+            pass
         
         # Check if already logged in - but handle errors gracefully
         session_token = request.cookies.get('session_token')
