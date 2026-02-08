@@ -1702,6 +1702,9 @@ def auth_login():
                               httponly=True,
                               samesite='Lax')
             return response
+        elif result.get('error') == 'email_not_verified':
+            from dashboard import render_unverified_email_page
+            return render_unverified_email_page(result.get('email', email))
         else:
             return render_login_page(error=result['error'])
     except Exception as e:
@@ -1751,7 +1754,8 @@ def auth_register():
         result = register_user(email, password, first_name, last_name, phone, sms_consent)
         
         if result['success']:
-            return redirect('/auth/login?registered=1')
+            from dashboard import render_unverified_email_page
+            return render_unverified_email_page(email)
         else:
             return render_register_page(error=result['error'])
     except Exception as e:
@@ -1760,6 +1764,113 @@ def auth_register():
         logging.error(traceback.format_exc())
         from dashboard import render_register_page
         return render_register_page(error='An unexpected error occurred. Please try again.')
+
+@app.route('/auth/forgot-password', methods=['GET', 'POST'])
+def auth_forgot_password():
+    """Forgot password page and handler"""
+    try:
+        from auth import request_password_reset
+        from dashboard import render_forgot_password_page
+        
+        if request.method == 'GET':
+            return render_forgot_password_page()
+        
+        email = request.form.get('email', '').strip()
+        if not email:
+            return render_forgot_password_page(error='Please enter your email address')
+        
+        request_password_reset(email)
+        return render_forgot_password_page(success='If an account exists with that email, a reset link has been sent. Check your inbox.')
+    except Exception as e:
+        logging.error(f"Forgot password error: {e}")
+        from dashboard import render_forgot_password_page
+        return render_forgot_password_page(error='An unexpected error occurred. Please try again.')
+
+@app.route('/auth/reset-password', methods=['GET', 'POST'])
+def auth_reset_password():
+    """Reset password page and handler"""
+    try:
+        from auth import validate_reset_token, reset_password_with_token
+        from dashboard import render_reset_password_page, render_login_page
+        
+        if request.method == 'GET':
+            token = request.args.get('token', '')
+            if not token:
+                return render_login_page(error='Invalid reset link.')
+            
+            user_info = validate_reset_token(token)
+            if not user_info:
+                return render_login_page(error='Invalid or expired reset link. Please request a new one.')
+            
+            return render_reset_password_page(token, email=user_info.get('email'))
+        
+        # POST - handle password reset
+        token = request.form.get('token', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        if not token:
+            return render_login_page(error='Invalid reset link.')
+        
+        if not new_password or not confirm_password:
+            return render_reset_password_page(token, error='Both password fields are required')
+        
+        if len(new_password) < 8:
+            return render_reset_password_page(token, error='Password must be at least 8 characters')
+        
+        if new_password != confirm_password:
+            return render_reset_password_page(token, error='Passwords do not match')
+        
+        result = reset_password_with_token(token, new_password)
+        
+        if result['success']:
+            return render_login_page(success='Password reset! You can now sign in with your new password.')
+        else:
+            return render_reset_password_page(token, error=result['error'])
+    except Exception as e:
+        logging.error(f"Reset password error: {e}")
+        from dashboard import render_login_page
+        return render_login_page(error='An unexpected error occurred. Please try again.')
+
+@app.route('/auth/verify-email')
+def auth_verify_email():
+    """Email verification handler"""
+    try:
+        from auth import verify_email
+        from dashboard import render_verify_email_page
+        
+        token = request.args.get('token', '')
+        if not token:
+            return render_verify_email_page(success=False, error='Invalid verification link.')
+        
+        result = verify_email(token)
+        
+        if result['success']:
+            return render_verify_email_page(success=True)
+        else:
+            return render_verify_email_page(success=False, error=result.get('error'))
+    except Exception as e:
+        logging.error(f"Verify email error: {e}")
+        from dashboard import render_verify_email_page
+        return render_verify_email_page(success=False, error='An unexpected error occurred.')
+
+@app.route('/auth/resend-verification', methods=['POST'])
+def auth_resend_verification():
+    """Resend verification email"""
+    try:
+        from auth import resend_verification_email
+        from dashboard import render_unverified_email_page, render_login_page
+        
+        email = request.form.get('email', '').strip()
+        if not email:
+            return render_login_page(error='Email is required')
+        
+        resend_verification_email(email)
+        return render_login_page(success='Verification email resent! Check your inbox.')
+    except Exception as e:
+        logging.error(f"Resend verification error: {e}")
+        from dashboard import render_login_page
+        return render_login_page(error='An unexpected error occurred.')
 
 @app.route('/auth/logout')
 def auth_logout():

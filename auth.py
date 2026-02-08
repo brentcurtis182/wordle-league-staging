@@ -88,6 +88,26 @@ def create_auth_tables():
             )
         """)
         
+        # Create password reset tokens table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                used BOOLEAN DEFAULT FALSE
+            )
+        """)
+        
+        # Add email verification columns
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(255)")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMP")
+        except:
+            pass
+        
         conn.commit()
         logging.info("✅ Auth tables created successfully!")
         return True
@@ -119,15 +139,27 @@ def register_user(email, password, first_name=None, last_name=None, phone=None, 
             import re
             phone = re.sub(r'\D', '', phone)
         
+        # Generate email verification token
+        verify_token = secrets.token_urlsafe(48)
+        verify_expires = datetime.utcnow() + timedelta(hours=24)
+        
         cursor.execute("""
-            INSERT INTO users (email, password_hash, first_name, last_name, phone, sms_consent, sms_consent_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO users (email, password_hash, first_name, last_name, phone, sms_consent, sms_consent_date,
+                               email_verified, email_verify_token, email_verify_expires)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s)
             RETURNING id
         """, (email.lower(), password_hash, first_name, last_name, phone, sms_consent, 
-              datetime.now() if sms_consent else None))
+              datetime.now() if sms_consent else None, verify_token, verify_expires))
         
         user_id = cursor.fetchone()[0]
         conn.commit()
+        
+        # Send verification email
+        try:
+            from email_utils import send_verification_email
+            send_verification_email(email.lower(), verify_token, first_name)
+        except Exception as email_err:
+            logging.error(f"Failed to send verification email: {email_err}")
         
         logging.info(f"✅ User registered: {email}")
         return {'success': True, 'user_id': user_id}
@@ -148,7 +180,7 @@ def login_user(email, password):
     try:
         # Find user by email
         cursor.execute("""
-            SELECT id, password_hash, name, is_active
+            SELECT id, password_hash, name, is_active, email_verified
             FROM users WHERE email = %s
         """, (email.lower(),))
         
@@ -156,7 +188,7 @@ def login_user(email, password):
         if not result:
             return {'success': False, 'error': 'Invalid email or password'}
         
-        user_id, password_hash, name, is_active = result
+        user_id, password_hash, name, is_active, email_verified = result
         
         if not is_active:
             return {'success': False, 'error': 'Account is disabled'}
@@ -164,6 +196,10 @@ def login_user(email, password):
         # Verify password
         if not check_password_hash(password_hash, password):
             return {'success': False, 'error': 'Invalid email or password'}
+        
+        # Check email verification
+        if email_verified is False:
+            return {'success': False, 'error': 'email_not_verified', 'email': email.lower()}
         
         # Create session token
         session_token = secrets.token_urlsafe(32)
@@ -539,6 +575,206 @@ def delete_account(user_id, password):
     finally:
         cursor.close()
         conn.close()
+
+def request_password_reset(email):
+    """Generate a password reset token and send reset email"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT id, first_name FROM users WHERE email = %s AND is_active = TRUE", (email.lower(),))
+        result = cursor.fetchone()
+        if not result:
+            # Don't reveal whether email exists
+            return {'success': True}
+        
+        user_id, first_name = result[0], result[1]
+        
+        # Invalidate any existing reset tokens for this user
+        cursor.execute("UPDATE password_reset_tokens SET used = TRUE WHERE user_id = %s AND used = FALSE", (user_id,))
+        
+        # Generate new token (1 hour expiry)
+        token = secrets.token_urlsafe(48)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        cursor.execute("""
+            INSERT INTO password_reset_tokens (user_id, token, expires_at)
+            VALUES (%s, %s, %s)
+        """, (user_id, token, expires_at))
+        
+        conn.commit()
+        
+        # Send the email
+        from email_utils import send_password_reset_email
+        send_password_reset_email(email.lower(), token, first_name)
+        
+        logging.info(f"Password reset requested for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error requesting password reset: {e}")
+        conn.rollback()
+        return {'success': True}  # Don't reveal errors
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def validate_reset_token(token):
+    """Validate a password reset token and return user info"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT prt.user_id, u.email, u.first_name
+            FROM password_reset_tokens prt
+            JOIN users u ON prt.user_id = u.id
+            WHERE prt.token = %s AND prt.used = FALSE AND prt.expires_at > CURRENT_TIMESTAMP
+        """, (token,))
+        
+        result = cursor.fetchone()
+        if not result:
+            return None
+        
+        return {'user_id': result[0], 'email': result[1], 'first_name': result[2]}
+    except Exception as e:
+        logging.error(f"Error validating reset token: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def reset_password_with_token(token, new_password):
+    """Reset password using a valid reset token"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT user_id FROM password_reset_tokens
+            WHERE token = %s AND used = FALSE AND expires_at > CURRENT_TIMESTAMP
+        """, (token,))
+        
+        result = cursor.fetchone()
+        if not result:
+            return {'success': False, 'error': 'Invalid or expired reset link. Please request a new one.'}
+        
+        user_id = result[0]
+        new_hash = generate_password_hash(new_password)
+        
+        cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
+        cursor.execute("UPDATE password_reset_tokens SET used = TRUE WHERE token = %s", (token,))
+        
+        # Invalidate all sessions for security
+        cursor.execute("UPDATE user_sessions SET is_valid = FALSE WHERE user_id = %s", (user_id,))
+        
+        conn.commit()
+        logging.info(f"Password reset completed for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error resetting password: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def generate_verification_token(user_id):
+    """Generate and store an email verification token for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        token = secrets.token_urlsafe(48)
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        
+        cursor.execute("""
+            UPDATE users SET email_verify_token = %s, email_verify_expires = %s
+            WHERE id = %s
+        """, (token, expires_at, user_id))
+        
+        conn.commit()
+        return token
+    except Exception as e:
+        logging.error(f"Error generating verification token: {e}")
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def verify_email(token):
+    """Verify a user's email using their verification token"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, email FROM users
+            WHERE email_verify_token = %s AND email_verify_expires > CURRENT_TIMESTAMP AND email_verified = FALSE
+        """, (token,))
+        
+        result = cursor.fetchone()
+        if not result:
+            return {'success': False, 'error': 'Invalid or expired verification link.'}
+        
+        user_id = result[0]
+        cursor.execute("""
+            UPDATE users SET email_verified = TRUE, email_verify_token = NULL, email_verify_expires = NULL
+            WHERE id = %s
+        """, (user_id,))
+        
+        conn.commit()
+        logging.info(f"Email verified for user {user_id}")
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error verifying email: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred'}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def resend_verification_email(email):
+    """Resend verification email for an unverified user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT id, first_name, email_verified FROM users WHERE email = %s", (email.lower(),))
+        result = cursor.fetchone()
+        if not result:
+            return {'success': True}  # Don't reveal
+        
+        user_id, first_name, verified = result
+        if verified:
+            return {'success': True}
+        
+        token = secrets.token_urlsafe(48)
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        
+        cursor.execute("""
+            UPDATE users SET email_verify_token = %s, email_verify_expires = %s
+            WHERE id = %s
+        """, (token, expires_at, user_id))
+        conn.commit()
+        
+        from email_utils import send_verification_email
+        send_verification_email(email.lower(), token, first_name)
+        
+        return {'success': True}
+    except Exception as e:
+        logging.error(f"Error resending verification: {e}")
+        conn.rollback()
+        return {'success': True}
+    finally:
+        cursor.close()
+        conn.close()
+
 
 def can_manage_league(user_id, league_id):
     """Check if a user can manage a specific league"""

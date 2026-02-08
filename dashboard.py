@@ -327,8 +327,285 @@ def render_login_page(error=None, success=None):
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
                 </form>
                 
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="/auth/forgot-password" style="color: {COLORS['text_muted']}; font-size: 0.9em;">Forgot Password?</a>
+                </div>
+                
                 <div class="auth-footer">
                     Don't have an account? <a href="/auth/register">Sign up</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_forgot_password_page(error=None, success=None):
+    """Render the forgot password page"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Forgot Password - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 450px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px 20px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 8px;
+                color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
+            }}
+            .auth-card .subtitle {{
+                text-align: center;
+                color: {COLORS['text_muted']};
+                margin-bottom: 30px;
+            }}
+            .auth-footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: {COLORS['text_muted']};
+            }}
+            .auth-footer a {{ color: {COLORS['accent']}; }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
+                <p class="subtitle">Reset your password</p>
+                
+                {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+                {'<div class="alert alert-success">' + success + '</div>' if success else ''}
+                
+                <p style="color: {COLORS['text_muted']}; font-size: 0.9em; margin-bottom: 20px; text-align: center;">Enter your email and we'll send you a link to reset your password.</p>
+                
+                <form method="POST" action="/auth/forgot-password">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required placeholder="you@example.com">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Send Reset Link</button>
+                </form>
+                
+                <div class="auth-footer">
+                    <a href="/auth/login">← Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_reset_password_page(token, email=None, error=None, success=None):
+    """Render the reset password form"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Reset Password - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 450px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px 20px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 8px;
+                color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
+            }}
+            .auth-card .subtitle {{
+                text-align: center;
+                color: {COLORS['text_muted']};
+                margin-bottom: 30px;
+            }}
+            .auth-footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: {COLORS['text_muted']};
+            }}
+            .auth-footer a {{ color: {COLORS['accent']}; }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
+                <p class="subtitle">Create a new password</p>
+                
+                {'<div class="alert alert-error">' + error + '</div>' if error else ''}
+                {'<div class="alert alert-success">' + success + '</div>' if success else ''}
+                
+                {f'<p style="color: {COLORS["text_muted"]}; font-size: 0.9em; margin-bottom: 20px; text-align: center;">Resetting password for <strong style="color: {COLORS["text"]};">{email}</strong></p>' if email else ''}
+                
+                <form method="POST" action="/auth/reset-password">
+                    <input type="hidden" name="token" value="{token}">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" name="new_password" required placeholder="At least 8 characters" minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" name="confirm_password" required placeholder="Confirm password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Reset Password</button>
+                </form>
+                
+                <div class="auth-footer">
+                    <a href="/auth/login">← Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_verify_email_page(success=False, error=None):
+    """Render the email verification result page"""
+    if success:
+        message_html = f"""
+            <div style="text-align: center;">
+                <div style="font-size: 3em; margin-bottom: 16px;">✅</div>
+                <h2 style="color: {COLORS['success']}; margin-bottom: 12px;">Email Verified!</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 24px;">Your email has been verified. You can now sign in.</p>
+                <a href="/auth/login" class="btn btn-primary" style="display: inline-block; text-decoration: none;">Sign In</a>
+            </div>
+        """
+    else:
+        message_html = f"""
+            <div style="text-align: center;">
+                <div style="font-size: 3em; margin-bottom: 16px;">❌</div>
+                <h2 style="color: {COLORS['error']}; margin-bottom: 12px;">Verification Failed</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 24px;">{error or 'Invalid or expired verification link.'}</p>
+                <a href="/auth/login" class="btn btn-secondary" style="display: inline-block; text-decoration: none;">Back to Login</a>
+            </div>
+        """
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Email Verification - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 450px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px 20px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 24px;
+                color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
+            }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
+                {message_html}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def render_unverified_email_page(email):
+    """Render page shown when user tries to login with unverified email"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Verify Email - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .auth-container {{
+                max-width: 450px;
+                margin: 80px auto;
+                padding: 20px;
+            }}
+            .auth-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 16px;
+                padding: 40px 20px;
+                border: 1px solid #333;
+            }}
+            .auth-card h1 {{
+                text-align: center;
+                margin-bottom: 8px;
+                color: {COLORS['accent']};
+                font-size: clamp(1.4rem, 5vw, 2rem);
+                white-space: nowrap;
+            }}
+            .orange {{ color: {COLORS['accent_orange']}; }}
+            .auth-footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: {COLORS['text_muted']};
+            }}
+            .auth-footer a {{ color: {COLORS['accent']}; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
+                
+                <div style="text-align: center;">
+                    <div style="font-size: 3em; margin-bottom: 16px;">📧</div>
+                    <h2 style="color: {COLORS['accent_orange']}; margin-bottom: 12px;">Email Not Verified</h2>
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Please check your inbox for a verification email.</p>
+                    <p style="color: {COLORS['text_muted']}; margin-bottom: 24px; font-size: 0.9em;">Sent to: <strong style="color: {COLORS['text']};">{email}</strong></p>
+                    
+                    <form method="POST" action="/auth/resend-verification" style="margin-bottom: 16px;">
+                        <input type="hidden" name="email" value="{email}">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Resend Verification Email</button>
+                    </form>
+                </div>
+                
+                <div class="auth-footer">
+                    <a href="/auth/login">← Back to Login</a>
                 </div>
             </div>
         </div>
