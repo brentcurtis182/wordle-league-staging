@@ -65,7 +65,8 @@ def _send_email_sync(to_email, subject, html_content):
         msg['Subject'] = subject
         msg.attach(MIMEText(html_content, 'html'))
         
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as server:
+        with smtplib.SMTP('smtp.gmail.com', 587, timeout=10) as server:
+            server.starttls()
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.sendmail(GMAIL_USER, to_email, msg.as_string())
         
