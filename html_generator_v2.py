@@ -460,7 +460,7 @@ def generate_season_stats_html(league_data):
             winner_text = _build_season_winner_text(season_num, winners)
             
             if has_breakdown:
-                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'season-modal-{season_num}\').style.display=\'flex\'">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; " onclick="document.getElementById(\'season-modal-{season_num}\').style.display=\'flex\'">{winner_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
                 modals_html += generate_season_breakdown_modal(season_num, past_season_breakdowns[season_num])
             else:
                 html += f'<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px;">{winner_text}</p>\n'
