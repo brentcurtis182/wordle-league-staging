@@ -529,7 +529,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     .emoji-row {{
         white-space: nowrap;
         display: flex;
-        gap: 5px;
+        gap: 4px;
         margin-bottom: 3px;
     }}
     .emoji-row:last-child {{
@@ -539,8 +539,8 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     /* Custom branded Wordle blocks - unique 3D tiles */
     .wl-block {{
         display: inline-block;
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         border-radius: 3px;
         flex-shrink: 0;
         border: 1px solid rgba(0,0,0,0.2);
