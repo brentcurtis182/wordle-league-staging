@@ -5760,6 +5760,14 @@ def screenshot_season(league_id):
         traceback.print_exc()
         return f'<html><body>Error: {str(e)}</body></html>', 500
 
+# Run auth table migrations on startup
+try:
+    from auth import create_auth_tables
+    create_auth_tables()
+    logging.info("Auth tables migration completed on startup")
+except Exception as e:
+    logging.error(f"Auth tables migration error on startup: {e}")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

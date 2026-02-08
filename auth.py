@@ -179,16 +179,31 @@ def login_user(email, password):
     
     try:
         # Find user by email
-        cursor.execute("""
-            SELECT id, password_hash, name, is_active, email_verified
-            FROM users WHERE email = %s
-        """, (email.lower(),))
+        # Try with email_verified column, fall back without it
+        try:
+            cursor.execute("""
+                SELECT id, password_hash, name, is_active, email_verified
+                FROM users WHERE email = %s
+            """, (email.lower(),))
+            result = cursor.fetchone()
+            has_verified_col = True
+        except Exception:
+            conn.rollback()
+            cursor.execute("""
+                SELECT id, password_hash, name, is_active
+                FROM users WHERE email = %s
+            """, (email.lower(),))
+            result = cursor.fetchone()
+            has_verified_col = False
         
-        result = cursor.fetchone()
         if not result:
             return {'success': False, 'error': 'Invalid email or password'}
         
-        user_id, password_hash, name, is_active, email_verified = result
+        if has_verified_col:
+            user_id, password_hash, name, is_active, email_verified = result
+        else:
+            user_id, password_hash, name, is_active = result
+            email_verified = None  # Treat as verified
         
         if not is_active:
             return {'success': False, 'error': 'Account is disabled'}
@@ -197,7 +212,7 @@ def login_user(email, password):
         if not check_password_hash(password_hash, password):
             return {'success': False, 'error': 'Invalid email or password'}
         
-        # Check email verification
+        # Check email verification (only block if explicitly FALSE, not NULL)
         if email_verified is False:
             return {'success': False, 'error': 'email_not_verified', 'email': email.lower()}
         
@@ -665,9 +680,6 @@ def reset_password_with_token(token, new_password):
         
         cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
         cursor.execute("UPDATE password_reset_tokens SET used = TRUE WHERE token = %s", (token,))
-        
-        # Invalidate all sessions for security
-        cursor.execute("UPDATE user_sessions SET is_valid = FALSE WHERE user_id = %s", (user_id,))
         
         conn.commit()
         logging.info(f"Password reset completed for user {user_id}")
