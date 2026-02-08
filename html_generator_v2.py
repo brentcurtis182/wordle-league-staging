@@ -539,8 +539,8 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     /* Custom branded Wordle blocks - unique 3D tiles */
     .wl-block {{
         display: inline-block;
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
         border-radius: 3px;
         flex-shrink: 0;
         border: 1px solid rgba(0,0,0,0.2);
