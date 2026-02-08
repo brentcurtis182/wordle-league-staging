@@ -47,17 +47,18 @@ def get_base_styles():
             padding: 20px;
         }}
         .header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             padding: 20px 0;
             border-bottom: 1px solid #333;
             margin-bottom: 30px;
         }}
-        .header-left {{
+        .header-logo-row {{
+            text-align: center;
+            margin-bottom: 12px;
+        }}
+        .header-nav-row {{
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 16px;
         }}
         .logo {{
             font-size: 1.5em;
@@ -83,9 +84,19 @@ def get_base_styles():
             padding: 8px 16px;
             border-radius: 6px;
             transition: background 0.2s;
+            font-size: 0.95em;
         }}
         .nav-link:hover {{ background: {COLORS['bg_card']}; }}
         .nav-link.logout {{ color: {COLORS['accent_orange']}; }}
+        .back-link {{
+            color: {COLORS['accent']};
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }}
+        .back-link:hover {{ text-decoration: underline; }}
         .card {{
             background: {COLORS['bg_card']};
             border-radius: 12px;
@@ -564,12 +575,16 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
     <body>
         <div class="container">
             <div class="header">
-                <div class="header-left">
+                <div class="header-logo-row">
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
-                    <a href="/dashboard" class="nav-link" style="color: {COLORS['accent']};">Dashboard</a>
                 </div>
-                <a href="/auth/logout" class="nav-link logout">Logout</a>
+                <div class="header-nav-row">
+                    <a href="/dashboard" class="nav-link" style="color: {COLORS['accent']};">Dashboard</a>
+                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                </div>
             </div>
+            
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
             
             {'<div class="alert alert-success">' + message + '</div>' if message else ''}
             {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -1082,11 +1097,13 @@ def render_dashboard(user, leagues, message=None, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="header-left">
+                <div class="header-logo-row">
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
                 </div>
-                <a href="/auth/logout" class="nav-link logout">Logout</a>
+                <div class="header-nav-row">
+                    <a href="/dashboard/profile" class="nav-link">Profile</a>
+                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                </div>
             </div>
             
             {'<div class="alert alert-success">' + message + '</div>' if message else ''}
@@ -1237,11 +1254,13 @@ def render_create_league(user, error=None):
     <body>
         <div class="container">
             <div class="header">
-                <div class="header-left">
+                <div class="header-logo-row">
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
                 </div>
-                <a href="/auth/logout" class="nav-link logout">Logout</a>
+                <div class="header-nav-row">
+                    <a href="/dashboard/profile" class="nav-link">Profile</a>
+                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                </div>
             </div>
             
             {'<div class="alert alert-error">' + error + '</div>' if error else ''}
@@ -1584,11 +1603,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     <body>
         <div class="container">
             <div class="header">
-                <div class="header-left">
+                <div class="header-logo-row">
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
                 </div>
-                <a href="/auth/logout" class="nav-link logout">Logout</a>
+                <div class="header-nav-row">
+                    <a href="/dashboard/profile" class="nav-link">Profile</a>
+                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                </div>
             </div>
             
             <a href="/dashboard" class="back-link">← Back to Dashboard</a>
