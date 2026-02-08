@@ -340,9 +340,9 @@ def generate_full_list_modal(seasons_dict, past_season_breakdowns):
         has_breakdown = season_num in past_season_breakdowns
         
         if has_breakdown:
-            list_items += f'<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({season_num})"><span style="color:#d7dadc; font-weight:600;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
+            list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({season_num})"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
         else:
-            list_items += f'<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold;">{name_text}</span></div>\n'
+            list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text}</span></div>\n'
     
     # Build breakdown detail views (hidden by default)
     detail_views = ''
@@ -374,6 +374,10 @@ function backToFullList() {{
   var details = document.querySelectorAll('[id^="fl-detail-"]');
   for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
   document.getElementById('fl-list-view').style.display = 'block';
+}}
+function openFullList() {{
+  backToFullList();
+  document.getElementById('season-full-list-modal').style.display = 'flex';
 }}
 </script>
 '''
@@ -463,7 +467,7 @@ def generate_season_stats_html(league_data):
         
         # If more than 2 seasons, add "Season Winners (Full List)" link + modal
         if len(sorted_season_nums) > max_inline:
-            html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'season-full-list-modal\').style.display=\'flex\'">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+            html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="openFullList()">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
             modals_html += generate_full_list_modal(seasons_dict, past_season_breakdowns)
     
     html += '</div>\n'
