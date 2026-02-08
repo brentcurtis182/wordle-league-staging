@@ -162,22 +162,16 @@ header {
     font-size: 0.9em;
 }
 
-/* Emoji pattern styles */
+/* Emoji pattern styles - main styling in inline <style> block in html_generator_v2.py */
 .emoji-pattern {
-    font-size: 0.5rem;
-    line-height: 1.2;
     display: inline-block;
     margin-left: auto;
 }
 .emoji-row {
     white-space: nowrap;
-    letter-spacing: 0.1em;
 }
 .player-score {
     font-weight: bold;
-    font-size: 1.1em;
-}
-.score-card {
     display: flex;
     justify-content: space-between;
     align-items: center;

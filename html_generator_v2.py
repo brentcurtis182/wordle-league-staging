@@ -522,29 +522,27 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     
     .emoji-pattern {{
         margin-left: 15px;
-        font-size: 0.8rem;
-        line-height: 1.2;
         display: inline-block;
-        letter-spacing: 0;
         text-align: right;
     }}
     
     .emoji-row {{
         white-space: nowrap;
-        height: 1.4em;
-        margin: 0;
-        padding: 0;
-        display: block;
+        display: flex;
+        gap: 5px;
+        margin-bottom: 3px;
+    }}
+    .emoji-row:last-child {{
+        margin-bottom: 0;
     }}
     
     /* Custom branded Wordle blocks - unique 3D tiles */
     .wl-block {{
         display: inline-block;
-        width: 1.1em;
-        height: 1.1em;
-        margin: 1px;
+        width: 14px;
+        height: 14px;
         border-radius: 3px;
-        vertical-align: middle;
+        flex-shrink: 0;
         border: 1px solid rgba(0,0,0,0.2);
     }}
     .wl-cyan {{
