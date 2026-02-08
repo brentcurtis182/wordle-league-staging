@@ -7,6 +7,7 @@ Sends branded HTML emails via Gmail SMTP for password resets and email verificat
 import os
 import logging
 import smtplib
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -55,12 +56,8 @@ def _get_email_template(title, body_html):
     """
 
 
-def _send_email(to_email, subject, html_content):
-    """Send an HTML email via Gmail SMTP"""
-    if not GMAIL_APP_PASSWORD:
-        logging.error("GMAIL_APP_PASSWORD not set, cannot send email")
-        return False
-    
+def _send_email_sync(to_email, subject, html_content):
+    """Send an HTML email via Gmail SMTP (synchronous)"""
     try:
         msg = MIMEMultipart('alternative')
         msg['From'] = f'WordPlayLeague <{GMAIL_USER}>'
@@ -68,15 +65,25 @@ def _send_email(to_email, subject, html_content):
         msg['Subject'] = subject
         msg.attach(MIMEText(html_content, 'html'))
         
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.sendmail(GMAIL_USER, to_email, msg.as_string())
         
         logging.info(f"Email sent to {to_email}: {subject}")
-        return True
     except Exception as e:
         logging.error(f"Failed to send email to {to_email}: {e}")
+
+
+def _send_email(to_email, subject, html_content):
+    """Send an HTML email via Gmail SMTP (non-blocking, runs in background thread)"""
+    if not GMAIL_APP_PASSWORD:
+        logging.error("GMAIL_APP_PASSWORD not set, cannot send email")
         return False
+    
+    thread = threading.Thread(target=_send_email_sync, args=(to_email, subject, html_content))
+    thread.daemon = True
+    thread.start()
+    return True
 
 
 def send_password_reset_email(to_email, reset_token, first_name=None):
