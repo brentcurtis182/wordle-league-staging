@@ -3085,13 +3085,13 @@ def setup_league_slug():
         logging.error(f"Error setting up league slug: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/setup-auth-tables', methods=['POST'])
+@app.route('/setup-auth-tables', methods=['GET', 'POST'])
 def setup_auth_tables():
-    """One-time setup endpoint to create auth tables"""
+    """One-time setup endpoint to create auth tables and fix existing users"""
     try:
         from auth import create_auth_tables
         result = create_auth_tables()
-        return jsonify({'success': result, 'message': 'Auth tables created' if result else 'Failed to create tables'})
+        return jsonify({'success': result, 'message': 'Auth tables created and existing users marked as verified' if result else 'Failed to create tables'})
     except Exception as e:
         logging.error(f"Error setting up auth tables: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
