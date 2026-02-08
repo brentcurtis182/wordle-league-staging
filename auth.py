@@ -105,6 +105,8 @@ def create_auth_tables():
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(255)")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMP")
+            # Mark all existing users (who registered before verification was added) as verified
+            cursor.execute("UPDATE users SET email_verified = TRUE WHERE email_verified = FALSE AND email_verify_token IS NULL")
         except:
             pass
         
