@@ -170,10 +170,8 @@ def get_catch_up_text(player_name, score_to_win, score_to_tie, current_total=Non
     elif score_to_tie >= 1 and score_to_tie <= 6:
         tie_text = get_score_difficulty_text(score_to_tie)
         return f"{player_name}{context} {tie_text} to tie"
-    elif score_to_tie > 6:
+    elif score_to_tie > 6 or score_to_tie <= 0:
         return f"{player_name}{context} is mathematically eliminated"
-    elif score_to_tie <= 0:
-        return f"{player_name}{context} takes the lead with any score today!"
     return None
 
 def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
@@ -432,15 +430,20 @@ def send_sunday_race_update(league_id, force_season_image=False):
                         
                         if non_fail_count == 4:
                             # Has exactly 4 non-fail scores, today would be their 5th
+                            # NEW score ADDS to total (doesn't replace), so need current_total + new_score <= leader_total
                             current_total = sum(sorted(non_fail_scores)[:4])
-                            score_to_tie = leader_total - current_total
-                            score_to_win = score_to_tie - 1
-                            text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
-                            if text:
-                                if "eliminated" in text:
-                                    eliminated.append(player['name'])
-                                else:
-                                    can_catch_up.append(text)
+                            score_to_tie = leader_total - current_total  # max score they can get to tie
+                            score_to_win = score_to_tie - 1  # score needed to beat leader
+                            if score_to_tie <= 0:
+                                # Their 4 scores already >= leader's 5, adding any score makes it worse
+                                eliminated.append(player['name'])
+                            else:
+                                text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
+                                if text:
+                                    if "eliminated" in text:
+                                        eliminated.append(player['name'])
+                                    else:
+                                        can_catch_up.append(text)
                         elif non_fail_count < 4:
                             # Too many fails, can't qualify
                             eliminated.append(player['name'])
@@ -494,15 +497,20 @@ def send_sunday_race_update(league_id, force_season_image=False):
                         
                         if non_fail_count == 4:
                             # Has exactly 4 non-fail scores, today would be their 5th
+                            # NEW score ADDS to total (doesn't replace), so need current_total + new_score <= leader_total
                             current_total = sum(sorted(non_fail_scores)[:4])
-                            score_to_tie = leader_total - current_total
-                            score_to_win = score_to_tie - 1
-                            text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
-                            if text:
-                                if "eliminated" in text:
-                                    eliminated.append(player['name'])
-                                else:
-                                    catch_up_scenarios.append(text)
+                            score_to_tie = leader_total - current_total  # max score they can get to tie
+                            score_to_win = score_to_tie - 1  # score needed to beat leader
+                            if score_to_tie <= 0:
+                                # Their 4 scores already >= leader's 5, adding any score makes it worse
+                                eliminated.append(player['name'])
+                            else:
+                                text = get_catch_up_text(player['name'], score_to_win, score_to_tie, current_total, 4)
+                                if text:
+                                    if "eliminated" in text:
+                                        eliminated.append(player['name'])
+                                    else:
+                                        catch_up_scenarios.append(text)
                         elif non_fail_count < 4:
                             # Too many fails, can't qualify this week
                             eliminated.append(player['name'])
