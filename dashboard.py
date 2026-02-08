@@ -819,12 +819,13 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             
             function confirmProfileUpdate() {{
                 if (!pendingProfileData) return;
+                const dataToSend = pendingProfileData;
                 closeProfileUpdateModal();
                 
                 fetch('/dashboard/profile/update', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify(pendingProfileData)
+                    body: JSON.stringify(dataToSend)
                 }})
                 .then(r => r.json())
                 .then(data => {{
@@ -882,12 +883,13 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             
             function confirmPasswordChange() {{
                 if (!pendingPasswordData) return;
+                const dataToSend = pendingPasswordData;
                 closePasswordChangeModal();
                 
                 fetch('/dashboard/profile/change-password', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify(pendingPasswordData)
+                    body: JSON.stringify(dataToSend)
                 }})
                 .then(r => r.json())
                 .then(data => {{
