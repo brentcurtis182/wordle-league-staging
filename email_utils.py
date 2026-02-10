@@ -42,7 +42,7 @@ def _get_email_template(title, body_html):
                         </tr>
                         <tr>
                             <td style="padding: 20px 30px; text-align: center; border-top: 1px solid #333; color: #888; font-size: 0.8em;">
-                                &copy; WordPlayLeague.com &mdash; Wordle, but make it competitive.
+                                &copy; WordPlayLeague.com
                             </td>
                         </tr>
                     </table>
