@@ -113,6 +113,12 @@ def create_auth_tables():
         except:
             pass
         
+        # Add Google OAuth column
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE")
+        except:
+            pass
+        
         conn.commit()
         logging.info("✅ Auth tables created successfully!")
         return True
@@ -788,6 +794,123 @@ def resend_verification_email(email):
         logging.error(f"Error resending verification: {e}")
         conn.rollback()
         return {'success': True}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_google_oauth_url():
+    """Generate Google OAuth authorization URL"""
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+    app_url = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
+    redirect_uri = f"{app_url}/auth/google/callback"
+    
+    import urllib.parse
+    params = urllib.parse.urlencode({
+        'client_id': client_id,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+        'prompt': 'select_account'
+    })
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+
+
+def google_oauth_callback(code):
+    """Exchange Google auth code for user info, create/link account, and return session"""
+    import requests
+    
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+    app_url = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
+    redirect_uri = f"{app_url}/auth/google/callback"
+    
+    # Exchange code for tokens
+    token_response = requests.post('https://oauth2.googleapis.com/token', data={
+        'code': code,
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code'
+    }, timeout=10)
+    
+    if token_response.status_code != 200:
+        logging.error(f"Google token exchange failed: {token_response.text}")
+        return {'success': False, 'error': 'Failed to authenticate with Google'}
+    
+    token_data = token_response.json()
+    access_token = token_data.get('access_token')
+    
+    # Get user info from Google
+    userinfo_response = requests.get('https://www.googleapis.com/oauth2/v2/userinfo', 
+        headers={'Authorization': f'Bearer {access_token}'}, timeout=10)
+    
+    if userinfo_response.status_code != 200:
+        logging.error(f"Google userinfo failed: {userinfo_response.text}")
+        return {'success': False, 'error': 'Failed to get user info from Google'}
+    
+    google_user = userinfo_response.json()
+    google_id = google_user.get('id')
+    email = google_user.get('email', '').lower()
+    first_name = google_user.get('given_name', '')
+    last_name = google_user.get('family_name', '')
+    
+    if not email:
+        return {'success': False, 'error': 'No email returned from Google'}
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if user exists by google_id
+        cursor.execute("SELECT id, email, first_name FROM users WHERE google_id = %s", (google_id,))
+        user = cursor.fetchone()
+        
+        if user:
+            # Existing Google user — log them in
+            user_id = user[0]
+            logging.info(f"Google OAuth login for existing user: {email}")
+        else:
+            # Check if user exists by email (link Google to existing account)
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Link Google ID to existing account and mark email as verified
+                user_id = existing[0]
+                cursor.execute("UPDATE users SET google_id = %s, email_verified = TRUE WHERE id = %s", (google_id, user_id))
+                conn.commit()
+                logging.info(f"Linked Google account to existing user: {email}")
+            else:
+                # Create new user (no password needed, email auto-verified)
+                cursor.execute("""
+                    INSERT INTO users (email, password_hash, first_name, last_name, google_id, email_verified, is_active)
+                    VALUES (%s, %s, %s, %s, %s, TRUE, TRUE)
+                    RETURNING id
+                """, (email, '', first_name, last_name, google_id))
+                user_id = cursor.fetchone()[0]
+                conn.commit()
+                logging.info(f"Created new user via Google OAuth: {email}")
+        
+        # Create session
+        session_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(days=30)
+        
+        cursor.execute("""
+            INSERT INTO user_sessions (user_id, session_token, expires_at)
+            VALUES (%s, %s, %s)
+        """, (user_id, session_token, expires_at))
+        
+        cursor.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user_id,))
+        conn.commit()
+        
+        return {'success': True, 'session_token': session_token}
+        
+    except Exception as e:
+        logging.error(f"Google OAuth error: {e}")
+        conn.rollback()
+        return {'success': False, 'error': 'An error occurred during Google sign-in'}
     finally:
         cursor.close()
         conn.close()

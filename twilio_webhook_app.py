@@ -1878,6 +1878,52 @@ def auth_resend_verification():
         from dashboard import render_login_page
         return render_login_page(error='An unexpected error occurred.')
 
+@app.route('/auth/google')
+def auth_google():
+    """Redirect to Google OAuth consent screen"""
+    try:
+        from auth import get_google_oauth_url
+        return redirect(get_google_oauth_url())
+    except Exception as e:
+        logging.error(f"Google OAuth redirect error: {e}")
+        from dashboard import render_login_page
+        return render_login_page(error='Google sign-in is temporarily unavailable.')
+
+@app.route('/auth/google/callback')
+def auth_google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        from auth import google_oauth_callback
+        from dashboard import render_login_page
+        
+        code = request.args.get('code')
+        error = request.args.get('error')
+        
+        if error:
+            logging.error(f"Google OAuth error: {error}")
+            return render_login_page(error='Google sign-in was cancelled.')
+        
+        if not code:
+            return render_login_page(error='Invalid Google sign-in response.')
+        
+        result = google_oauth_callback(code)
+        
+        if result['success']:
+            response = make_response(redirect('/dashboard'))
+            response.set_cookie('session_token', result['session_token'],
+                              max_age=30*24*60*60,
+                              httponly=True,
+                              samesite='Lax')
+            return response
+        else:
+            return render_login_page(error=result.get('error', 'Google sign-in failed.'))
+    except Exception as e:
+        logging.error(f"Google OAuth callback error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        from dashboard import render_login_page
+        return render_login_page(error='An error occurred during Google sign-in.')
+
 @app.route('/auth/logout')
 def auth_logout():
     """Logout handler"""
