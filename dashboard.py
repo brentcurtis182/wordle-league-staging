@@ -946,17 +946,15 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             
             <!-- Change Password -->
             <div class="card profile-section">
-                <h2>🔒 Change Password</h2>
+                <h2>🔒 {'Set Password' if not user_details.get('has_password') else 'Change Password'}</h2>
                 <div id="passwordToggle">
-                    <p style="color: {COLORS['text_muted']}; margin-bottom: 12px;">Update your account password.</p>
-                    <button type="button" class="btn btn-secondary btn-small" onclick="showPasswordForm()">Change Password</button>
+                    {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px;">You signed in with Google. Set a password to also log in with email/password.</p>' if not user_details.get('has_password') else '<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px;">Update your account password.</p>'}
+                    {'<p style="color: ' + COLORS['accent'] + '; font-size: 0.85em; margin-bottom: 12px;">✓ Connected with Google</p>' if user_details.get('has_google') else ''}
+                    <button type="button" class="btn btn-secondary btn-small" onclick="showPasswordForm()">{'Set Password' if not user_details.get('has_password') else 'Change Password'}</button>
                 </div>
                 <div id="passwordForm" class="password-form">
                     <form id="changePasswordForm">
-                        <div class="form-group">
-                            <label>Current Password</label>
-                            <input type="password" name="current_password" required placeholder="Enter current password">
-                        </div>
+                        {'<div class="form-group"><label>Current Password</label><input type="password" name="current_password" required placeholder="Enter current password"></div>' if user_details.get('has_password') else ''}
                         <div class="form-group">
                             <label>New Password</label>
                             <input type="password" name="new_password" required placeholder="Enter new password" minlength="8">
@@ -966,7 +964,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                             <input type="password" name="confirm_password" required placeholder="Confirm new password">
                         </div>
                         <div style="display: flex; gap: 12px;">
-                            <button type="button" class="btn btn-primary btn-small" onclick="changePassword()">Update Password</button>
+                            <button type="button" class="btn btn-primary btn-small" onclick="changePassword()">{'Set Password' if not user_details.get('has_password') else 'Update Password'}</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="hidePasswordForm()">Cancel</button>
                         </div>
                     </form>

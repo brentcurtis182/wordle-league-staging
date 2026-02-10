@@ -419,16 +419,26 @@ def get_user_details(user_id):
     cursor = conn.cursor()
     
     try:
-        cursor.execute("""
-            SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login
-            FROM users WHERE id = %s
-        """, (user_id,))
+        try:
+            cursor.execute("""
+                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login, password_hash, google_id
+                FROM users WHERE id = %s
+            """, (user_id,))
+            result = cursor.fetchone()
+            has_extra_cols = True
+        except Exception:
+            conn.rollback()
+            cursor.execute("""
+                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login
+                FROM users WHERE id = %s
+            """, (user_id,))
+            result = cursor.fetchone()
+            has_extra_cols = False
         
-        result = cursor.fetchone()
         if not result:
             return None
         
-        return {
+        details = {
             'id': result[0],
             'email': result[1],
             'first_name': result[2] or '',
@@ -436,8 +446,11 @@ def get_user_details(user_id):
             'phone': result[4] or '',
             'sms_consent': result[5],
             'created_at': result[6],
-            'last_login': result[7]
+            'last_login': result[7],
+            'has_password': bool(result[8]) if has_extra_cols else True,
+            'has_google': bool(result[9]) if has_extra_cols else False
         }
+        return details
     except Exception as e:
         logging.error(f"Error getting user details: {e}")
         return None
@@ -456,8 +469,14 @@ def change_password(user_id, current_password, new_password):
         if not result:
             return {'success': False, 'error': 'User not found'}
         
-        if not check_password_hash(result[0], current_password):
-            return {'success': False, 'error': 'Current password is incorrect'}
+        existing_hash = result[0]
+        
+        # If user has a password, verify current one. If no password (Google-only), allow setting one.
+        if existing_hash:
+            if not current_password:
+                return {'success': False, 'error': 'Current password is required'}
+            if not check_password_hash(existing_hash, current_password):
+                return {'success': False, 'error': 'Current password is incorrect'}
         
         new_hash = generate_password_hash(new_password)
         cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
