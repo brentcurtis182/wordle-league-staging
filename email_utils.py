@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
 Email utility for Wordle League
-Sends branded HTML emails via Gmail SMTP for password resets and email verification
+Sends branded HTML emails via Resend HTTP API for password resets and email verification
 """
 
 import os
 import logging
-import smtplib
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-GMAIL_USER = os.environ.get('GMAIL_USER', 'wordplayleague@gmail.com')
-GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+FROM_EMAIL = os.environ.get('FROM_EMAIL', 'WordPlayLeague <onboarding@resend.dev>')
 APP_URL = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
 
 def _get_email_template(title, body_html):
@@ -57,28 +55,35 @@ def _get_email_template(title, body_html):
 
 
 def _send_email_sync(to_email, subject, html_content):
-    """Send an HTML email via Gmail SMTP (synchronous)"""
+    """Send an HTML email via Resend HTTP API (synchronous)"""
     try:
-        msg = MIMEMultipart('alternative')
-        msg['From'] = f'WordPlayLeague <{GMAIL_USER}>'
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(html_content, 'html'))
+        response = requests.post(
+            'https://api.resend.com/emails',
+            headers={
+                'Authorization': f'Bearer {RESEND_API_KEY}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'from': FROM_EMAIL,
+                'to': [to_email],
+                'subject': subject,
+                'html': html_content
+            },
+            timeout=10
+        )
         
-        with smtplib.SMTP('smtp.gmail.com', 587, timeout=10) as server:
-            server.starttls()
-            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, to_email, msg.as_string())
-        
-        logging.info(f"Email sent to {to_email}: {subject}")
+        if response.status_code == 200:
+            logging.info(f"Email sent to {to_email}: {subject}")
+        else:
+            logging.error(f"Resend API error ({response.status_code}): {response.text}")
     except Exception as e:
         logging.error(f"Failed to send email to {to_email}: {e}")
 
 
 def _send_email(to_email, subject, html_content):
-    """Send an HTML email via Gmail SMTP (non-blocking, runs in background thread)"""
-    if not GMAIL_APP_PASSWORD:
-        logging.error("GMAIL_APP_PASSWORD not set, cannot send email")
+    """Send an HTML email via Resend (non-blocking, runs in background thread)"""
+    if not RESEND_API_KEY:
+        logging.error("RESEND_API_KEY not set, cannot send email")
         return False
     
     thread = threading.Thread(target=_send_email_sync, args=(to_email, subject, html_content))
