@@ -3097,6 +3097,18 @@ def update_conversation_sids():
         logging.error(f"Error updating conversation SIDs: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/test-ai-message/<int:league_id>', methods=['GET'])
+def test_ai_message(league_id):
+    """Test endpoint to send a test AI message to a league via message_router"""
+    try:
+        from message_router import send_league_message
+        result = send_league_message(league_id, "🧪 Test message from WordPlayLeague AI system! If you see this, AI messaging is working for your league. 🎉")
+        return jsonify({'success': True, 'league_id': league_id, 'result': result})
+    except Exception as e:
+        logging.error(f"Test AI message error: {e}")
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+
 @app.route('/assign-leagues-to-user', methods=['POST'])
 def assign_leagues_to_user():
     """Admin endpoint to assign existing leagues to a user"""
