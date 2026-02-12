@@ -87,6 +87,7 @@ def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None
     
     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
     
     if not twilio_sid or not twilio_token:
         return {"success": False, "error": "Twilio credentials not configured"}
@@ -97,7 +98,7 @@ def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None
     try:
         client = Client(twilio_sid, twilio_token)
         
-        message_params = {"body": text}
+        message_params = {"body": text, "author": twilio_phone}
         if media_url:
             message_params["media_sid"] = media_url  # Assumes this is a media SID
         
