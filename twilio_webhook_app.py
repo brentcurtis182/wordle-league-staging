@@ -616,36 +616,10 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
     try:
         logging.info(f"[SEND_ROAST] Starting send_daily_loser_roast for league {league_id}")
         from openai import OpenAI
-        from twilio.rest import Client
-        
-        # Get environment variables
-        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
-        
-        logging.info(f"[SEND_ROAST] Twilio SID: {twilio_sid[:10]}..., Phone: {twilio_phone}")
+        from message_router import send_league_message
         
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-        
-        # Get conversation SID from database
-        logging.info(f"[SEND_ROAST] Looking up conversation SID for league {league_id}")
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
-            result = cursor.fetchone()
-            conversation_sid = result[0] if result else None
-            cursor.close()
-            conn.close()
-            logging.info(f"[SEND_ROAST] Found conversation SID: {conversation_sid}")
-        else:
-            conversation_sid = None
-            logging.error(f"[SEND_ROAST] Could not get DB connection")
-        
-        if not conversation_sid:
-            logging.error(f"[SEND_ROAST] No conversation SID for league {league_id}")
-            return
         
         # Get today's Wordle word (if available)
         wordle_word = get_todays_wordle_word()
@@ -712,14 +686,9 @@ def send_daily_loser_roast(loser_data, worst_score, league_id, wordle_num):
         roast_message = response.choices[0].message.content.strip()
         logging.info(f"Generated daily loser roast: {roast_message}")
         
-        # Send to conversation
-        client = Client(twilio_sid, twilio_token)
-        client.conversations.v1.conversations(conversation_sid).messages.create(
-            body=roast_message,
-            author=twilio_phone
-        )
-        
-        logging.info(f"Sent daily loser roast to league {league_id} for {losers_text}")
+        # Send via message router (supports SMS, Slack, Discord)
+        result = send_league_message(league_id, roast_message)
+        logging.info(f"Sent daily loser roast to league {league_id} for {losers_text}: {result}")
         
     except Exception as e:
         logging.error(f"Error sending daily loser roast: {e}")
@@ -730,31 +699,10 @@ def send_perfect_score_congrats(player_name, score, league_id, player_id=None):
     """Send a congratulations message for 1/6 or 2/6 scores"""
     try:
         from openai import OpenAI
-        from twilio.rest import Client
-        
-        # Get environment variables
-        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        from message_router import send_league_message
         
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-        
-        # Get conversation SID from database
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
-            result = cursor.fetchone()
-            conversation_sid = result[0] if result else None
-            cursor.close()
-            conn.close()
-        else:
-            conversation_sid = None
-        
-        if not conversation_sid:
-            logging.error(f"No conversation SID for league {league_id}")
-            return
         
         # Get league-level severity setting
         severity = get_ai_message_severity(league_id, 'perfect_score')
@@ -787,14 +735,9 @@ def send_perfect_score_congrats(player_name, score, league_id, player_id=None):
         congrats_message = response.choices[0].message.content.strip()
         logging.info(f"Generated perfect score congrats for {player_name}: {congrats_message}")
         
-        # Send to conversation
-        client = Client(twilio_sid, twilio_token)
-        client.conversations.v1.conversations(conversation_sid).messages.create(
-            body=congrats_message,
-            author=twilio_phone
-        )
-        
-        logging.info(f"Sent perfect score congrats to league {league_id} for {player_name}")
+        # Send via message router (supports SMS, Slack, Discord)
+        result = send_league_message(league_id, congrats_message)
+        logging.info(f"Sent perfect score congrats to league {league_id} for {player_name}: {result}")
         
     except Exception as e:
         logging.error(f"Error sending perfect score congrats: {e}")
@@ -805,31 +748,10 @@ def send_failure_roast(player_name, league_id, player_id=None):
     """Send an AI-generated roast message when a player fails (X/6)"""
     try:
         from openai import OpenAI
-        from twilio.rest import Client
-        
-        # Get environment variables
-        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        from message_router import send_league_message
         
         # Initialize OpenAI client
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-        
-        # Get conversation SID from database
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
-            result = cursor.fetchone()
-            conversation_sid = result[0] if result else None
-            cursor.close()
-            conn.close()
-        else:
-            conversation_sid = None
-        
-        if not conversation_sid:
-            logging.error(f"No conversation SID for league {league_id}")
-            return
         
         # Get league-level severity setting
         severity = get_ai_message_severity(league_id, 'failure_roast')
@@ -862,14 +784,9 @@ def send_failure_roast(player_name, league_id, player_id=None):
         roast_message = response.choices[0].message.content.strip()
         logging.info(f"Generated roast for {player_name}: {roast_message}")
         
-        # Send to conversation
-        client = Client(twilio_sid, twilio_token)
-        client.conversations.v1.conversations(conversation_sid).messages.create(
-            body=roast_message,
-            author=twilio_phone
-        )
-        
-        logging.info(f"Sent failure roast to league {league_id} for {player_name}")
+        # Send via message router (supports SMS, Slack, Discord)
+        result = send_league_message(league_id, roast_message)
+        logging.info(f"Sent failure roast to league {league_id} for {player_name}: {result}")
         
     except Exception as e:
         logging.error(f"Error sending failure roast: {e}")

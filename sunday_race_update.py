@@ -282,29 +282,27 @@ def send_sunday_race_update(league_id, force_season_image=False):
     
     try:
         from openai import OpenAI
-        from twilio.rest import Client
+        from message_router import send_league_message
         
         # Get environment variables
         openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
         
-        # Get conversation SID from database (dynamic lookup)
+        # Get league info from database
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT twilio_conversation_sid, display_name, slug FROM leagues WHERE id = %s", (league_id,))
+        cursor.execute("SELECT channel_type, twilio_conversation_sid, display_name, slug FROM leagues WHERE id = %s", (league_id,))
         league_row = cursor.fetchone()
         cursor.close()
         conn.close()
         
-        if not league_row or not league_row[0]:
-            logging.error(f"No conversation SID for league {league_id}")
+        if not league_row:
+            logging.error(f"League {league_id} not found")
             return False
         
-        conversation_sid = league_row[0]
-        league_display_name = league_row[1] or f"League {league_id}"
-        league_slug = league_row[2] or f"league{league_id}"
+        channel_type = league_row[0] or 'sms'
+        conversation_sid = league_row[1]
+        league_display_name = league_row[2] or f"League {league_id}"
+        league_slug = league_row[3] or f"league{league_id}"
         league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
         
         # Get week start
@@ -609,10 +607,15 @@ IMPORTANT RULES:
         race_message = response.choices[0].message.content.strip()
         logging.info(f"Generated Sunday race update for league {league_id}: {race_message}")
         
-        # Get Chat Service SID for MCS uploads (extract from conversation)
-        client = Client(twilio_sid, twilio_token)
-        conversation = client.conversations.v1.conversations(conversation_sid).fetch()
-        chat_service_sid = conversation.chat_service_sid
+        # Get Chat Service SID for MCS uploads (only needed for SMS)
+        chat_service_sid = None
+        if channel_type == 'sms' and conversation_sid:
+            from twilio.rest import Client as TwilioClient
+            twilio_sid_tmp = os.environ.get('TWILIO_ACCOUNT_SID')
+            twilio_token_tmp = os.environ.get('TWILIO_AUTH_TOKEN')
+            tmp_client = TwilioClient(twilio_sid_tmp, twilio_token_tmp)
+            conversation = tmp_client.conversations.v1.conversations(conversation_sid).fetch()
+            chat_service_sid = conversation.chat_service_sid
         
         # Generate weekly standings image - use dynamic name from database
         league_name = league_display_name
@@ -646,15 +649,24 @@ IMPORTANT RULES:
                 'eligible': player['eligible']
             })
         
-        # Generate and upload weekly image
+        # Generate images
         media_sids = []
+        image_bytes_list = []
+        
+        # For SMS, we need Twilio credentials for media upload
+        twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        
         try:
             weekly_img = generate_weekly_image(league_name, weekly_image_data, week_date_str)
             weekly_bytes = image_to_bytes(weekly_img)
-            weekly_media_sid = upload_image_to_twilio(weekly_bytes, twilio_sid, twilio_token, chat_service_sid)
-            if weekly_media_sid:
-                media_sids.append(weekly_media_sid)
-                logging.info(f"Weekly image uploaded: {weekly_media_sid}")
+            image_bytes_list.append(weekly_bytes)
+            if channel_type == 'sms':
+                weekly_media_sid = upload_image_to_twilio(weekly_bytes, twilio_sid, twilio_token, chat_service_sid)
+                if weekly_media_sid:
+                    media_sids.append(weekly_media_sid)
+                    logging.info(f"Weekly image uploaded: {weekly_media_sid}")
         except Exception as img_error:
             logging.error(f"Failed to generate/upload weekly image: {img_error}")
         
@@ -673,37 +685,43 @@ IMPORTANT RULES:
                 logging.info(f"Season image result: {season_img is not None}")
                 if season_img:  # Will be None if no one has wins
                     season_bytes = image_to_bytes(season_img)
-                    season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)
-                    if season_media_sid:
-                        media_sids.append(season_media_sid)
-                        logging.info(f"Season image uploaded (stakes are high!): {season_media_sid}")
+                    image_bytes_list.append(season_bytes)
+                    if channel_type == 'sms':
+                        season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)
+                        if season_media_sid:
+                            media_sids.append(season_media_sid)
+                            logging.info(f"Season image uploaded (stakes are high!): {season_media_sid}")
             except Exception as img_error:
                 logging.error(f"Failed to generate/upload season image: {img_error}")
         
         # Append league URL to the race message
         race_message_with_url = f"{race_message}\n\n📊 {league_url}"
         
-        # Send message with images if available
-        if media_sids:
-            # Send each image as a separate message, then the text
-            for media_sid in media_sids:
-                client.conversations.v1.conversations(conversation_sid).messages.create(
-                    media_sid=media_sid,
-                    author=twilio_phone
-                )
-            # Send text message after images
+        # Send message via appropriate channel
+        if channel_type == 'sms':
+            from twilio.rest import Client
+            client = Client(twilio_sid, twilio_token)
+            
+            if media_sids:
+                for media_sid in media_sids:
+                    client.conversations.v1.conversations(conversation_sid).messages.create(
+                        media_sid=media_sid,
+                        author=twilio_phone
+                    )
             client.conversations.v1.conversations(conversation_sid).messages.create(
                 body=race_message_with_url,
                 author=twilio_phone
             )
+        elif image_bytes_list:
+            # Slack/Discord - send images as bytes via message router
+            send_league_message(league_id, race_message_with_url, media_bytes=image_bytes_list[0])
+            for extra_bytes in image_bytes_list[1:]:
+                send_league_message(league_id, "", media_bytes=extra_bytes)
         else:
-            # No images, just send text
-            client.conversations.v1.conversations(conversation_sid).messages.create(
-                body=race_message_with_url,
-                author=twilio_phone
-            )
+            # Text only - use message router for all channel types
+            send_league_message(league_id, race_message_with_url)
         
-        logging.info(f"Sent Sunday race update to league {league_id} with {len(media_sids)} image(s)")
+        logging.info(f"Sent Sunday race update to league {league_id} via {channel_type}")
         return True
         
     except Exception as e:
