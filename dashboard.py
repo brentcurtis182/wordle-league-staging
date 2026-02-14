@@ -1717,11 +1717,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         if is_chat_platform:
             player_rows += f"""
             <div class="player-item" id="player-{player['id']}">
-                <div class="player-view" id="view-{player['id']}">
-                    <div class="player-info" style="flex: 1;">
+                <div class="player-view" id="view-{player['id']}" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="player-info">
                         <div class="name">{player['name']}{pending_badge}</div>
                     </div>
-                    <button type="button" class="btn btn-danger btn-small" style="margin-right: 10px; flex-shrink: 0; margin-left: auto;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
+                    <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
                 </div>
             </div>
             """
