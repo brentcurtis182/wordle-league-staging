@@ -2559,23 +2559,6 @@ def dashboard_delete_league(league_id):
         logging.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/dashboard/league/<int:league_id>/debug-slack', methods=['GET'])
-def debug_slack_league(league_id):
-    """Temporary debug endpoint to check Slack league data"""
-    from auth import validate_session, can_manage_league
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user or not can_manage_league(user['id'], league_id):
-        return jsonify({'error': 'access denied'}), 403
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, display_name, channel_type, slack_team_id, slack_channel_id, slack_bot_token IS NOT NULL as has_bot_token, verification_code FROM leagues WHERE id = %s", (league_id,))
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if row:
-        return jsonify({'id': row[0], 'display_name': row[1], 'channel_type': row[2], 'slack_team_id': row[3], 'slack_channel_id': row[4], 'has_bot_token': row[5], 'verification_code': row[6]})
-    return jsonify({'error': 'not found'}), 404
 
 @app.route('/dashboard/league/<int:league_id>/generate-code', methods=['POST'])
 def dashboard_generate_code(league_id):
@@ -2617,6 +2600,31 @@ def dashboard_generate_code(league_id):
         
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Check if this league already has slack_team_id; if not, try to copy from another league in the same workspace
+        cursor.execute("SELECT channel_type, slack_team_id, slack_bot_token FROM leagues WHERE id = %s", (league_id,))
+        league_row = cursor.fetchone()
+        
+        if league_row and league_row[0] == 'slack' and not league_row[1]:
+            # No slack_team_id yet - check if user has another Slack league with credentials
+            cursor.execute("""
+                SELECT l.slack_team_id, l.slack_bot_token
+                FROM leagues l
+                JOIN user_leagues ul ON l.id = ul.league_id
+                WHERE ul.user_id = %s
+                AND l.channel_type = 'slack'
+                AND l.slack_team_id IS NOT NULL
+                AND l.slack_bot_token IS NOT NULL
+                LIMIT 1
+            """, (user['id'],))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Reuse existing workspace credentials
+                cursor.execute("""
+                    UPDATE leagues SET slack_team_id = %s, slack_bot_token = %s WHERE id = %s
+                """, (existing[0], existing[1], league_id))
+                logging.info(f"Copied Slack credentials from existing workspace to league {league_id} (team_id={existing[0]})")
         
         # Store the code phrase in the leagues table
         cursor.execute("""
