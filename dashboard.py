@@ -1310,7 +1310,10 @@ def render_dashboard(user, leagues, message=None, error=None):
             is_active = False
         
         status_color = '#2ECC71' if is_active else COLORS['accent_orange']
-        status_text = '✓ Active' if is_active else '⚠ Setup Required'
+        if is_active:
+            status_text = '✓ Active'
+        else:
+            status_text = '⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'
         
         # Build subtitle based on channel type
         if channel_type == 'slack' and league.get('channel_name'):
@@ -1950,9 +1953,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         {'📱 SMS' if channel_type == 'sms' else '💬 Slack' if channel_type == 'slack' else '🎮 Discord'}
                     </span>
                     <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
-                        {'✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else '⚠ Setup Required'}
+                        {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
                     </span>
-                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">Connect Channel</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
+                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">{'Activate' if channel_type == 'sms' else 'Connect Channel'}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
                 {f"""
