@@ -2559,6 +2559,24 @@ def dashboard_delete_league(league_id):
         logging.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/dashboard/league/<int:league_id>/debug-slack', methods=['GET'])
+def debug_slack_league(league_id):
+    """Temporary debug endpoint to check Slack league data"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not can_manage_league(user['id'], league_id):
+        return jsonify({'error': 'access denied'}), 403
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, display_name, channel_type, slack_team_id, slack_channel_id, slack_bot_token IS NOT NULL as has_bot_token, verification_code FROM leagues WHERE id = %s", (league_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if row:
+        return jsonify({'id': row[0], 'display_name': row[1], 'channel_type': row[2], 'slack_team_id': row[3], 'slack_channel_id': row[4], 'has_bot_token': row[5], 'verification_code': row[6]})
+    return jsonify({'error': 'not found'}), 404
+
 @app.route('/dashboard/league/<int:league_id>/generate-code', methods=['POST'])
 def dashboard_generate_code(league_id):
     """Generate a fun code phrase for league activation using OpenAI"""
