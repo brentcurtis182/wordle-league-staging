@@ -1716,13 +1716,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         # For Slack/Discord: read-only player (only Remove allowed)
         if is_chat_platform:
             player_rows += f"""
-            <div class="player-item" id="player-{player['id']}">
-                <div class="player-view" id="view-{player['id']}">
-                    <div class="player-info" style="flex: 0 1 auto;">
-                        <div class="name">{player['name']}{pending_badge}</div>
-                    </div>
-                    <button type="button" class="btn btn-danger btn-small" style="margin-left: auto;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
-                </div>
+            <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;" id="player-{player['id']}">
+                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
+                <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px; margin-right: 4px;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
             </div>
             """
         else:
