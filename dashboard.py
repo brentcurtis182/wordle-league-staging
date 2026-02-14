@@ -1312,13 +1312,23 @@ def render_dashboard(user, leagues, message=None, error=None):
         status_color = '#2ECC71' if is_active else COLORS['accent_orange']
         status_text = '✓ Active' if is_active else '⚠ Setup Required'
         
+        # Build subtitle based on channel type
+        if channel_type == 'slack' and league.get('channel_name'):
+            meta_text = f"Channel: #{league['channel_name']}"
+        elif channel_type == 'discord' and league.get('channel_name'):
+            meta_text = f"Channel: #{league['channel_name']}"
+        else:
+            meta_text = ""
+        
+        meta_html = f'<div class="meta">{meta_text}</div>' if meta_text else ''
+        
         return f"""
         <div class="league-card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <h3>{league['display_name']}</h3>
                 <span style="background: {status_color}; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 600; white-space: nowrap;">{status_text}</span>
             </div>
-            <div class="meta">ID: {league['id']} • Role: {league['role']}</div>
+            {meta_html}
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
                 <a href="{f'https://app.wordplayleague.com/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
@@ -1688,49 +1698,63 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         identifier_empty = 'No phone'
     
     player_rows = ""
+    is_chat_platform = channel_type in ('slack', 'discord')
     for player in players:
         pending_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">PENDING</span>' if player.get('pending_activation') else ''
         
         # Get the appropriate identifier based on channel type
         if channel_type == 'slack':
             identifier_value = player.get('slack_user_id') or ''
-            identifier_display = player.get('slack_user_id') or identifier_empty
+            identifier_display = ''
         elif channel_type == 'discord':
             identifier_value = player.get('discord_user_id') or ''
-            identifier_display = player.get('discord_user_id') or identifier_empty
+            identifier_display = ''
         else:
             identifier_value = player.get('phone') or ''
             identifier_display = player.get('phone') or identifier_empty
         
-        player_rows += f"""
-        <div class="player-item" id="player-{player['id']}">
-            <!-- Read-only view -->
-            <div class="player-view" id="view-{player['id']}">
-                <div class="player-info">
-                    <div class="name">{player['name']}{pending_badge}</div>
-                    <div class="phone">{identifier_display}</div>
+        # For Slack/Discord: read-only player (only Remove allowed)
+        if is_chat_platform:
+            player_rows += f"""
+            <div class="player-item" id="player-{player['id']}">
+                <div class="player-view" id="view-{player['id']}">
+                    <div class="player-info">
+                        <div class="name">{player['name']}{pending_badge}</div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
                 </div>
-                <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
-                    ✏️
-                </button>
             </div>
-            <!-- Edit mode (hidden by default) -->
-            <div class="player-edit" id="edit-{player['id']}" style="display: none;">
-                <form id="form-{player['id']}" class="edit-form">
-                    <input type="hidden" name="player_id" value="{player['id']}">
-                    <div class="edit-fields">
-                        <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name">
-                        <input type="text" name="identifier" value="{identifier_value}" class="edit-input" placeholder="{identifier_placeholder}">
+            """
+        else:
+            player_rows += f"""
+            <div class="player-item" id="player-{player['id']}">
+                <!-- Read-only view -->
+                <div class="player-view" id="view-{player['id']}">
+                    <div class="player-info">
+                        <div class="name">{player['name']}{pending_badge}</div>
+                        <div class="phone">{identifier_display}</div>
                     </div>
-                    <div class="edit-actions">
-                        <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{player['name']}')">Save</button>
-                        <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')">Remove</button>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
-                    </div>
-                </form>
+                    <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
+                        ✏️
+                    </button>
+                </div>
+                <!-- Edit mode (hidden by default) -->
+                <div class="player-edit" id="edit-{player['id']}" style="display: none;">
+                    <form id="form-{player['id']}" class="edit-form">
+                        <input type="hidden" name="player_id" value="{player['id']}">
+                        <div class="edit-fields">
+                            <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name">
+                            <input type="text" name="identifier" value="{identifier_value}" class="edit-input" placeholder="{identifier_placeholder}">
+                        </div>
+                        <div class="edit-actions">
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{player['name']}')">Save</button>
+                            <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')">Remove</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
-        """
+            """
     
     if not players:
         player_rows = '<p style="color: #818384; padding: 20px; text-align: center;">No players in this league yet.</p>'
@@ -1925,7 +1949,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card">
                 <h2>⚙️ {league['display_name']}</h2>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                    <span style="color: {COLORS['text_muted']};">League ID: {league['id']}</span>
+                    {f'<span style="color: {COLORS["text_muted"]};">Channel: #{league["channel_name"]}</span>' if league.get('channel_name') else ''}
                     <span style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 4px 10px; border-radius: 12px; font-size: 0.8em;">
                         {'📱 SMS' if channel_type == 'sms' else '💬 Slack' if channel_type == 'slack' else '🎮 Discord'}
                     </span>
@@ -1964,16 +1988,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <!-- Add Player Section -->
             <div class="card section">
                 <h2>➕ Add Player</h2>
+                {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px; font-size: 0.9em;">Add players by name. Their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' account will be linked automatically when they post their first score.</p>' if channel_type in ('slack', 'discord') else ''}
                 <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="showLoading('Adding player...')">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
                         <div class="form-group">
                             <label>Player Name</label>
-                            <input type="text" name="name" required placeholder="John Doe">
+                            <input type="text" name="name" required placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}">
                         </div>
-                        <div class="form-group">
-                            <label>{identifier_label}</label>
-                            <input type="text" name="identifier" required placeholder="{identifier_placeholder}">
-                        </div>
+                        {f'<div class="form-group"><label>{identifier_label}</label><input type="text" name="identifier" required placeholder="{identifier_placeholder}"></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
                     </div>
                     <button type="submit" class="btn btn-primary">Add Player</button>
                 </form>
@@ -3257,14 +3279,15 @@ def get_league_info(league_id):
                    ai_sunday_race_update, ai_daily_loser_roast,
                    ai_message_severity,
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
-                   slug, channel_type, slack_channel_id, discord_channel_id, verification_code
+                   slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
+                   slack_bot_token
             FROM leagues
             WHERE id = %s
         """, (league_id,))
         
         row = cursor.fetchone()
         if row:
-            return {
+            league_data = {
                 'id': row[0],
                 'name': row[1],
                 'display_name': row[2],
@@ -3281,8 +3304,21 @@ def get_league_info(league_id):
                 'channel_type': row[13] or 'sms',
                 'slack_channel_id': row[14],
                 'discord_channel_id': row[15],
-                'verification_code': row[16]
+                'verification_code': row[16],
+                'slack_bot_token': row[17],
+                'channel_name': None
             }
+            
+            # Look up Slack channel name if applicable
+            if league_data['channel_type'] == 'slack' and league_data['slack_channel_id'] and league_data['slack_bot_token']:
+                try:
+                    from slack_integration import get_slack_channel_info
+                    channel_info = get_slack_channel_info(league_data['slack_bot_token'], league_data['slack_channel_id'])
+                    league_data['channel_name'] = channel_info.get('name')
+                except Exception as e:
+                    logging.error(f"Error fetching Slack channel name for league {league_id}: {e}")
+            
+            return league_data
         return None
     finally:
         cursor.close()

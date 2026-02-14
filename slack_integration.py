@@ -415,35 +415,15 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
             db_connection.commit()
             logging.info(f"Linked existing player {display_name} to Slack user {user_id}")
         else:
-            # Truly new player - create them
-            try:
-                cursor.execute("""
-                    INSERT INTO players (league_id, name, slack_user_id, active)
-                    VALUES (%s, %s, %s, TRUE)
-                    RETURNING id, name
-                """, (league_id, display_name, user_id))
-                
-                player_row = cursor.fetchone()
-                db_connection.commit()
-                logging.info(f"Created new Slack player: {display_name} in league {league_id}")
-            except Exception as e:
-                # If insert fails (duplicate name), try to find and update existing
-                db_connection.rollback()
-                cursor.execute("""
-                    SELECT id, name FROM players 
-                    WHERE league_id = %s AND name = %s AND active = TRUE
-                """, (league_id, display_name))
-                player_row = cursor.fetchone()
-                if player_row:
-                    cursor.execute("""
-                        UPDATE players SET slack_user_id = %s WHERE id = %s
-                    """, (user_id, player_row[0]))
-                    db_connection.commit()
-                    logging.info(f"Linked existing player {display_name} to Slack user {user_id} (after conflict)")
-                else:
-                    logging.error(f"Could not create or find player {display_name}: {e}")
-                    cursor.close()
-                    return {"status": "error", "reason": "player_creation_failed"}
+            # Player not in league - do NOT auto-add. Manager must add them first.
+            logging.info(f"Slack user {display_name} ({user_id}) not in league {league_id} - score ignored. Manager must add player first.")
+            send_slack_message(
+                bot_token,
+                channel_id,
+                f"Hey {display_name}! Your score wasn't recorded because you're not in this league yet. Ask the league manager to add you at app.wordplayleague.com 👋"
+            )
+            cursor.close()
+            return {"status": "ignored", "reason": "player_not_in_league"}
     
     player_id, player_name = player_row
     cursor.close()

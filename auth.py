@@ -343,7 +343,8 @@ def get_user_leagues(user_id):
     try:
         cursor.execute("""
             SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid, l.slug,
-                   l.channel_type, l.slack_channel_id, l.discord_channel_id
+                   l.channel_type, l.slack_channel_id, l.discord_channel_id,
+                   l.slack_bot_token
             FROM user_leagues ul
             JOIN leagues l ON ul.league_id = l.id
             WHERE ul.user_id = %s
@@ -352,7 +353,7 @@ def get_user_leagues(user_id):
         
         leagues = []
         for row in cursor.fetchall():
-            leagues.append({
+            league_data = {
                 'id': row[0],
                 'name': row[1],
                 'display_name': row[2],
@@ -361,8 +362,21 @@ def get_user_leagues(user_id):
                 'slug': row[5],
                 'channel_type': row[6] or 'sms',
                 'slack_channel_id': row[7],
-                'discord_channel_id': row[8]
-            })
+                'discord_channel_id': row[8],
+                'slack_bot_token': row[9],
+                'channel_name': None
+            }
+            
+            # Look up Slack channel name if applicable
+            if league_data['channel_type'] == 'slack' and league_data['slack_channel_id'] and league_data['slack_bot_token']:
+                try:
+                    from slack_integration import get_slack_channel_info
+                    channel_info = get_slack_channel_info(league_data['slack_bot_token'], league_data['slack_channel_id'])
+                    league_data['channel_name'] = channel_info.get('name')
+                except Exception as e:
+                    logging.error(f"Error fetching Slack channel name: {e}")
+            
+            leagues.append(league_data)
         return leagues
         
     except Exception as e:

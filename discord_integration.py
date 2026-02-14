@@ -434,29 +434,16 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
                 db_connection.commit()
                 logging.info(f"Linked existing player {username} to Discord user {user_id}")
             else:
-                # Create new player
-                try:
-                    cursor.execute("""
-                        INSERT INTO players (league_id, name, discord_user_id, active)
-                        VALUES (%s, %s, %s, TRUE)
-                        RETURNING id, name
-                    """, (league_id, username, user_id))
-                    
-                    player_row = cursor.fetchone()
-                    db_connection.commit()
-                    logging.info(f"Created new Discord player: {username} in league {league_id}")
-                except Exception as e:
-                    db_connection.rollback()
-                    cursor.execute("""
-                        SELECT id, name FROM players 
-                        WHERE league_id = %s AND name = %s AND active = TRUE
-                    """, (league_id, username))
-                    player_row = cursor.fetchone()
-                    if player_row:
-                        cursor.execute("""
-                            UPDATE players SET discord_user_id = %s WHERE id = %s
-                        """, (user_id, player_row[0]))
-                        db_connection.commit()
+                # Player not in league - do NOT auto-add. Manager must add them first.
+                logging.info(f"Discord user {username} ({user_id}) not in league {league_id} - score ignored. Manager must add player first.")
+                cursor.close()
+                return {
+                    "type": 4,
+                    "data": {
+                        "content": f"Hey {username}! Your score wasn't recorded because you're not in this league yet. Ask the league manager to add you at app.wordplayleague.com 👋",
+                        "flags": 64
+                    }
+                }
         
         player_id, player_name = player_row
         cursor.close()
@@ -535,16 +522,26 @@ def handle_discord_message(message_data: dict, db_connection) -> dict:
     player_row = cursor.fetchone()
     
     if not player_row:
-        # New player - create them
+        # Check if player exists by name (might not have discord_user_id set yet)
         cursor.execute("""
-            INSERT INTO players (league_id, name, discord_user_id, is_active, created_at)
-            VALUES (%s, %s, %s, TRUE, NOW())
-            RETURNING id, name
-        """, (league_id, username, user_id))
+            SELECT id, name FROM players 
+            WHERE league_id = %s AND name = %s AND is_active = TRUE
+        """, (league_id, username))
         
         player_row = cursor.fetchone()
-        db_connection.commit()
-        logging.info(f"Created new Discord player: {username} in league {league_id}")
+        
+        if player_row:
+            # Player exists by name - update their discord_user_id
+            cursor.execute("""
+                UPDATE players SET discord_user_id = %s WHERE id = %s
+            """, (user_id, player_row[0]))
+            db_connection.commit()
+            logging.info(f"Linked existing player {username} to Discord user {user_id}")
+        else:
+            # Player not in league - do NOT auto-add. Manager must add them first.
+            logging.info(f"Discord user {username} ({user_id}) not in league {league_id} - score ignored. Manager must add player first.")
+            cursor.close()
+            return {"status": "ignored", "reason": "player_not_in_league"}
     
     player_id, player_name = player_row
     cursor.close()
