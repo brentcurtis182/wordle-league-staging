@@ -2606,11 +2606,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 if (currentEditPlayerId) {{
                     const form = document.getElementById('form-' + currentEditPlayerId);
                     const name = form.querySelector('input[name="name"]').value;
-                    const phone = form.querySelector('input[name="phone"]').value;
+                    const identifier = form.querySelector('input[name="identifier"]').value;
                     
                     document.getElementById('editPlayerId').value = currentEditPlayerId;
                     document.getElementById('editPlayerName').value = name;
-                    document.getElementById('editPlayerPhone').value = phone;
+                    document.getElementById('editPlayerPhone').value = identifier;
                     
                     // Close modal and show loading
                     closeSaveModal();
