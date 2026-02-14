@@ -1721,7 +1721,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div class="player-info" style="flex: 1;">
                         <div class="name">{player['name']}{pending_badge}</div>
                     </div>
-                    <button type="button" class="btn btn-danger btn-small" style="margin-left: 16px; flex-shrink: 0;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
+                    <button type="button" class="btn btn-danger btn-small" style="margin-right: 10px; flex-shrink: 0; margin-left: auto;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
                 </div>
             </div>
             """
