@@ -334,9 +334,11 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     """, (team_id,))
     
     pending_leagues = cursor.fetchall()
+    logging.info(f"Slack verification check: team_id={team_id}, text='{text}', pending_leagues={len(pending_leagues)}")
     
     for league_row in pending_leagues:
         league_id, bot_token, league_name, verification_code = league_row
+        logging.info(f"Checking league {league_id} ({league_name}): stored_code='{verification_code}' vs received='{text}'")
         if verification_code and text.upper() == verification_code.upper():
             # Match! Link this channel to the league
             cursor.execute("""
