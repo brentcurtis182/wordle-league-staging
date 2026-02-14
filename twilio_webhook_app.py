@@ -2243,6 +2243,7 @@ def dashboard_add_player(league_id):
         identifier = request.form.get('phone', '').strip()
     
     try:
+        global _phone_mappings_cache_time
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -2257,12 +2258,35 @@ def dashboard_add_player(league_id):
         if channel_type == 'sms' and not identifier:
             return redirect(f'/dashboard/league/{league_id}?error=Name and phone number are required')
         
-        # Check if player name already exists in this league
+        # Check if player name already exists and is active
         cursor.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = TRUE", (league_id, name))
         if cursor.fetchone():
             cursor.close()
             conn.close()
             return redirect(f'/dashboard/league/{league_id}?error=A player with this name already exists in this league')
+        
+        # Check if player was previously removed (inactive) - reactivate them
+        cursor.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = FALSE", (league_id, name))
+        inactive_player = cursor.fetchone()
+        
+        if inactive_player:
+            # Reactivate the previously removed player
+            if channel_type == 'sms' and identifier:
+                id_value = re.sub(r'\D', '', identifier)
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, phone_number = %s WHERE id = %s", (id_value, inactive_player[0]))
+            else:
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE WHERE id = %s", (inactive_player[0],))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            _phone_mappings_cache_time = None
+            
+            from update_pipeline import run_update_pipeline
+            run_update_pipeline(league_id)
+            
+            logging.info(f"Reactivated player {name} in league {league_id} (channel={channel_type}) - HTML regenerated")
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!')
         
         # Determine which column to use based on channel type
         if channel_type == 'slack':
@@ -2284,7 +2308,7 @@ def dashboard_add_player(league_id):
             is_active_league = league_result[1] is not None  # twilio_conversation_sid
             
             # Check if phone already exists in this league
-            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number = %s", (league_id, id_value))
+            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number = %s AND active = TRUE", (league_id, id_value))
             if cursor.fetchone():
                 cursor.close()
                 conn.close()
@@ -2300,7 +2324,6 @@ def dashboard_add_player(league_id):
         conn.close()
         
         # Clear phone mappings cache so new player is recognized immediately
-        global _phone_mappings_cache_time
         _phone_mappings_cache_time = None
         
         # Regenerate HTML so player shows up on the league page
