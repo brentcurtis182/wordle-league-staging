@@ -1964,6 +1964,23 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <p style="margin: 0; color: {COLORS['text_muted']}; font-size: 0.9em;">Players type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordplay</code> and paste their full Wordle share (with emoji pattern).</p>
                 </div>
                 """ if channel_type == 'discord' and league.get('discord_channel_id') else ''}
+                {f"""
+                <div style="margin-top: 16px; padding: 16px; background: {COLORS['accent_orange']}15; border: 1px solid {COLORS['accent_orange']}50; border-radius: 8px;">
+                    <p style="margin: 0 0 12px 0; color: {COLORS['text']}; font-weight: 600;">📋 Setup Steps to Connect Your Slack Channel</p>
+                    {'<p style="margin: 0 0 8px 0; color: ' + COLORS['text_muted'] + '; font-size: 0.9em;">✅ <span style="color: #2ECC71; font-weight: 500;">WordPlay League app is installed in your workspace</span></p>' if league.get('slack_team_id') else '<p style="margin: 0 0 8px 0; color: ' + COLORS['text_muted'] + '; font-size: 0.9em;"><strong>1.</strong> Click <strong>Connect Channel</strong> above and install the WordPlay League app to your Slack workspace.</p>'}
+                    <p style="margin: 0 0 8px 0; color: {COLORS['text_muted']}; font-size: 0.9em;"><strong>{'1' if league.get('slack_team_id') else '2'}.</strong> In your Slack channel, type <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/invite @WordPlayLeague</code> to add the bot.</p>
+                    <p style="margin: 0 0 8px 0; color: {COLORS['text_muted']}; font-size: 0.9em;"><strong>{'2' if league.get('slack_team_id') else '3'}.</strong> Click <strong>Connect Channel</strong> above to get a code phrase, then type it in the channel to activate.</p>
+                    <p style="margin: 0; color: {COLORS['text_muted']}; font-size: 0.85em; font-style: italic;">💡 Lost your code phrase? Click <strong>Connect Channel</strong> again to generate a new one.</p>
+                </div>
+                """ if channel_type == 'slack' and not league.get('slack_channel_id') else ''}
+                {f"""
+                <div style="margin-top: 16px; padding: 16px; background: {COLORS['accent_orange']}15; border: 1px solid {COLORS['accent_orange']}50; border-radius: 8px;">
+                    <p style="margin: 0 0 12px 0; color: {COLORS['text']}; font-weight: 600;">📋 Setup Steps to Connect Your Discord Channel</p>
+                    <p style="margin: 0 0 8px 0; color: {COLORS['text_muted']}; font-size: 0.9em;"><strong>1.</strong> Click <strong>Connect Channel</strong> above to add the WordPlay League bot to your Discord server.</p>
+                    <p style="margin: 0 0 8px 0; color: {COLORS['text_muted']}; font-size: 0.9em;"><strong>2.</strong> In your Discord channel, use <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">/wordle-link</code> followed by the code phrase to activate.</p>
+                    <p style="margin: 0; color: {COLORS['text_muted']}; font-size: 0.85em; font-style: italic;">💡 Lost your code phrase? Click <strong>Connect Channel</strong> again to generate a new one.</p>
+                </div>
+                """ if channel_type == 'discord' and not league.get('discord_channel_id') else ''}
             </div>
             
             <!-- Rename League Section -->
@@ -3280,7 +3297,7 @@ def get_league_info(league_id):
                    ai_message_severity,
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
                    slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
-                   slack_bot_token
+                   slack_bot_token, slack_team_id
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -3306,6 +3323,7 @@ def get_league_info(league_id):
                 'discord_channel_id': row[15],
                 'verification_code': row[16],
                 'slack_bot_token': row[17],
+                'slack_team_id': row[18],
                 'channel_name': None
             }
             
