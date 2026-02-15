@@ -26,6 +26,38 @@ COLORS = {
     'border': '#333',
 }
 
+def get_user_menu_html(user_name, user_email, show_dashboard_link=False):
+    """Return the user icon dropdown menu HTML"""
+    dashboard_link = f'<a href="/dashboard">Dashboard</a>' if show_dashboard_link else ''
+    return f'''
+        <div class="user-menu">
+            <div class="user-menu-btn" onclick="toggleUserMenu(event)">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </div>
+            <div class="user-dropdown" id="userDropdown">
+                <div class="user-dropdown-name">{user_email}</div>
+                {dashboard_link}
+                <a href="/dashboard/profile">Profile</a>
+                <a href="/auth/logout" class="logout-link">Logout</a>
+            </div>
+        </div>
+    '''
+
+
+def get_user_menu_script():
+    """Return the JS for toggling the user dropdown"""
+    return '''
+        function toggleUserMenu(e) {
+            e.stopPropagation();
+            document.getElementById('userDropdown').classList.toggle('active');
+        }
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('userDropdown');
+            if (dd && !e.target.closest('.user-menu')) dd.classList.remove('active');
+        });
+    '''
+
+
 def get_base_styles():
     """Return base CSS styles for all dashboard pages"""
     return f"""
@@ -57,7 +89,7 @@ def get_base_styles():
         }}
         .header-nav-row {{
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
         }}
         .logo {{
@@ -88,6 +120,53 @@ def get_base_styles():
         }}
         .nav-link:hover {{ background: {COLORS['bg_card']}; }}
         .nav-link.logout {{ color: {COLORS['accent_orange']}; }}
+        .user-menu {{
+            position: relative;
+        }}
+        .user-menu-btn {{
+            background: {COLORS['bg_card']};
+            border: 1px solid #444;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }}
+        .user-menu-btn:hover {{ border-color: {COLORS['accent']}; background: {COLORS['bg_dark']}; }}
+        .user-menu-btn svg {{ width: 20px; height: 20px; fill: {COLORS['text']}; }}
+        .user-dropdown {{
+            display: none;
+            position: absolute;
+            top: 48px;
+            right: 0;
+            background: {COLORS['bg_card']};
+            border: 1px solid #444;
+            border-radius: 10px;
+            min-width: 180px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 1000;
+            overflow: hidden;
+        }}
+        .user-dropdown.active {{ display: block; }}
+        .user-dropdown a {{
+            display: block;
+            padding: 14px 20px;
+            color: {COLORS['text']};
+            text-decoration: none;
+            font-size: 0.95em;
+            transition: background 0.15s;
+        }}
+        .user-dropdown a:hover {{ background: {COLORS['bg_dark']}; }}
+        .user-dropdown a.logout-link {{ color: {COLORS['accent_orange']}; border-top: 1px solid #333; }}
+        .user-dropdown-name {{
+            padding: 12px 20px;
+            color: {COLORS['text_muted']};
+            font-size: 0.85em;
+            border-bottom: 1px solid #333;
+        }}
         .back-link {{
             color: {COLORS['accent']};
             text-decoration: none;
@@ -878,8 +957,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    <a href="/dashboard" class="nav-link" style="color: {COLORS['accent']};">Dashboard</a>
-                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
                 </div>
             </div>
             
@@ -1037,6 +1115,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
         </div>
         
         <script>
+            {get_user_menu_script()}
             // Auto-hide alerts
             setTimeout(function() {{
                 document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
@@ -1413,8 +1492,7 @@ def render_dashboard(user, leagues, message=None, error=None):
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
-                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                    {get_user_menu_html(user['name'], user['email'])}
                 </div>
             </div>
             
@@ -1434,6 +1512,7 @@ def render_dashboard(user, leagues, message=None, error=None):
             {all_sections}
         </div>
         <script>
+            {get_user_menu_script()}
             // Auto-hide alerts after 5 seconds
             setTimeout(function() {{
                 document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
@@ -1570,8 +1649,7 @@ def render_create_league(user, error=None):
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
-                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
                 </div>
             </div>
             
@@ -1639,6 +1717,7 @@ def render_create_league(user, error=None):
         </div>
         
         <script>
+            {get_user_menu_script()}
             function selectPlatform(element, platform) {{
                 // Remove selected from all
                 document.querySelectorAll('.platform-option').forEach(el => el.classList.remove('selected'));
@@ -1929,8 +2008,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    <a href="/dashboard/profile" class="nav-link">Profile</a>
-                    <a href="/auth/logout" class="nav-link logout">Logout</a>
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
                 </div>
             </div>
             
@@ -2580,6 +2658,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         </form>
         
         <script>
+            {get_user_menu_script()}
             // Auto-hide alerts after 5 seconds
             setTimeout(function() {{
                 document.querySelectorAll('.alert-success, .alert-error').forEach(function(alert) {{
