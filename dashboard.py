@@ -3427,7 +3427,7 @@ def get_league_info(league_id):
 def render_admin_dashboard(user, leagues):
     """Render the admin dashboard showing all leagues across all users"""
     
-    # Build league rows
+    # Build league rows with data attributes for sorting
     league_rows = ''
     for lg in leagues:
         # Determine active status
@@ -3449,14 +3449,27 @@ def render_admin_dashboard(user, leagues):
         type_color = type_colors.get(channel_type, COLORS['text_muted'])
         type_label = channel_type.upper()
         
+        # Format created date
+        created_at = lg.get('created_at')
+        if created_at:
+            created_str = created_at.strftime('%b %d, %Y')
+            created_sort = created_at.strftime('%Y%m%d%H%M%S')
+        else:
+            created_str = '-'
+            created_sort = '00000000000000'
+        
         league_rows += f'''
-            <tr onclick="window.location='/admin/league/{lg['id']}'" style="cursor: pointer; transition: background 0.15s;">
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {type_color}20; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{type_label}</span></td>
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
-                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
+            <tr onclick="window.location='/admin/league/{lg['id']}'" style="cursor: pointer; transition: background 0.15s;"
+                data-id="{lg['id']}" data-name="{lg['display_name']}" data-status="{'1' if is_active else '0'}"
+                data-type="{channel_type}" data-created="{created_sort}" data-owner="{lg.get('owner_email', 'Unknown')}"
+                data-players="{lg.get('player_count', 0)}">
+                <td class="col-id" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
+                <td class="col-name frozen-col" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
+                <td class="col-status" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
+                <td class="col-type" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {type_color}20; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{type_label}</span></td>
+                <td class="col-created" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{created_str}</td>
+                <td class="col-owner" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
+                <td class="col-players" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
             </tr>
         '''
     
@@ -3468,9 +3481,14 @@ def render_admin_dashboard(user, leagues):
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             {get_base_styles()}
+            .table-wrap {{
+                position: relative;
+                overflow-x: auto;
+            }}
             .admin-table {{
                 width: 100%;
                 border-collapse: collapse;
+                min-width: 800px;
             }}
             .admin-table th {{
                 text-align: left;
@@ -3481,9 +3499,41 @@ def render_admin_dashboard(user, leagues):
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
                 border-bottom: 2px solid {COLORS['border']};
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+                position: relative;
             }}
-            .admin-table tr:hover {{
+            .admin-table th:hover {{
+                color: {COLORS['accent']};
+            }}
+            .admin-table th .sort-arrow {{
+                margin-left: 4px;
+                font-size: 0.75em;
+                opacity: 0.4;
+            }}
+            .admin-table th.sort-active .sort-arrow {{
+                opacity: 1;
+                color: {COLORS['accent']};
+            }}
+            .admin-table tbody tr:hover {{
                 background: {COLORS['bg_dark']};
+            }}
+            /* Frozen League Name column */
+            .frozen-col {{
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                background: {COLORS['bg_card']};
+            }}
+            .admin-table tbody tr:hover .frozen-col {{
+                background: {COLORS['bg_dark']};
+            }}
+            .frozen-col-header {{
+                position: sticky;
+                left: 0;
+                z-index: 3;
+                background: {COLORS['bg_card']};
             }}
             .stat-card {{
                 background: {COLORS['bg_card']};
@@ -3547,27 +3597,95 @@ def render_admin_dashboard(user, leagues):
             </div>
             
             <!-- Leagues Table -->
-            <div class="card" style="padding: 0; overflow-x: auto;">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>League Name</th>
-                            <th>Status</th>
-                            <th>Type</th>
-                            <th>Owner</th>
-                            <th>Players</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {league_rows if league_rows else f'<tr><td colspan="6" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
-                    </tbody>
-                </table>
+            <div class="card" style="padding: 0;">
+                <div class="table-wrap">
+                    <table class="admin-table" id="leaguesTable">
+                        <thead>
+                            <tr>
+                                <th data-sort="id" onclick="sortTable('id')">ID <span class="sort-arrow">&#9650;</span></th>
+                                <th class="frozen-col-header" data-sort="name" onclick="sortTable('name')">League Name <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="status" onclick="sortTable('status')">Status <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="type" onclick="sortTable('type')">Type <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="created" onclick="sortTable('created')">Created <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="owner" onclick="sortTable('owner')">Owner <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="players" onclick="sortTable('players')">Players <span class="sort-arrow">&#9650;</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {league_rows if league_rows else f'<tr><td colspan="7" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
         <script>
             {get_user_menu_script()}
+            
+            // Sortable table logic
+            var currentSort = '';
+            var sortAsc = true;
+            
+            function sortTable(key) {{
+                var table = document.getElementById('leaguesTable');
+                var tbody = table.querySelector('tbody');
+                var rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                if (rows.length === 0) return;
+                
+                // Toggle direction if same column clicked again
+                if (currentSort === key) {{
+                    sortAsc = !sortAsc;
+                }} else {{
+                    currentSort = key;
+                    sortAsc = true;
+                }}
+                
+                // Update header arrows
+                var ths = table.querySelectorAll('th');
+                ths.forEach(function(th) {{
+                    th.classList.remove('sort-active');
+                    var arrow = th.querySelector('.sort-arrow');
+                    if (arrow) arrow.innerHTML = '&#9650;';
+                }});
+                var activeTh = table.querySelector('th[data-sort="' + key + '"]');
+                if (activeTh) {{
+                    activeTh.classList.add('sort-active');
+                    var arrow = activeTh.querySelector('.sort-arrow');
+                    if (arrow) arrow.innerHTML = sortAsc ? '&#9650;' : '&#9660;';
+                }}
+                
+                rows.sort(function(a, b) {{
+                    var aVal = a.getAttribute('data-' + key) || '';
+                    var bVal = b.getAttribute('data-' + key) || '';
+                    
+                    // Numeric sort for id, players, status, created
+                    if (key === 'id' || key === 'players') {{
+                        aVal = parseInt(aVal) || 0;
+                        bVal = parseInt(bVal) || 0;
+                        return sortAsc ? aVal - bVal : bVal - aVal;
+                    }}
+                    if (key === 'status' || key === 'created') {{
+                        // status: 0/1, created: YYYYMMDDHHMMSS
+                        aVal = aVal.toString();
+                        bVal = bVal.toString();
+                        if (aVal < bVal) return sortAsc ? -1 : 1;
+                        if (aVal > bVal) return sortAsc ? 1 : -1;
+                        return 0;
+                    }}
+                    
+                    // String sort for name, type, owner
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                    if (aVal < bVal) return sortAsc ? -1 : 1;
+                    if (aVal > bVal) return sortAsc ? 1 : -1;
+                    return 0;
+                }});
+                
+                rows.forEach(function(row) {{
+                    tbody.appendChild(row);
+                }});
+            }}
         </script>
     </body>
     </html>
