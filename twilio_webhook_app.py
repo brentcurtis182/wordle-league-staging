@@ -8,7 +8,7 @@ import os
 import re
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, request, jsonify, redirect, make_response, send_from_directory
+from flask import Flask, request, jsonify, redirect, make_response, send_from_directory, flash
 from twilio.twiml.messaging_response import MessagingResponse
 import psycopg2
 
@@ -6005,16 +6005,14 @@ def dashboard_reset_current_season(league_id):
     try:
         from league_reset import reset_current_season, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
-        success, message = reset_current_season(league_id)
+        success, msg = reset_current_season(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset current season: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-current-season', methods=['POST'])
@@ -6028,16 +6026,14 @@ def dashboard_revert_current_season(league_id):
     
     try:
         from league_reset import revert_current_season
-        success, message = revert_current_season(league_id)
+        success, msg = revert_current_season(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert current season: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-season-winners', methods=['POST'])
@@ -6052,16 +6048,14 @@ def dashboard_reset_season_winners(league_id):
     try:
         from league_reset import reset_season_winners, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
-        success, message = reset_season_winners(league_id)
+        success, msg = reset_season_winners(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset season winners: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-season-winners', methods=['POST'])
@@ -6075,16 +6069,14 @@ def dashboard_revert_season_winners(league_id):
     
     try:
         from league_reset import revert_season_winners
-        success, message = revert_season_winners(league_id)
+        success, msg = revert_season_winners(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert season winners: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-alltime-all', methods=['POST'])
@@ -6099,16 +6091,14 @@ def dashboard_reset_alltime_all(league_id):
     try:
         from league_reset import reset_alltime_all_players, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
-        success, message = reset_alltime_all_players(league_id)
+        success, msg = reset_alltime_all_players(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset all-time all: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-alltime-player', methods=['POST'])
@@ -6122,22 +6112,19 @@ def dashboard_reset_alltime_player(league_id):
     
     player_id = request.form.get('player_id')
     if not player_id:
-        flash('❌ No player selected.', 'error')
-        return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ No player selected.')
     
     try:
         from league_reset import reset_alltime_single_player, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
-        success, message = reset_alltime_single_player(league_id, int(player_id))
+        success, msg = reset_alltime_single_player(league_id, int(player_id))
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset all-time player: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-alltime-all', methods=['POST'])
@@ -6151,16 +6138,14 @@ def dashboard_revert_alltime_all(league_id):
     
     try:
         from league_reset import revert_alltime_all_players
-        success, message = revert_alltime_all_players(league_id)
+        success, msg = revert_alltime_all_players(league_id)
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert all-time all: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-alltime-player', methods=['POST'])
@@ -6174,21 +6159,18 @@ def dashboard_revert_alltime_player(league_id):
     
     player_id = request.form.get('player_id')
     if not player_id:
-        flash('❌ No player selected.', 'error')
-        return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ No player selected.')
     
     try:
         from league_reset import revert_alltime_single_player
-        success, message = revert_alltime_single_player(league_id, int(player_id))
+        success, msg = revert_alltime_single_player(league_id, int(player_id))
         if success:
-            flash(f'✅ {message}', 'success')
+            return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
-            flash(f'❌ {message}', 'error')
+            return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert all-time player: {e}")
-        flash(f'❌ Error: {str(e)}', 'error')
-    
-    return redirect(f'/dashboard/league/{league_id}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
 
 
 if __name__ == '__main__':
