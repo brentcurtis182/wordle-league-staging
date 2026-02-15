@@ -2765,7 +2765,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             function checkActivatePasscode() {{
                 const passcode = document.getElementById('activatePasscode').value;
-                if (passcode === 'monkeybottom') {{
+                if (passcode === 'SlackTest182') {{
                     document.getElementById('activatePasscodeGate').style.display = 'none';
                     document.getElementById('activateSteps').style.display = 'block';
                     // Generate code phrase after unlocking
