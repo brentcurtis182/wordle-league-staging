@@ -1799,7 +1799,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     
     # Get reset/revert statuses
     try:
-        from league_reset import get_season_revert_status, get_season_winners_revert_status, get_alltime_revert_status, get_all_player_revert_statuses
+        from league_reset import get_season_revert_status, get_season_winners_revert_status, get_alltime_revert_status, get_all_player_revert_statuses, ensure_reset_snapshots_table
+        ensure_reset_snapshots_table()
         season_revert = get_season_revert_status(league['id'])
         season_winners_revert = get_season_winners_revert_status(league['id'])
         alltime_all_revert = get_alltime_revert_status(league['id'])
@@ -3133,18 +3134,21 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             function confirmReset() {{
+                // Save references before closeResetModal nulls them
+                const form = pendingResetForm;
+                const action = pendingResetAction;
                 closeResetModal();
                 showLoading('Processing...');
                 
-                if (pendingResetForm) {{
-                    pendingResetForm.submit();
-                }} else if (pendingResetAction) {{
-                    // Create and submit a form for the action URL
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = pendingResetAction;
-                    document.body.appendChild(form);
+                if (form) {{
                     form.submit();
+                }} else if (action) {{
+                    // Create and submit a form for the action URL
+                    const newForm = document.createElement('form');
+                    newForm.method = 'POST';
+                    newForm.action = action;
+                    document.body.appendChild(newForm);
+                    newForm.submit();
                 }}
             }}
             
