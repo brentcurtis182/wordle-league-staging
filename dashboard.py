@@ -1761,6 +1761,26 @@ def render_create_league(user, error=None):
     """
 
 
+def generate_player_revert_html(league, alltime_player_reverts):
+    """Generate HTML for individual player revert buttons"""
+    if not alltime_player_reverts:
+        return ''
+    
+    html = ''
+    for pr in alltime_player_reverts:
+        html += f'''<div style="background: {COLORS['success']}15; border: 1px solid {COLORS['success']}; padding: 10px 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+                <span style="color: {COLORS['success']}; font-weight: 600; font-size: 0.9em;">↩️ {pr['player_name']}</span>
+                <span style="color: {COLORS['text_muted']}; font-size: 0.8em; margin-left: 8px;">Reset: {pr['reset_at']} · {pr['score_count']} scores</span>
+            </div>
+            <form method="POST" action="/dashboard/league/{league['id']}/revert-alltime-player" style="display:inline;">
+                <input type="hidden" name="player_id" value="{pr['player_id']}">
+                <button type="button" class="btn btn-small" style="background: {COLORS['success']}; color: white; font-size: 0.8em; padding: 4px 10px;" onclick="revertPlayer(this, '{pr['player_name']}', {pr['score_count']})">Revert</button>
+            </form>
+        </div>'''
+    return html
+
+
 def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None):
     """Render the league management page"""
     
@@ -1776,6 +1796,19 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
     ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
     ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
+    
+    # Get reset/revert statuses
+    try:
+        from league_reset import get_season_revert_status, get_season_winners_revert_status, get_alltime_revert_status, get_all_player_revert_statuses
+        season_revert = get_season_revert_status(league['id'])
+        season_winners_revert = get_season_winners_revert_status(league['id'])
+        alltime_all_revert = get_alltime_revert_status(league['id'])
+        alltime_player_reverts = get_all_player_revert_statuses(league['id'])
+    except Exception:
+        season_revert = {'can_revert': False, 'reset_at': None, 'message': None}
+        season_winners_revert = {'can_revert': False, 'reset_at': None, 'message': None}
+        alltime_all_revert = {'can_revert': False, 'reset_at': None, 'message': None}
+        alltime_player_reverts = []
     
     # Platform-specific labels
     if channel_type == 'slack':
@@ -2199,6 +2232,82 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <button type="button" class="btn btn-primary" onclick="saveAISettings()" style="margin-top: 16px;">Save AI Settings</button>
             </div>
             
+            <!-- Data Reset & Revert -->
+            <div class="card" style="border: 1px solid {COLORS['accent_orange']};">
+                <h2 style="color: {COLORS['accent_orange']};">🔄 Data Reset &amp; Revert</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 20px;">Reset league data with the option to revert. Each reset type has its own grace period — once the grace period ends, the reset becomes permanent.</p>
+                
+                <!-- 1. Reset Current Season -->
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 1.05em;">📊 Reset Current Season Table</h3>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.9em; margin-bottom: 12px;">
+                        Clears all weekly winners in the current season, making it appear as a fresh season start.
+                    </p>
+                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid {COLORS['accent']};">
+                        <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 0;">
+                            <strong style="color: {COLORS['text']};">⏱️ Revert window:</strong> You can undo this reset until the next weekly winner is recorded (typically Monday). Once a new winner is added, the reset becomes permanent.
+                        </p>
+                    </div>
+                    {'<div style="background: ' + COLORS['success'] + '15; border: 1px solid ' + COLORS['success'] + '; padding: 12px; border-radius: 6px; margin-bottom: 12px;"><p style="margin: 0 0 8px 0; color: ' + COLORS['success'] + '; font-weight: 600;">↩️ Revert Available</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 4px 0;">Reset on: ' + season_revert['reset_at'] + '</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 12px 0;">' + (season_revert['message'] or '') + '</p><form method="POST" action="/dashboard/league/' + str(league['id']) + '/revert-current-season" style="display:inline;"><button type="button" class="btn btn-small" style="background: ' + COLORS['success'] + '; color: white;" onclick="showResetModal(\'revertSeason\', \'Revert Current Season?\', \'This will restore all weekly winners that were cleared. The season table will return to its previous state.\', this.closest(\'form\'))">↩️ Revert Season Reset</button></form></div>' if season_revert['can_revert'] else ''}
+                    <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: white;" onclick="showResetModal('resetSeason', '🔄 Reset Current Season Table?', 'This will clear all weekly winners in the current season. The season will appear as if it just started fresh.\\n\\nYou can revert this until a new weekly winner is recorded (Monday).', null, '/dashboard/league/{league['id']}/reset-current-season')">
+                        Reset Current Season
+                    </button>
+                </div>
+                
+                <!-- 2. Reset Season Winners -->
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 1.05em;">🏆 Reset Season Winners</h3>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.9em; margin-bottom: 12px;">
+                        Clears all past season winners and resets the season counter back to Season 1. The current season's weekly winners are preserved.
+                    </p>
+                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid {COLORS['accent']};">
+                        <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 0;">
+                            <strong style="color: {COLORS['text']};">⏱️ Revert window:</strong> You can undo this reset as long as the current season is still in progress. Once a new season winner is crowned (a player reaches 4 weekly wins), the reset becomes permanent.
+                        </p>
+                    </div>
+                    {'<div style="background: ' + COLORS['success'] + '15; border: 1px solid ' + COLORS['success'] + '; padding: 12px; border-radius: 6px; margin-bottom: 12px;"><p style="margin: 0 0 8px 0; color: ' + COLORS['success'] + '; font-weight: 600;">↩️ Revert Available</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 4px 0;">Reset on: ' + season_winners_revert['reset_at'] + '</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 12px 0;">' + (season_winners_revert['message'] or '') + '</p><form method="POST" action="/dashboard/league/' + str(league['id']) + '/revert-season-winners" style="display:inline;"><button type="button" class="btn btn-small" style="background: ' + COLORS['success'] + '; color: white;" onclick="showResetModal(\'revertSeasonWinners\', \'Revert Season Winners?\', \'This will restore all season winners and the season counter to their previous values.\', this.closest(\'form\'))">↩️ Revert Season Winners Reset</button></form></div>' if season_winners_revert['can_revert'] else ''}
+                    <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: white;" onclick="showResetModal('resetSeasonWinners', '🔄 Reset Season Winners?', 'This will delete all season winners and reset the season counter to Season 1.\\n\\nThe current season\\'s weekly winners will be preserved.\\n\\nYou can revert this until a new season winner is crowned (someone reaches 4 weekly wins).', null, '/dashboard/league/{league['id']}/reset-season-winners')">
+                        Reset Season Winners
+                    </button>
+                </div>
+                
+                <!-- 3. Reset All-Time Stats -->
+                <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 1.05em;">📈 Reset All-Time Stats</h3>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.9em; margin-bottom: 12px;">
+                        Clear all score history. Reset everyone at once, or pick a single player.
+                    </p>
+                    <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid {COLORS['accent']};">
+                        <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 0;">
+                            <strong style="color: {COLORS['text']};">⏱️ Revert window:</strong> All-time reverts are <strong>always available</strong>. When you revert, old scores are merged with any new scores recorded since the reset — nothing is lost.
+                        </p>
+                    </div>
+                    
+                    <!-- Reset All Players -->
+                    {'<div style="background: ' + COLORS['success'] + '15; border: 1px solid ' + COLORS['success'] + '; padding: 12px; border-radius: 6px; margin-bottom: 12px;"><p style="margin: 0 0 8px 0; color: ' + COLORS['success'] + '; font-weight: 600;">↩️ Revert All Players Available</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 4px 0;">Reset on: ' + alltime_all_revert['reset_at'] + '</p><p style="color: ' + COLORS['text_muted'] + '; font-size: 0.85em; margin: 0 0 12px 0;">' + (alltime_all_revert['message'] or '') + '</p><form method="POST" action="/dashboard/league/' + str(league['id']) + '/revert-alltime-all" style="display:inline;"><button type="button" class="btn btn-small" style="background: ' + COLORS['success'] + '; color: white;" onclick="showResetModal(\'revertAlltimeAll\', \'Revert All-Time Stats?\', \'This will merge old scores back with any new scores recorded since the reset.\', this.closest(\'form\'))">↩️ Revert All Players</button></form></div>' if alltime_all_revert['can_revert'] else ''}
+                    <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: white; margin-bottom: 12px;" onclick="showResetModal('resetAlltimeAll', '🔄 Reset All-Time Stats for ALL Players?', 'This will clear ALL score history for every player in the league.\\n\\nYou can always revert this — old scores will be merged with any new ones.', null, '/dashboard/league/{league['id']}/reset-alltime-all')">
+                        Reset All Players
+                    </button>
+                    
+                    <!-- Reset Single Player -->
+                    <div style="border-top: 1px solid {COLORS['border']}; padding-top: 12px; margin-top: 4px;">
+                        <p style="color: {COLORS['text']}; font-size: 0.9em; font-weight: 500; margin-bottom: 8px;">Reset a single player:</p>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <select id="resetPlayerSelect" style="padding: 8px 12px; border-radius: 6px; border: 1px solid {COLORS['border']}; background: {COLORS['bg_card']}; color: {COLORS['text']}; font-size: 0.9em; min-width: 180px;">
+                                <option value="">Select player...</option>
+                                {''.join(f'<option value="{p["id"]}">{p["name"]}</option>' for p in players if p.get('active', True))}
+                            </select>
+                            <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: white;" onclick="resetSinglePlayer()">
+                                Reset Player
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Individual Player Reverts -->
+                    {generate_player_revert_html(league, alltime_player_reverts)}
+                </div>
+            </div>
+            
             <!-- View League Link -->
             <div class="card">
                 <h2>🔗 Public League Page</h2>
@@ -2435,6 +2544,26 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 </div>
             </div>
         </div>
+        
+        <!-- Reset Confirmation Modal -->
+        <div class="modal-overlay" id="resetModal">
+            <div class="modal">
+                <h3 id="resetModalTitle">Confirm Reset</h3>
+                <p id="resetModalText" style="white-space: pre-line;"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeResetModal()">Cancel</button>
+                    <button type="button" class="btn btn-small" id="resetModalConfirmBtn" style="background: {COLORS['accent_orange']}; color: white;" onclick="confirmReset()">Yes, Reset</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hidden forms for reset actions -->
+        <form id="resetSeasonForm" method="POST" action="/dashboard/league/{league['id']}/reset-current-season" style="display:none;"></form>
+        <form id="resetSeasonWinnersForm" method="POST" action="/dashboard/league/{league['id']}/reset-season-winners" style="display:none;"></form>
+        <form id="resetAlltimeAllForm" method="POST" action="/dashboard/league/{league['id']}/reset-alltime-all" style="display:none;"></form>
+        <form id="resetAlltimePlayerForm" method="POST" action="/dashboard/league/{league['id']}/reset-alltime-player" style="display:none;">
+            <input type="hidden" name="player_id" id="resetAlltimePlayerId">
+        </form>
         
         <!-- Loading Overlay -->
         <div class="modal-overlay" id="loadingOverlay">
@@ -2966,6 +3095,86 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     hideLoading();
                     alert('Error deleting league: ' + error);
                 }});
+            }}
+            
+            // Reset & Revert functions
+            let pendingResetForm = null;
+            let pendingResetAction = null;
+            
+            function showResetModal(id, title, message, form, actionUrl) {{
+                document.getElementById('resetModalTitle').textContent = title;
+                document.getElementById('resetModalText').textContent = message;
+                
+                // Determine button style based on revert vs reset
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                if (id.startsWith('revert')) {{
+                    confirmBtn.style.background = '{COLORS['success']}';
+                    confirmBtn.textContent = 'Yes, Revert';
+                }} else {{
+                    confirmBtn.style.background = '{COLORS['accent_orange']}';
+                    confirmBtn.textContent = 'Yes, Reset';
+                }}
+                
+                if (form) {{
+                    pendingResetForm = form;
+                    pendingResetAction = null;
+                }} else {{
+                    pendingResetForm = null;
+                    pendingResetAction = actionUrl;
+                }}
+                
+                document.getElementById('resetModal').classList.add('active');
+            }}
+            
+            function closeResetModal() {{
+                document.getElementById('resetModal').classList.remove('active');
+                pendingResetForm = null;
+                pendingResetAction = null;
+            }}
+            
+            function confirmReset() {{
+                closeResetModal();
+                showLoading('Processing...');
+                
+                if (pendingResetForm) {{
+                    pendingResetForm.submit();
+                }} else if (pendingResetAction) {{
+                    // Create and submit a form for the action URL
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = pendingResetAction;
+                    document.body.appendChild(form);
+                    form.submit();
+                }}
+            }}
+            
+            function resetSinglePlayer() {{
+                const select = document.getElementById('resetPlayerSelect');
+                const playerId = select.value;
+                const playerName = select.options[select.selectedIndex].text;
+                
+                if (!playerId) {{
+                    alert('Please select a player first.');
+                    return;
+                }}
+                
+                document.getElementById('resetAlltimePlayerId').value = playerId;
+                showResetModal(
+                    'resetPlayer',
+                    '🔄 Reset All-Time Stats for ' + playerName + '?',
+                    'This will clear ALL score history for ' + playerName + '.\\n\\nYou can always revert this — old scores will be merged with any new ones.',
+                    document.getElementById('resetAlltimePlayerForm')
+                );
+            }}
+            
+            function revertPlayer(btn, playerName, scoreCount) {{
+                const form = btn.closest('form');
+                showResetModal(
+                    'revertPlayer',
+                    'Revert ' + playerName + '?',
+                    'This will merge ' + scoreCount + ' old scores back with any new scores recorded since the reset.',
+                    form
+                );
             }}
             
             // AI Settings functions

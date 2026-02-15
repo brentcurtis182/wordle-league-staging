@@ -5989,6 +5989,208 @@ def screenshot_season(league_id):
         traceback.print_exc()
         return f'<html><body>Error: {str(e)}</body></html>', 500
 
+# =============================================================================
+# League Reset & Revert Routes
+# =============================================================================
+
+@app.route('/dashboard/league/<int:league_id>/reset-current-season', methods=['POST'])
+def dashboard_reset_current_season(league_id):
+    """Reset the current season table for a league"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import reset_current_season, ensure_reset_snapshots_table
+        ensure_reset_snapshots_table()
+        success, message = reset_current_season(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in reset current season: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/revert-current-season', methods=['POST'])
+def dashboard_revert_current_season(league_id):
+    """Revert a current season reset"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import revert_current_season
+        success, message = revert_current_season(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in revert current season: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/reset-season-winners', methods=['POST'])
+def dashboard_reset_season_winners(league_id):
+    """Reset all season winners for a league"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import reset_season_winners, ensure_reset_snapshots_table
+        ensure_reset_snapshots_table()
+        success, message = reset_season_winners(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in reset season winners: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/revert-season-winners', methods=['POST'])
+def dashboard_revert_season_winners(league_id):
+    """Revert a season winners reset"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import revert_season_winners
+        success, message = revert_season_winners(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in revert season winners: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/reset-alltime-all', methods=['POST'])
+def dashboard_reset_alltime_all(league_id):
+    """Reset all-time stats for all players"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import reset_alltime_all_players, ensure_reset_snapshots_table
+        ensure_reset_snapshots_table()
+        success, message = reset_alltime_all_players(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in reset all-time all: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/reset-alltime-player', methods=['POST'])
+def dashboard_reset_alltime_player(league_id):
+    """Reset all-time stats for a single player"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    player_id = request.form.get('player_id')
+    if not player_id:
+        flash('❌ No player selected.', 'error')
+        return redirect(f'/dashboard/league/{league_id}')
+    
+    try:
+        from league_reset import reset_alltime_single_player, ensure_reset_snapshots_table
+        ensure_reset_snapshots_table()
+        success, message = reset_alltime_single_player(league_id, int(player_id))
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in reset all-time player: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/revert-alltime-all', methods=['POST'])
+def dashboard_revert_alltime_all(league_id):
+    """Revert all-time stats reset for all players"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    try:
+        from league_reset import revert_alltime_all_players
+        success, message = revert_alltime_all_players(league_id)
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in revert all-time all: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
+@app.route('/dashboard/league/<int:league_id>/revert-alltime-player', methods=['POST'])
+def dashboard_revert_alltime_player(league_id):
+    """Revert all-time stats reset for a single player"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    
+    player_id = request.form.get('player_id')
+    if not player_id:
+        flash('❌ No player selected.', 'error')
+        return redirect(f'/dashboard/league/{league_id}')
+    
+    try:
+        from league_reset import revert_alltime_single_player
+        success, message = revert_alltime_single_player(league_id, int(player_id))
+        if success:
+            flash(f'✅ {message}', 'success')
+        else:
+            flash(f'❌ {message}', 'error')
+    except Exception as e:
+        logging.error(f"Error in revert all-time player: {e}")
+        flash(f'❌ Error: {str(e)}', 'error')
+    
+    return redirect(f'/dashboard/league/{league_id}')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
