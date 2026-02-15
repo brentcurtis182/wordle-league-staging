@@ -2719,7 +2719,7 @@ def admin_dashboard():
         cursor.execute("""
             SELECT l.id, l.name, l.display_name, l.twilio_conversation_sid,
                    l.channel_type, l.slack_channel_id, l.discord_channel_id,
-                   l.slug, l.created_at,
+                   l.slug, ul.created_at,
                    u.email as owner_email,
                    (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND (p.is_removed IS NULL OR p.is_removed = FALSE)) as player_count
             FROM leagues l
