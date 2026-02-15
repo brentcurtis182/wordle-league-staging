@@ -2721,7 +2721,7 @@ def admin_dashboard():
                    l.channel_type, l.slack_channel_id, l.discord_channel_id,
                    l.slug, ul.created_at,
                    u.email as owner_email,
-                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND (p.is_removed IS NULL OR p.is_removed = FALSE)) as player_count
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
             FROM leagues l
             LEFT JOIN user_leagues ul ON l.id = ul.league_id
             LEFT JOIN users u ON ul.user_id = u.id
