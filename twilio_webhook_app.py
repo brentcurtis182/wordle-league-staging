@@ -6010,6 +6010,7 @@ def dashboard_reset_current_season(league_id):
         from league_reset import reset_current_season, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
         success, msg = reset_current_season(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6031,6 +6032,7 @@ def dashboard_revert_current_season(league_id):
     try:
         from league_reset import revert_current_season
         success, msg = revert_current_season(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6053,6 +6055,7 @@ def dashboard_reset_season_winners(league_id):
         from league_reset import reset_season_winners, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
         success, msg = reset_season_winners(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6074,6 +6077,7 @@ def dashboard_revert_season_winners(league_id):
     try:
         from league_reset import revert_season_winners
         success, msg = revert_season_winners(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6096,6 +6100,7 @@ def dashboard_reset_alltime_all(league_id):
         from league_reset import reset_alltime_all_players, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
         success, msg = reset_alltime_all_players(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6122,6 +6127,7 @@ def dashboard_reset_alltime_player(league_id):
         from league_reset import reset_alltime_single_player, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
         success, msg = reset_alltime_single_player(league_id, int(player_id))
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6143,6 +6149,7 @@ def dashboard_revert_alltime_all(league_id):
     try:
         from league_reset import revert_alltime_all_players
         success, msg = revert_alltime_all_players(league_id)
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
@@ -6168,6 +6175,7 @@ def dashboard_revert_alltime_player(league_id):
     try:
         from league_reset import revert_alltime_single_player
         success, msg = revert_alltime_single_player(league_id, int(player_id))
+        msg = _safe_redirect_msg(msg)
         if success:
             return redirect(f'/dashboard/league/{league_id}?message=✅ {msg}')
         else:
