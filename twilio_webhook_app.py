@@ -376,7 +376,8 @@ def is_ai_message_enabled(league_id, message_type):
             'perfect_score': 'ai_perfect_score_congrats',
             'failure_roast': 'ai_failure_roast',
             'sunday_race': 'ai_sunday_race_update',
-            'daily_loser': 'ai_daily_loser_roast'
+            'daily_loser': 'ai_daily_loser_roast',
+            'monday_recap': 'ai_monday_recap'
         }
         
         column = column_map.get(message_type)
@@ -2060,8 +2061,8 @@ def dashboard_create_league():
         
         # Create the league (all AI messages default to OFF)
         cursor.execute("""
-            INSERT INTO leagues (id, name, display_name, slug, channel_type, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast)
-            VALUES (%s, %s, %s, %s, %s, false, false, false, false)
+            INSERT INTO leagues (id, name, display_name, slug, channel_type, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast, ai_monday_recap)
+            VALUES (%s, %s, %s, %s, %s, false, false, false, false, true)
             RETURNING id
         """, (next_id, slug, league_name, slug, channel_type))
         
@@ -2784,7 +2785,7 @@ def admin_league_detail(league_id):
                    l.slack_team_id, l.slack_bot_token,
                    l.ai_perfect_score_congrats, l.ai_failure_roast,
                    l.ai_sunday_race_update, l.ai_daily_loser_roast,
-                   l.ai_message_severity
+                   l.ai_message_severity, l.ai_monday_recap
             FROM leagues l
             WHERE l.id = %s
         """, (league_id,))
@@ -2812,6 +2813,7 @@ def admin_league_detail(league_id):
             'ai_sunday_race': row[13],
             'ai_daily_loser': row[14],
             'ai_severity': row[15],
+            'ai_monday_recap': row[16],
         }
         
         # Get owner info
@@ -2906,7 +2908,8 @@ def admin_league_debug(league_id):
         cursor.execute("""
             SELECT id, name, display_name, slug, twilio_conversation_sid,
                    ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast,
-                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity
+                   ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
+                   ai_monday_recap
             FROM leagues WHERE id = %s
         """, (league_id,))
         result = cursor.fetchone()
@@ -2928,7 +2931,8 @@ def admin_league_debug(league_id):
             'ai_daily_loser_roast': result[8],
             'ai_perfect_score_severity': result[9],
             'ai_failure_roast_severity': result[10],
-            'ai_daily_loser_severity': result[11]
+            'ai_daily_loser_severity': result[11],
+            'ai_monday_recap': result[12]
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3007,12 +3011,13 @@ def setup_ai_messaging_columns():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Add 4 columns for AI messaging toggles
+        # Add 5 columns for AI messaging toggles
         columns = [
             ("ai_perfect_score_congrats", "FALSE"),
             ("ai_failure_roast", "TRUE"),
             ("ai_sunday_race_update", "TRUE"),
-            ("ai_daily_loser_roast", "FALSE")
+            ("ai_daily_loser_roast", "FALSE"),
+            ("ai_monday_recap", "TRUE")
         ]
         
         results = []
@@ -3068,6 +3073,7 @@ def dashboard_ai_settings(league_id):
     ai_failure_roast = request.form.get('ai_failure_roast') == 'true'
     ai_sunday_race = request.form.get('ai_sunday_race_update') == 'true'
     ai_daily_loser = request.form.get('ai_daily_loser_roast') == 'true'
+    ai_monday_recap = request.form.get('ai_monday_recap') == 'true'
     
     # Parse per-message severity and player settings from JSON
     severity_data_str = request.form.get('ai_message_severity', '{}')
@@ -3092,11 +3098,12 @@ def dashboard_ai_settings(league_id):
                 ai_failure_roast = %s,
                 ai_sunday_race_update = %s,
                 ai_daily_loser_roast = %s,
+                ai_monday_recap = %s,
                 ai_perfect_score_severity = %s,
                 ai_failure_roast_severity = %s,
                 ai_daily_loser_severity = %s
             WHERE id = %s
-        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, 
+        """, (ai_perfect_score, ai_failure_roast, ai_sunday_race, ai_daily_loser, ai_monday_recap,
               perfect_score_severity, failure_roast_severity, daily_loser_severity, league_id))
         
         # Update player-specific settings

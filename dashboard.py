@@ -1775,6 +1775,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
     ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
     ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
+    ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
     
     # Platform-specific labels
     if channel_type == 'slack':
@@ -2176,6 +2177,21 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <div class="ai-toggle-meta">
                             <span>Tone: <strong id="daily_loser_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_daily_loser_severity', 2) - 1]}</strong></span>
                             <span>Players: <strong id="daily_loser_players_label">All</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-toggle-item">
+                        <div class="ai-toggle-header">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="ai_monday_recap" {ai_monday_checked}>
+                                <span class="toggle-text">
+                                    <strong>📅 Monday Morning Recap</strong>
+                                    <small>10am Monday recap: weekly winner, season clinch, streaks &amp; fun stats</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="ai-toggle-meta">
+                            <span class="tone-na">Tone: N/A (informational)</span>
                         </div>
                     </div>
                 </div>
@@ -2665,6 +2681,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <input type="hidden" name="ai_failure_roast" id="aiFailureRoastInput">
             <input type="hidden" name="ai_sunday_race_update" id="aiSundayRaceInput">
             <input type="hidden" name="ai_daily_loser_roast" id="aiDailyLoserInput">
+            <input type="hidden" name="ai_monday_recap" id="aiMondayRecapInput">
             <input type="hidden" name="ai_message_severity" id="aiSeverityInput">
         </form>
         
@@ -2959,6 +2976,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 failure: {str(league.get('ai_failure_roast', True)).lower()},
                 sunday: {str(league.get('ai_sunday_race_update', True)).lower()},
                 daily: {str(league.get('ai_daily_loser_roast', False)).lower()},
+                monday: {str(league.get('ai_monday_recap', True)).lower()},
                 severity: {league.get('ai_message_severity', 2)},
                 perfect_score_severity: {league.get('ai_perfect_score_severity', 2)},
                 failure_roast_severity: {league.get('ai_failure_roast_severity', 2)},
@@ -3207,6 +3225,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const failure = document.getElementById('ai_failure_roast').checked;
                 const sunday = document.getElementById('ai_sunday_race').checked;
                 const daily = document.getElementById('ai_daily_loser').checked;
+                const monday = document.getElementById('ai_monday_recap').checked;
                 
                 if (perfect !== originalAISettings.perfect) {{
                     changes.push('🎯 Perfect Score Congrats: ' + (perfect ? 'ON' : 'OFF'));
@@ -3219,6 +3238,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 }}
                 if (daily !== originalAISettings.daily) {{
                     changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
+                }}
+                if (monday !== originalAISettings.monday) {{
+                    changes.push('📅 Monday Morning Recap: ' + (monday ? 'ON' : 'OFF'));
                 }}
                 
                 // Check for per-message severity changes (compare against what's saved to DB, not page load)
@@ -3263,6 +3285,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
                 document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
                 document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
+                document.getElementById('aiMondayRecapInput').value = document.getElementById('ai_monday_recap').checked ? 'true' : 'false';
                 
                 // Add per-message severity values
                 document.getElementById('aiSeverityInput').value = JSON.stringify({{
@@ -3387,7 +3410,7 @@ def get_league_info(league_id):
                    ai_message_severity,
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
                    slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
-                   slack_bot_token, slack_team_id
+                   slack_bot_token, slack_team_id, ai_monday_recap
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -3414,6 +3437,7 @@ def get_league_info(league_id):
                 'verification_code': row[16],
                 'slack_bot_token': row[17],
                 'slack_team_id': row[18],
+                'ai_monday_recap': row[19] if row[19] is not None else True,
                 'channel_name': None
             }
             
@@ -3744,6 +3768,7 @@ def render_admin_league_detail(user, league):
     if league.get('ai_failure_roast'): ai_features.append('Failure Roast')
     if league.get('ai_sunday_race'): ai_features.append('Sunday Race Update')
     if league.get('ai_daily_loser'): ai_features.append('Daily Loser Roast')
+    if league.get('ai_monday_recap'): ai_features.append('Monday Recap')
     ai_summary = ', '.join(ai_features) if ai_features else 'None enabled'
     
     # Channel-specific detail rows
