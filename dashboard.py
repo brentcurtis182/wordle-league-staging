@@ -876,11 +876,20 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
     league_list_html = ""
     if leagues:
         for league in leagues:
+            ct = league.get('channel_type', 'sms')
+            if ct == 'sms':
+                channel_icon = f'<span title="SMS" style="display:inline-flex;align-items:center;background:#4CAF5020;color:#4CAF50;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600;margin-left:8px;vertical-align:middle;">&#9993; SMS</span>'
+            elif ct == 'slack':
+                channel_icon = f'<span title="Slack" style="display:inline-flex;align-items:center;background:#E01E5A20;color:#E01E5A;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600;margin-left:8px;vertical-align:middle;">&#9830; Slack</span>'
+            elif ct == 'discord':
+                channel_icon = f'<span title="Discord" style="display:inline-flex;align-items:center;background:#5865F220;color:#5865F2;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600;margin-left:8px;vertical-align:middle;">&#9670; Discord</span>'
+            else:
+                channel_icon = ''
             league_list_html += f"""
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px;">
                 <div>
                     <strong style="color: {COLORS['text']};">{league['display_name']}</strong>
-                    <span style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-left: 8px;">{league['role']}</span>
+                    {channel_icon}
                 </div>
                 <a href="/dashboard/league/{league['id']}" style="color: {COLORS['accent']}; text-decoration: none; font-size: 0.9em;">Manage →</a>
             </div>
