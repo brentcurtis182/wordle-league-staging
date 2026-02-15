@@ -367,6 +367,24 @@ def reset_season_winners(league_id):
         current_season = season_row[0]
         season_start_week = season_row[1]
         
+        # Get the current season's actual start_week from the seasons table
+        # This is critical — we need this to set the new Season 1 boundary correctly
+        cursor.execute("""
+            SELECT start_week FROM seasons
+            WHERE league_id = %s AND season_number = %s
+        """, (league_id, current_season))
+        current_season_bounds = cursor.fetchone()
+        current_season_start = current_season_bounds[0] if current_season_bounds else season_start_week
+        
+        # If still NULL, derive from earliest weekly winner in the current season
+        if not current_season_start:
+            cursor.execute("""
+                SELECT MIN(week_wordle_number) FROM weekly_winners
+                WHERE league_id = %s
+            """, (league_id,))
+            min_row = cursor.fetchone()
+            current_season_start = min_row[0] if min_row and min_row[0] else None
+        
         # Get all season winners
         cursor.execute("""
             SELECT sw.id, sw.player_id, sw.league_id, sw.season_number, sw.wins, 
@@ -438,13 +456,13 @@ def reset_season_winners(league_id):
         # Delete all season boundaries (except current)
         cursor.execute("DELETE FROM seasons WHERE league_id = %s", (league_id,))
         
-        # Reset to Season 1 — keep the current season_start_week as is
-        # (the current season's weekly winners stay intact, just relabeled as Season 1)
+        # Reset to Season 1 — use the current season's actual start_week
+        # so only the current season's weekly winners appear under Season 1
         cursor.execute("""
             UPDATE league_seasons
-            SET current_season = 1, updated_at = CURRENT_TIMESTAMP
+            SET current_season = 1, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
             WHERE league_id = %s
-        """, (league_id,))
+        """, (current_season_start, league_id))
         
         # Create a fresh Season 1 entry in the seasons table
         cursor.execute("""
@@ -452,7 +470,7 @@ def reset_season_winners(league_id):
             VALUES (%s, 1, %s, NULL)
             ON CONFLICT (league_id, season_number) DO UPDATE
             SET start_week = EXCLUDED.start_week, end_week = NULL
-        """, (league_id, season_start_week))
+        """, (league_id, current_season_start))
         
         conn.commit()
         
