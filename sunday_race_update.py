@@ -731,13 +731,27 @@ IMPORTANT RULES:
         return False
 
 def run_sunday_race_updates():
-    """Run Sunday race updates for all active leagues"""
-    # Active leagues: 1 (Warriorz), 3 (PAL), 4 (Party), 7 (BellyUp), 8 (Nerds Only)
-    leagues = [1, 3, 4, 7, 8]
+    """Run Sunday race updates for all active leagues (dynamically from database)"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, display_name, channel_type FROM leagues
+            WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL)
+            ORDER BY id
+        """)
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        leagues = [(r[0], r[1], r[2] or 'sms') for r in rows]
+        logging.info(f"Found {len(leagues)} active leagues for Sunday race update: {[(l[0], l[1], l[2]) for l in leagues]}")
+    except Exception as e:
+        logging.error(f"Failed to fetch active leagues, falling back to hardcoded list: {e}")
+        leagues = [(1, 'Warriorz', 'sms'), (3, 'PAL', 'sms'), (4, 'Party', 'sms'), (7, 'BellyUp', 'sms'), (8, 'Nerds Only', 'sms')]
     
     all_success = True
-    for league_id in leagues:
-        logging.info(f"Sending Sunday race update for League {league_id}")
+    for league_id, league_name, channel_type in leagues:
+        logging.info(f"Sending Sunday race update for League {league_id} ({league_name}) [{channel_type}]")
         success = send_sunday_race_update(league_id)
         if not success:
             all_success = False
