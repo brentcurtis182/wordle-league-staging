@@ -119,6 +119,13 @@ def create_auth_tables():
         except:
             pass
         
+        # Add role column for super_admin support
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'")
+            cursor.execute("UPDATE users SET role = 'admin' WHERE id = 1 AND (role IS NULL OR role = 'user')")
+        except:
+            pass
+        
         conn.commit()
         logging.info("✅ Auth tables created successfully!")
         return True
@@ -287,7 +294,7 @@ def validate_session(session_token):
         
         # Now do the actual validation
         cursor.execute("""
-            SELECT u.id, u.email, u.first_name, u.last_name
+            SELECT u.id, u.email, u.first_name, u.last_name, u.role
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
             WHERE s.session_token = %s 
@@ -301,8 +308,9 @@ def validate_session(session_token):
             first_name = result[2] or ''
             last_name = result[3] or ''
             full_name = f"{first_name} {last_name}".strip() or result[1]  # Fall back to email
+            role = result[4] or 'user'
             logging.info(f"validate_session: Valid session for user {result[1]}")
-            return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name}
+            return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name, 'role': role}
         
         logging.warning(f"validate_session: Session exists but validation failed")
         return None

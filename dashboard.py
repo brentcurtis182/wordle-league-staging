@@ -26,9 +26,10 @@ COLORS = {
     'border': '#333',
 }
 
-def get_user_menu_html(user_name, user_email, show_dashboard_link=False):
+def get_user_menu_html(user_name, user_email, show_dashboard_link=False, user_role='user'):
     """Return the user icon dropdown menu HTML"""
     dashboard_link = f'<a href="/dashboard">Dashboard</a>' if show_dashboard_link else ''
+    admin_link = f'<a href="/admin/dashboard" style="color: {COLORS["accent_orange"]};">Admin</a>' if user_role == 'admin' else ''
     return f'''
         <div class="user-menu">
             <div class="user-menu-btn" onclick="toggleUserMenu(event)">
@@ -37,6 +38,7 @@ def get_user_menu_html(user_name, user_email, show_dashboard_link=False):
             <div class="user-dropdown" id="userDropdown">
                 <div class="user-dropdown-name">{user_email}</div>
                 {dashboard_link}
+                {admin_link}
                 <a href="/dashboard/profile">Profile</a>
                 <a href="/auth/logout" class="logout-link">Logout</a>
             </div>
@@ -957,7 +959,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
                 </div>
             </div>
             
@@ -1492,7 +1494,7 @@ def render_dashboard(user, leagues, message=None, error=None):
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    {get_user_menu_html(user['name'], user['email'])}
+                    {get_user_menu_html(user['name'], user['email'], user_role=user.get('role', 'user'))}
                 </div>
             </div>
             
@@ -1649,7 +1651,7 @@ def render_create_league(user, error=None):
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
                 </div>
             </div>
             
@@ -2008,7 +2010,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
                 </div>
                 <div class="header-nav-row">
-                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True)}
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
                 </div>
             </div>
             
@@ -3420,3 +3422,153 @@ def get_league_info(league_id):
     finally:
         cursor.close()
         conn.close()
+
+
+def render_admin_dashboard(user, leagues):
+    """Render the admin dashboard showing all leagues across all users"""
+    
+    # Build league rows
+    league_rows = ''
+    for lg in leagues:
+        # Determine active status
+        channel_type = lg.get('channel_type') or 'sms'
+        if channel_type == 'sms':
+            is_active = lg.get('conversation_sid') is not None
+        elif channel_type == 'slack':
+            is_active = lg.get('slack_channel_id') is not None
+        elif channel_type == 'discord':
+            is_active = lg.get('discord_channel_id') is not None
+        else:
+            is_active = False
+        
+        status_color = COLORS['success'] if is_active else COLORS['error']
+        status_text = 'Active' if is_active else 'Inactive'
+        
+        # Channel type badge color
+        type_colors = {'sms': '#4CAF50', 'slack': '#E01E5A', 'discord': '#5865F2'}
+        type_color = type_colors.get(channel_type, COLORS['text_muted'])
+        type_label = channel_type.upper()
+        
+        league_rows += f'''
+            <tr onclick="window.location='/admin/league/{lg['id']}'" style="cursor: pointer; transition: background 0.15s;">
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {type_color}20; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{type_label}</span></td>
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
+                <td style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
+            </tr>
+        '''
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Admin - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .admin-table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+            .admin-table th {{
+                text-align: left;
+                padding: 12px 16px;
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 2px solid {COLORS['border']};
+            }}
+            .admin-table tr:hover {{
+                background: {COLORS['bg_dark']};
+            }}
+            .stat-card {{
+                background: {COLORS['bg_card']};
+                border-radius: 10px;
+                padding: 20px;
+                border: 1px solid {COLORS['border']};
+                text-align: center;
+            }}
+            .stat-number {{
+                font-size: 2em;
+                font-weight: 700;
+                color: {COLORS['accent']};
+            }}
+            .stat-label {{
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+                margin-top: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-logo-row">
+                    <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                </div>
+                <div class="header-nav-row">
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
+                </div>
+            </div>
+            
+            <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
+            
+            <div class="card">
+                <h2 style="color: {COLORS['accent_orange']};">&#9881; Admin Dashboard</h2>
+                <p style="color: {COLORS['text_muted']};">Monitor all leagues across every account.</p>
+            </div>
+            
+            <!-- Stats Row -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div class="stat-card">
+                    <div class="stat-number">{len(leagues)}</div>
+                    <div class="stat-label">Total Leagues</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len([l for l in leagues if (l.get('conversation_sid') if (l.get('channel_type') or 'sms') == 'sms' else l.get('slack_channel_id') if (l.get('channel_type') or 'sms') == 'slack' else l.get('discord_channel_id'))])}</div>
+                    <div class="stat-label">Active</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'sms'])}</div>
+                    <div class="stat-label">SMS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'slack'])}</div>
+                    <div class="stat-label">Slack</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'discord'])}</div>
+                    <div class="stat-label">Discord</div>
+                </div>
+            </div>
+            
+            <!-- Leagues Table -->
+            <div class="card" style="padding: 0; overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>League Name</th>
+                            <th>Status</th>
+                            <th>Type</th>
+                            <th>Owner</th>
+                            <th>Players</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {league_rows if league_rows else f'<tr><td colspan="6" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <script>
+            {get_user_menu_script()}
+        </script>
+    </body>
+    </html>
+    """

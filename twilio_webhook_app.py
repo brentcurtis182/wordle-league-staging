@@ -2688,6 +2688,75 @@ def dashboard_check_status(league_id):
         logging.error(f"Error checking league status: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    """Admin dashboard - view all leagues across all users"""
+    from auth import validate_session
+    from dashboard import render_admin_dashboard
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if user.get('role') != 'admin':
+        return redirect('/dashboard')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Ensure admin role column exists and set user 1 as admin
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'")
+            cursor.execute("UPDATE users SET role = 'admin' WHERE id = 1 AND (role IS NULL OR role = 'user')")
+            conn.commit()
+        except:
+            conn.rollback()
+        
+        # Get all leagues with owner info and player count
+        cursor.execute("""
+            SELECT l.id, l.name, l.display_name, l.twilio_conversation_sid,
+                   l.channel_type, l.slack_channel_id, l.discord_channel_id,
+                   l.slug, l.created_at,
+                   u.email as owner_email,
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND (p.is_removed IS NULL OR p.is_removed = FALSE)) as player_count
+            FROM leagues l
+            LEFT JOIN user_leagues ul ON l.id = ul.league_id
+            LEFT JOIN users u ON ul.user_id = u.id
+            ORDER BY l.id ASC
+        """)
+        
+        rows = cursor.fetchall()
+        leagues = []
+        for row in rows:
+            leagues.append({
+                'id': row[0],
+                'name': row[1],
+                'display_name': row[2] or row[1],
+                'conversation_sid': row[3],
+                'channel_type': row[4] or 'sms',
+                'slack_channel_id': row[5],
+                'discord_channel_id': row[6],
+                'slug': row[7],
+                'created_at': row[8],
+                'owner_email': row[9] or 'No owner',
+                'player_count': row[10] or 0,
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return render_admin_dashboard(user, leagues)
+        
+    except Exception as e:
+        logging.error(f"Error loading admin dashboard: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return "Error loading admin dashboard", 500
+
+
 @app.route('/admin/test-daily-loser/<int:league_id>')
 def admin_test_daily_loser(league_id):
     """Test endpoint to manually trigger daily loser check"""
