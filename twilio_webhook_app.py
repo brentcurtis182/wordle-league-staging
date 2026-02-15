@@ -2757,6 +2757,118 @@ def admin_dashboard():
         return "Error loading admin dashboard", 500
 
 
+@app.route('/admin/league/<int:league_id>')
+def admin_league_detail(league_id):
+    """Admin league detail view - all info about a specific league"""
+    from auth import validate_session
+    from dashboard import render_admin_league_detail
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if user.get('role') != 'admin':
+        return redirect('/dashboard')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get full league details
+        cursor.execute("""
+            SELECT l.id, l.name, l.display_name, l.twilio_conversation_sid,
+                   l.channel_type, l.slack_channel_id, l.discord_channel_id,
+                   l.slug, l.verification_code,
+                   l.slack_team_id, l.slack_bot_token,
+                   l.ai_perfect_score_congrats, l.ai_failure_roast,
+                   l.ai_sunday_race_update, l.ai_daily_loser_roast,
+                   l.ai_message_severity
+            FROM leagues l
+            WHERE l.id = %s
+        """, (league_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            return "League not found", 404
+        
+        league = {
+            'id': row[0],
+            'name': row[1],
+            'display_name': row[2] or row[1],
+            'conversation_sid': row[3],
+            'channel_type': row[4] or 'sms',
+            'slack_channel_id': row[5],
+            'discord_channel_id': row[6],
+            'slug': row[7],
+            'verification_code': row[8],
+            'slack_team_id': row[9],
+            'slack_bot_token': row[10],
+            'ai_perfect_score': row[11],
+            'ai_failure_roast': row[12],
+            'ai_sunday_race': row[13],
+            'ai_daily_loser': row[14],
+            'ai_severity': row[15],
+        }
+        
+        # Get owner info
+        cursor.execute("""
+            SELECT u.email, u.first_name, u.last_name, ul.created_at
+            FROM user_leagues ul
+            JOIN users u ON ul.user_id = u.id
+            WHERE ul.league_id = %s
+        """, (league_id,))
+        owner_row = cursor.fetchone()
+        league['owner_email'] = owner_row[0] if owner_row else 'No owner'
+        league['owner_name'] = f"{owner_row[1] or ''} {owner_row[2] or ''}".strip() if owner_row else 'Unknown'
+        league['created_at'] = owner_row[3].strftime('%B %d, %Y') if owner_row and owner_row[3] else 'Unknown'
+        
+        # Get players
+        cursor.execute("""
+            SELECT id, name, phone_number, slack_user_id, discord_user_id, active
+            FROM players
+            WHERE league_id = %s
+            ORDER BY active DESC, name ASC
+        """, (league_id,))
+        players = []
+        for p in cursor.fetchall():
+            players.append({
+                'id': p[0],
+                'name': p[1],
+                'phone': p[2],
+                'slack_user_id': p[3],
+                'discord_user_id': p[4],
+                'active': p[5],
+            })
+        league['players'] = players
+        league['player_count'] = len([p for p in players if p['active']])
+        
+        # Determine active status
+        ct = league['channel_type']
+        if ct == 'sms':
+            league['is_active'] = league['conversation_sid'] is not None
+        elif ct == 'slack':
+            league['is_active'] = league['slack_channel_id'] is not None
+        elif ct == 'discord':
+            league['is_active'] = league['discord_channel_id'] is not None
+        else:
+            league['is_active'] = False
+        
+        cursor.close()
+        conn.close()
+        
+        return render_admin_league_detail(user, league)
+        
+    except Exception as e:
+        logging.error(f"Error loading admin league detail: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return "Error loading league detail", 500
+
+
 @app.route('/admin/test-daily-loser/<int:league_id>')
 def admin_test_daily_loser(league_id):
     """Test endpoint to manually trigger daily loser check"""

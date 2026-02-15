@@ -3572,3 +3572,229 @@ def render_admin_dashboard(user, leagues):
     </body>
     </html>
     """
+
+
+def render_admin_league_detail(user, league):
+    """Render the admin league detail view"""
+    
+    channel_type = league.get('channel_type') or 'sms'
+    is_active = league.get('is_active', False)
+    status_color = COLORS['success'] if is_active else COLORS['error']
+    status_text = 'Active' if is_active else 'Inactive'
+    
+    type_colors = {'sms': '#4CAF50', 'slack': '#E01E5A', 'discord': '#5865F2'}
+    type_color = type_colors.get(channel_type, COLORS['text_muted'])
+    
+    # Build player rows
+    player_rows = ''
+    for p in league.get('players', []):
+        active_badge = f'<span style="color: {COLORS["success"]};">Active</span>' if p['active'] else f'<span style="color: {COLORS["error"]};">Removed</span>'
+        identifier = p.get('phone') or p.get('slack_user_id') or p.get('discord_user_id') or '-'
+        player_rows += f'''
+            <tr>
+                <td style="padding: 10px 14px; border-bottom: 1px solid {COLORS['border']};">{p['name']}</td>
+                <td style="padding: 10px 14px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{identifier}</td>
+                <td style="padding: 10px 14px; border-bottom: 1px solid {COLORS['border']};">{active_badge}</td>
+            </tr>
+        '''
+    
+    # Public league URL
+    public_url = f'https://app.wordplayleague.com/leagues/{league["slug"]}' if league.get('slug') else 'No slug'
+    
+    # Recent messages link
+    recent_msgs_html = ''
+    if channel_type == 'sms' and league.get('conversation_sid'):
+        recent_msgs_html = f'''
+            <div class="detail-row">
+                <span class="detail-label">Recent Messages (SMS)</span>
+                <span class="detail-value"><a href="/recent-messages/{league['id']}" target="_blank" style="color: {COLORS['accent']};">View Last 20 Messages</a></span>
+            </div>
+        '''
+    
+    # AI settings summary
+    ai_features = []
+    if league.get('ai_perfect_score'): ai_features.append('Perfect Score Congrats')
+    if league.get('ai_failure_roast'): ai_features.append('Failure Roast')
+    if league.get('ai_sunday_race'): ai_features.append('Sunday Race Update')
+    if league.get('ai_daily_loser'): ai_features.append('Daily Loser Roast')
+    ai_summary = ', '.join(ai_features) if ai_features else 'None enabled'
+    
+    # Channel-specific detail rows
+    channel_details = ''
+    if channel_type == 'sms' and league.get('conversation_sid'):
+        channel_details = f'''
+            <div class="detail-row">
+                <span class="detail-label">Conversation SID</span>
+                <span class="detail-value" style="font-size: 0.85em;">{league.get('conversation_sid', '-')}</span>
+            </div>
+        '''
+    elif channel_type == 'slack':
+        channel_details = f'''
+            <div class="detail-row">
+                <span class="detail-label">Slack Team ID</span>
+                <span class="detail-value" style="font-size: 0.85em;">{league.get('slack_team_id', '-')}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Slack Channel ID</span>
+                <span class="detail-value" style="font-size: 0.85em;">{league.get('slack_channel_id', '-')}</span>
+            </div>
+        '''
+    elif channel_type == 'discord':
+        channel_details = f'''
+            <div class="detail-row">
+                <span class="detail-label">Discord Channel ID</span>
+                <span class="detail-value" style="font-size: 0.85em;">{league.get('discord_channel_id', '-')}</span>
+            </div>
+        '''
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Admin - {league['display_name']} - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .detail-row {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid {COLORS['border']};
+            }}
+            .detail-row:last-child {{ border-bottom: none; }}
+            .detail-label {{
+                color: {COLORS['text_muted']};
+                font-size: 0.9em;
+                min-width: 140px;
+            }}
+            .detail-value {{
+                color: {COLORS['text']};
+                font-weight: 500;
+                text-align: right;
+                word-break: break-all;
+            }}
+            .admin-table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+            .admin-table th {{
+                text-align: left;
+                padding: 10px 14px;
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 2px solid {COLORS['border']};
+            }}
+            .admin-table tr:hover {{
+                background: {COLORS['bg_dark']};
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-logo-row">
+                    <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                </div>
+                <div class="header-nav-row">
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
+                </div>
+            </div>
+            
+            <a href="/admin/dashboard" class="back-link">&larr; Back to Admin Dashboard</a>
+            
+            <!-- League Header -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="margin-bottom: 4px;">{league['display_name']}</h2>
+                        <span style="color: {COLORS['text_muted']}; font-size: 0.9em;">League #{league['id']} &middot; {league.get('name', '')}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span style="color: {status_color}; font-weight: 600; font-size: 0.95em;">{status_text}</span>
+                        <span style="background: {type_color}20; color: {type_color}; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">{channel_type.upper()}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- League Details -->
+            <div class="card">
+                <h3 style="color: {COLORS['accent']}; margin-bottom: 16px;">League Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">League ID</span>
+                    <span class="detail-value">#{league['id']}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value" style="color: {status_color};">{status_text}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Channel Type</span>
+                    <span class="detail-value">{channel_type.upper()}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Created</span>
+                    <span class="detail-value">{league.get('created_at', 'Unknown')}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Created By</span>
+                    <span class="detail-value">{league.get('owner_email', 'Unknown')}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Players</span>
+                    <span class="detail-value">{league.get('player_count', 0)} active</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Public Page</span>
+                    <span class="detail-value"><a href="{public_url}" target="_blank" style="color: {COLORS['accent']};">{public_url}</a></span>
+                </div>
+                {recent_msgs_html}
+                <div class="detail-row">
+                    <span class="detail-label">Slug</span>
+                    <span class="detail-value">{league.get('slug', '-')}</span>
+                </div>
+                {channel_details}
+            </div>
+            
+            <!-- AI Settings -->
+            <div class="card">
+                <h3 style="color: {COLORS['accent']}; margin-bottom: 16px;">AI Message Settings</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Active Features</span>
+                    <span class="detail-value">{ai_summary}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Severity Level</span>
+                    <span class="detail-value">{league.get('ai_severity', 'N/A')}</span>
+                </div>
+            </div>
+            
+            <!-- Players -->
+            <div class="card" style="padding: 0; overflow-x: auto;">
+                <div style="padding: 16px 16px 0 16px;">
+                    <h3 style="color: {COLORS['accent']}; margin-bottom: 4px;">Players ({league.get('player_count', 0)} active, {len(league.get('players', []))} total)</h3>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Identifier</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {player_rows if player_rows else f'<tr><td colspan="3" style="padding: 20px; text-align: center; color: {COLORS["text_muted"]};">No players</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <script>
+            {get_user_menu_script()}
+        </script>
+    </body>
+    </html>
+    """
