@@ -370,7 +370,7 @@ def reset_season_winners(league_id):
         # Get all season winners
         cursor.execute("""
             SELECT sw.id, sw.player_id, sw.league_id, sw.season_number, sw.wins, 
-                   sw.total_score, sw.recorded_at, p.name as player_name
+                   sw.recorded_at, p.name as player_name
             FROM season_winners sw
             JOIN players p ON sw.player_id = p.id
             WHERE sw.league_id = %s
@@ -407,9 +407,8 @@ def reset_season_winners(league_id):
                 'league_id': row[2],
                 'season_number': row[3],
                 'wins': row[4],
-                'total_score': row[5],
-                'recorded_at': row[6].isoformat() if row[6] else None,
-                'player_name': row[7]
+                'recorded_at': row[5].isoformat() if row[5] else None,
+                'player_name': row[6]
             })
         
         for sb in season_boundaries:
@@ -519,12 +518,12 @@ def revert_season_winners(league_id):
         # Restore season winners
         for sw in snapshot['season_winners']:
             cursor.execute("""
-                INSERT INTO season_winners (player_id, league_id, season_number, wins, total_score, recorded_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO season_winners (player_id, league_id, season_number, wins, recorded_at)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
             """, (
                 sw['player_id'], sw['league_id'], sw['season_number'],
-                sw['wins'], sw.get('total_score', 0),
+                sw['wins'],
                 sw['recorded_at'] if sw['recorded_at'] else datetime.now()
             ))
         

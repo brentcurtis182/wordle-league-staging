@@ -5993,6 +5993,10 @@ def screenshot_season(league_id):
 # League Reset & Revert Routes
 # =============================================================================
 
+def _safe_redirect_msg(msg):
+    """Sanitize message for use in redirect URL query params (strip newlines)"""
+    return str(msg).replace('\n', ' ').replace('\r', ' ').strip()[:200]
+
 @app.route('/dashboard/league/<int:league_id>/reset-current-season', methods=['POST'])
 def dashboard_reset_current_season(league_id):
     """Reset the current season table for a league"""
@@ -6012,7 +6016,7 @@ def dashboard_reset_current_season(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset current season: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-current-season', methods=['POST'])
@@ -6033,7 +6037,7 @@ def dashboard_revert_current_season(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert current season: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-season-winners', methods=['POST'])
@@ -6055,7 +6059,7 @@ def dashboard_reset_season_winners(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset season winners: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-season-winners', methods=['POST'])
@@ -6076,7 +6080,7 @@ def dashboard_revert_season_winners(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert season winners: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-alltime-all', methods=['POST'])
@@ -6098,7 +6102,7 @@ def dashboard_reset_alltime_all(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset all-time all: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/reset-alltime-player', methods=['POST'])
@@ -6124,7 +6128,7 @@ def dashboard_reset_alltime_player(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in reset all-time player: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-alltime-all', methods=['POST'])
@@ -6145,7 +6149,7 @@ def dashboard_revert_alltime_all(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert all-time all: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 @app.route('/dashboard/league/<int:league_id>/revert-alltime-player', methods=['POST'])
@@ -6170,7 +6174,7 @@ def dashboard_revert_alltime_player(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=❌ {msg}')
     except Exception as e:
         logging.error(f"Error in revert all-time player: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {str(e)}')
+        return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
 if __name__ == '__main__':
