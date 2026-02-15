@@ -83,8 +83,27 @@ def reset_current_season(league_id):
         current_season = season_row[0]
         season_start_week = season_row[1]
         
+        # If season_start_week is NULL, try to derive it
         if not season_start_week:
-            return False, "No season start week found."
+            # Try the seasons table first
+            cursor.execute("""
+                SELECT start_week FROM seasons
+                WHERE league_id = %s AND season_number = %s
+            """, (league_id, current_season))
+            s_row = cursor.fetchone()
+            if s_row and s_row[0]:
+                season_start_week = s_row[0]
+            else:
+                # Fall back to earliest weekly winner for this league
+                cursor.execute("""
+                    SELECT MIN(week_wordle_number) FROM weekly_winners
+                    WHERE league_id = %s
+                """, (league_id,))
+                min_row = cursor.fetchone()
+                if min_row and min_row[0]:
+                    season_start_week = min_row[0]
+                else:
+                    return False, "No season start week found and no weekly winners exist."
         
         # Get all weekly winners in the current season (these are what we'll snapshot & delete)
         cursor.execute("""
@@ -282,6 +301,10 @@ def get_season_revert_status(league_id):
             return {'can_revert': False, 'reset_at': None, 'message': None}
         
         season_start_week = season_row[1]
+        
+        # If season_start_week is NULL, use current wordle week as fallback
+        if not season_start_week:
+            season_start_week = calculate_wordle_number(get_week_start_date())
         
         # Check if there are any weekly winners in the current season (post-reset)
         cursor.execute("""
