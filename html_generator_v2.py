@@ -518,6 +518,13 @@ def generate_division_weekly_totals_html(league_data):
         div_stats = {name: stats for name, stats in weekly_stats.items() if player_divisions.get(name) == div_num}
         
         html += f'<div style="margin-bottom: 30px;">\n'
+        
+        # Only show instructions above Division I (before the title)
+        if div_num == 1:
+            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+'''
+        
         html += f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">\n'
         html += f'  <h3 style="color: {div_color}; margin: 0;">{div_label}</h3>\n'
         html += f'  <select id="score-toggle-{div_num}" onchange="toggleScoreView({div_num})" style="background: #2a2a2c; color: #d7dadc; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; font-size: 0.85em;">\n'
@@ -525,12 +532,6 @@ def generate_division_weekly_totals_html(league_data):
         html += f'    <option value="season">Season Total</option>\n'
         html += f'  </select>\n'
         html += f'</div>\n'
-        
-        # Only show instructions above Division I
-        if div_num == 1:
-            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
-'''
         html += f'''<div class="table-container" style="overflow-x: auto;">
 <table id="div-table-{div_num}">
 <thead>
@@ -613,7 +614,7 @@ def generate_division_weekly_totals_html(league_data):
         html += '</tbody>\n</table>\n</div>\n</div>\n'
     
     # Footer text (shown once after both division tables)
-    html += '''<p style="margin-top: 10px; font-size: 0.85em; color: #8a8a8a;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your best 5 scores. Additional scores appear in 'Thrown Out'</p>
+    html += '''<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your best 5 scores. Additional scores appear in 'Thrown Out'</p>
 '''
     
     # JavaScript for toggling Weekly Score / Season Total
@@ -679,8 +680,8 @@ def generate_division_season_stats_html(league_data):
                 html += '</tr>\n'
         
         html += '</tbody>\n</table>\n'
-        # Only show instruction text under Division I
-        if div_num == 1:
+        # Only show instruction text under Division II
+        if div_num == 2:
             html += f'<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, all players get a weekly win. First Player to get <strong style="color: #00E8DA;">{wins_needed} weekly wins</strong> is the Season Champ!</p>\n'
         
         # Show past division season winners
