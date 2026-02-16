@@ -1781,6 +1781,154 @@ def generate_player_revert_html(league, alltime_player_reverts):
     return html
 
 
+def _render_players_section(league, players, player_rows, channel_type, identifier_label, identifier_placeholder, identifier_empty, is_chat_platform):
+    """Render the Players section with optional Division Mode UI"""
+    division_mode = league.get('division_mode', False)
+    division_confirmed = league.get('division_confirmed_at') is not None
+    division_locked = league.get('division_locked', False)
+    league_id = league['id']
+    
+    # Division toggle onclick logic
+    if division_mode and division_locked:
+        toggle_onclick = "showDivisionLockedModal(event)"
+    elif division_mode and not division_locked:
+        toggle_onclick = "showDivisionOffModal(event)"
+    else:
+        toggle_onclick = "document.getElementById('divisionToggleForm').submit()"
+    
+    toggle_class = "division-toggle active" if division_mode else "division-toggle"
+    
+    # Reset button (only show when division mode is confirmed)
+    reset_btn = ""
+    if division_mode and division_confirmed:
+        reset_btn = f'<button type="button" class="btn btn-small" style="background: {COLORS["accent_orange"]}; color: white;" onclick="showDivisionResetModal()">Reset Season for Divisions</button>'
+    
+    # Player content: either division view or normal view
+    if division_mode:
+        player_content = _render_division_players(league, players, is_chat_platform)
+    else:
+        player_content = f'<div class="player-list">{player_rows}</div>'
+    
+    return f'''
+    <div class="card section">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <h2 style="margin: 0;">👥 Players ({len(players)})</h2>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                {reset_btn}
+                <form method="POST" action="/dashboard/league/{league_id}/division-toggle" id="divisionToggleForm" style="display: inline;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                        <span style="font-size: 0.85em; color: {COLORS['text_muted']};">Division Mode</span>
+                        <div class="{toggle_class}" onclick="{toggle_onclick}">
+                            <div class="division-toggle-knob"></div>
+                        </div>
+                    </label>
+                </form>
+            </div>
+        </div>
+        {player_content}
+    </div>
+    '''
+
+
+def _render_division_players(league, players, is_chat_platform):
+    """Render players in two division zones with drag-and-drop"""
+    league_id = league['id']
+    division_locked = league.get('division_locked', False)
+    division_confirmed = league.get('division_confirmed_at') is not None
+    
+    div1_players = [p for p in players if p.get('division') == 1]
+    div2_players = [p for p in players if p.get('division') == 2]
+    unassigned = [p for p in players if p.get('division') is None]
+    
+    def player_chip(player, draggable=True):
+        pid = player['id']
+        name = player['name']
+        immunity = player.get('division_immunity', False)
+        
+        # Immunity highlight colors
+        if immunity and player.get('division') == 1:
+            bg = f"{COLORS['accent']}30"
+            border = COLORS['accent']
+            badge = f'<span style="font-size: 0.7em; color: {COLORS["accent"]}; margin-left: 6px;">IMMUNE</span>'
+        elif immunity and player.get('division') == 2:
+            bg = f"{COLORS['accent_orange']}30"
+            border = COLORS['accent_orange']
+            badge = f'<span style="font-size: 0.7em; color: {COLORS["accent_orange"]}; margin-left: 6px;">RELEGATED</span>'
+        else:
+            bg = COLORS['bg_dark']
+            border = "transparent"
+            badge = ""
+        
+        drag_attr = 'draggable="true"' if draggable and not division_locked else ''
+        cursor = "grab" if draggable and not division_locked else "default"
+        
+        return f'''<div class="division-player" data-player-id="{pid}" {drag_attr}
+            style="background: {bg}; border: 1px solid {border}; border-radius: 8px; padding: 10px 14px; 
+            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; cursor: {cursor};"
+            ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+            <span style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</span>
+            <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">&#x2630;</span>
+        </div>'''
+    
+    div1_html = "".join(player_chip(p) for p in div1_players)
+    div2_html = "".join(player_chip(p) for p in div2_players)
+    
+    if not div1_players:
+        div1_html = f'<p style="color: {COLORS["text_muted"]}; text-align: center; padding: 20px;">Drag players here</p>'
+    if not div2_players:
+        div2_html = f'<p style="color: {COLORS["text_muted"]}; text-align: center; padding: 20px;">Drag players here</p>'
+    
+    # Locked message
+    locked_msg = ""
+    if division_locked:
+        locked_msg = f'''<div style="background: {COLORS['bg_dark']}; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid {COLORS['accent_orange']};">
+            <p style="margin: 0; color: {COLORS['text_muted']}; font-size: 0.85em;">
+                Divisions are locked. A week has been completed. Use <strong>Reset Season for Divisions</strong> to rearrange players (all weekly wins will be erased).
+            </p>
+        </div>'''
+    
+    # Confirm button (only show before confirmation)
+    confirm_btn = ""
+    if not division_confirmed:
+        confirm_btn = f'''<div style="margin-top: 16px; text-align: center;">
+            <button type="button" class="btn btn-primary" onclick="showDivisionConfirmModal()" style="padding: 10px 24px;">
+                Confirm Division Mode
+            </button>
+        </div>'''
+    
+    return f'''
+    {locked_msg}
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Division I -->
+        <div class="division-zone" id="division-1" data-division="1"
+            ondragover="dragOver(event)" ondrop="dropPlayer(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)"
+            style="border: 2px dashed {COLORS['accent']}50; border-radius: 10px; padding: 12px; min-height: 80px; transition: border-color 0.2s, background 0.2s;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <span style="font-weight: 700; color: {COLORS['accent']}; font-size: 0.95em;">DIVISION I</span>
+                <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">({len(div1_players)} players)</span>
+            </div>
+            <div class="division-player-list" id="div1-players">
+                {div1_html}
+            </div>
+        </div>
+        
+        <!-- Division II -->
+        <div class="division-zone" id="division-2" data-division="2"
+            ondragover="dragOver(event)" ondrop="dropPlayer(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)"
+            style="border: 2px dashed {COLORS['accent_orange']}50; border-radius: 10px; padding: 12px; min-height: 80px; transition: border-color 0.2s, background 0.2s;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <span style="font-weight: 700; color: {COLORS['accent_orange']}; font-size: 0.95em;">DIVISION II</span>
+                <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">({len(div2_players)} players)</span>
+            </div>
+            <div class="division-player-list" id="div2-players">
+                {div2_html}
+            </div>
+        </div>
+    </div>
+    {confirm_btn}
+    '''
+
+
 def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None):
     """Render the league management page"""
     
@@ -1989,6 +2137,43 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 gap: 10px;
             }}
             
+            /* Division Mode styles */
+            .division-toggle {{
+                width: 44px;
+                height: 24px;
+                background: #555;
+                border-radius: 12px;
+                position: relative;
+                cursor: pointer;
+                transition: background 0.3s;
+            }}
+            .division-toggle.active {{
+                background: {COLORS['accent']};
+            }}
+            .division-toggle-knob {{
+                width: 20px;
+                height: 20px;
+                background: white;
+                border-radius: 50%;
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                transition: transform 0.3s;
+            }}
+            .division-toggle.active .division-toggle-knob {{
+                transform: translateX(20px);
+            }}
+            .division-zone.drag-over {{
+                border-color: {COLORS['accent']} !important;
+                background: {COLORS['accent']}10 !important;
+            }}
+            .division-player {{
+                touch-action: none;
+            }}
+            .division-player.dragging {{
+                opacity: 0.4;
+            }}
+            
             /* Modal styles */
             .modal-overlay {{
                 display: none;
@@ -2118,12 +2303,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             </div>
             
             <!-- Players Section -->
-            <div class="card section">
-                <h2>👥 Players ({len(players)})</h2>
-                <div class="player-list">
-                    {player_rows}
-                </div>
-            </div>
+            {_render_players_section(league, players, player_rows, channel_type, identifier_label, identifier_placeholder, identifier_empty, is_chat_platform)}
             
             <!-- Add Player Section -->
             <div class="card section">
@@ -3538,6 +3718,233 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             document.getElementById('aiSettingsModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeAISettingsModal();
             }});
+            
+            // ============================================================
+            // Division Mode: Drag and Drop
+            // ============================================================
+            let draggedPlayer = null;
+            
+            function dragStart(e) {{
+                draggedPlayer = e.target.closest('.division-player');
+                if (draggedPlayer) {{
+                    draggedPlayer.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', draggedPlayer.dataset.playerId);
+                }}
+            }}
+            
+            function dragEnd(e) {{
+                if (draggedPlayer) {{
+                    draggedPlayer.classList.remove('dragging');
+                    draggedPlayer = null;
+                }}
+                document.querySelectorAll('.division-zone').forEach(z => z.classList.remove('drag-over'));
+            }}
+            
+            function dragOver(e) {{
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }}
+            
+            function dragEnter(e) {{
+                e.preventDefault();
+                const zone = e.target.closest('.division-zone');
+                if (zone) zone.classList.add('drag-over');
+            }}
+            
+            function dragLeave(e) {{
+                const zone = e.target.closest('.division-zone');
+                if (zone && !zone.contains(e.relatedTarget)) {{
+                    zone.classList.remove('drag-over');
+                }}
+            }}
+            
+            function dropPlayer(e) {{
+                e.preventDefault();
+                const zone = e.target.closest('.division-zone');
+                if (!zone || !draggedPlayer) return;
+                
+                zone.classList.remove('drag-over');
+                const division = parseInt(zone.dataset.division);
+                const playerId = draggedPlayer.dataset.playerId;
+                
+                // Move the DOM element
+                const playerList = zone.querySelector('.division-player-list');
+                // Remove placeholder text if present
+                const placeholder = playerList.querySelector('p');
+                if (placeholder) placeholder.remove();
+                playerList.appendChild(draggedPlayer);
+                
+                // Update counts
+                updateDivisionCounts();
+                
+                // Save to server
+                fetch('/dashboard/league/{league['id']}/division-assign', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ player_id: parseInt(playerId), division: division }})
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (!data.success) {{
+                        showToast('Error: ' + (data.error || 'Failed to move player'));
+                        location.reload();
+                    }}
+                }})
+                .catch(err => {{
+                    showToast('Error moving player');
+                    location.reload();
+                }});
+            }}
+            
+            function updateDivisionCounts() {{
+                const div1 = document.querySelectorAll('#div1-players .division-player').length;
+                const div2 = document.querySelectorAll('#div2-players .division-player').length;
+                const div1Label = document.querySelector('#division-1 span:last-child');
+                const div2Label = document.querySelector('#division-2 span:last-child');
+                if (div1Label) div1Label.textContent = '(' + div1 + ' players)';
+                if (div2Label) div2Label.textContent = '(' + div2 + ' players)';
+            }}
+            
+            // Touch support for mobile drag-and-drop
+            (function() {{
+                let touchPlayer = null;
+                let touchClone = null;
+                let touchOffsetX = 0;
+                let touchOffsetY = 0;
+                
+                document.addEventListener('touchstart', function(e) {{
+                    const player = e.target.closest('.division-player[draggable]');
+                    if (!player) return;
+                    
+                    touchPlayer = player;
+                    const rect = player.getBoundingClientRect();
+                    touchOffsetX = e.touches[0].clientX - rect.left;
+                    touchOffsetY = e.touches[0].clientY - rect.top;
+                    
+                    // Create visual clone
+                    touchClone = player.cloneNode(true);
+                    touchClone.style.position = 'fixed';
+                    touchClone.style.zIndex = '9999';
+                    touchClone.style.width = rect.width + 'px';
+                    touchClone.style.opacity = '0.8';
+                    touchClone.style.pointerEvents = 'none';
+                    document.body.appendChild(touchClone);
+                    
+                    player.classList.add('dragging');
+                }}, {{ passive: true }});
+                
+                document.addEventListener('touchmove', function(e) {{
+                    if (!touchClone) return;
+                    e.preventDefault();
+                    
+                    const x = e.touches[0].clientX - touchOffsetX;
+                    const y = e.touches[0].clientY - touchOffsetY;
+                    touchClone.style.left = x + 'px';
+                    touchClone.style.top = y + 'px';
+                    
+                    // Highlight drop zone
+                    document.querySelectorAll('.division-zone').forEach(zone => {{
+                        const r = zone.getBoundingClientRect();
+                        if (e.touches[0].clientX >= r.left && e.touches[0].clientX <= r.right &&
+                            e.touches[0].clientY >= r.top && e.touches[0].clientY <= r.bottom) {{
+                            zone.classList.add('drag-over');
+                        }} else {{
+                            zone.classList.remove('drag-over');
+                        }}
+                    }});
+                }}, {{ passive: false }});
+                
+                document.addEventListener('touchend', function(e) {{
+                    if (!touchPlayer || !touchClone) return;
+                    
+                    // Find drop target
+                    const touch = e.changedTouches[0];
+                    document.querySelectorAll('.division-zone').forEach(zone => {{
+                        const r = zone.getBoundingClientRect();
+                        if (touch.clientX >= r.left && touch.clientX <= r.right &&
+                            touch.clientY >= r.top && touch.clientY <= r.bottom) {{
+                            // Drop here
+                            const division = parseInt(zone.dataset.division);
+                            const playerId = touchPlayer.dataset.playerId;
+                            const playerList = zone.querySelector('.division-player-list');
+                            const placeholder = playerList.querySelector('p');
+                            if (placeholder) placeholder.remove();
+                            playerList.appendChild(touchPlayer);
+                            updateDivisionCounts();
+                            
+                            fetch('/dashboard/league/{league['id']}/division-assign', {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/json' }},
+                                body: JSON.stringify({{ player_id: parseInt(playerId), division: division }})
+                            }})
+                            .then(r => r.json())
+                            .then(data => {{
+                                if (!data.success) {{
+                                    showToast('Error: ' + (data.error || 'Failed'));
+                                    location.reload();
+                                }}
+                            }});
+                        }}
+                        zone.classList.remove('drag-over');
+                    }});
+                    
+                    touchPlayer.classList.remove('dragging');
+                    touchClone.remove();
+                    touchPlayer = null;
+                    touchClone = null;
+                }});
+            }})();
+            
+            // ============================================================
+            // Division Mode: Modals
+            // ============================================================
+            function showDivisionConfirmModal() {{
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Confirm Division Mode';
+                document.getElementById('resetModalText').textContent = 
+                    'Once a week has completed, you cannot undo Division Mode without resetting the season for everyone. ' +
+                    'If you turn Division Mode off prior to a week completing, it will revert back to its current state (current weekly winners will remain).';
+                pendingResetForm = null;
+                pendingResetAction = '/dashboard/league/{league['id']}/division-confirm';
+                modal.classList.add('active');
+            }}
+            
+            function showDivisionOffModal(event) {{
+                if (event) event.preventDefault();
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Turn Off Division Mode?';
+                document.getElementById('resetModalText').textContent = 
+                    'This will disable Division Mode and restore players to a single league. Current weekly winners will remain.';
+                pendingResetForm = document.getElementById('divisionToggleForm');
+                pendingResetAction = null;
+                modal.classList.add('active');
+            }}
+            
+            function showDivisionLockedModal(event) {{
+                if (event) event.preventDefault();
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Division Mode is Locked';
+                document.getElementById('resetModalText').textContent = 
+                    'Divisions have already completed a week. You cannot turn off Division Mode without resetting. ' +
+                    'Use "Reset Season for Divisions" to start fresh and rearrange players.';
+                pendingResetForm = null;
+                pendingResetAction = null;
+                // Override confirm to just close
+                modal.classList.add('active');
+            }}
+            
+            function showDivisionResetModal() {{
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Reset Season for Divisions?';
+                document.getElementById('resetModalText').textContent = 
+                    'This will reset any weekly wins this season, and players will start fresh at 0. ' +
+                    'Turning Division Mode off prior to a week completing will return the weekly wins back to the appropriate players in the main league. ' +
+                    'You will be able to rearrange players between divisions after this reset.';
+                pendingResetForm = null;
+                pendingResetAction = '/dashboard/league/{league['id']}/division-reset';
+                modal.classList.add('active');
+            }}
         </script>
     </body>
     </html>
@@ -3552,7 +3959,8 @@ def get_league_players(league_id):
     try:
         cursor.execute("""
             SELECT id, name, phone_number, COALESCE(pending_activation, FALSE),
-                   slack_user_id, discord_user_id
+                   slack_user_id, discord_user_id,
+                   division, division_immunity, division_joined_week
             FROM players
             WHERE league_id = %s AND active = TRUE
             ORDER BY name
@@ -3566,7 +3974,10 @@ def get_league_players(league_id):
                 'phone': row[2],
                 'pending_activation': row[3],
                 'slack_user_id': row[4],
-                'discord_user_id': row[5]
+                'discord_user_id': row[5],
+                'division': row[6],
+                'division_immunity': row[7] or False,
+                'division_joined_week': row[8]
             })
         return players
     finally:
@@ -3623,7 +4034,8 @@ def get_league_info(league_id):
                    ai_message_severity,
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
                    slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
-                   slack_bot_token, slack_team_id, ai_monday_recap
+                   slack_bot_token, slack_team_id, ai_monday_recap,
+                   division_mode, division_confirmed_at, division_locked
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -3651,6 +4063,9 @@ def get_league_info(league_id):
                 'slack_bot_token': row[17],
                 'slack_team_id': row[18],
                 'ai_monday_recap': row[19] if row[19] is not None else True,
+                'division_mode': row[20] or False,
+                'division_confirmed_at': row[21],
+                'division_locked': row[22] or False,
                 'channel_name': None
             }
             

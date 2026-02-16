@@ -497,11 +497,258 @@ def generate_season_stats_html(league_data):
     
     return html
 
+def generate_division_weekly_totals_html(league_data):
+    """Generate Weekly Totals tab with two division tables and a Weekly Score / Season Total dropdown."""
+    division_data = league_data.get('division_data', {})
+    player_divisions = league_data.get('player_divisions', {})
+    week_wordles = league_data['week_wordles']
+    weekly_stats = league_data['weekly_stats']
+    
+    html = ''
+    
+    for div_num in (1, 2):
+        div_info = division_data.get(div_num, {})
+        div_label = "DIVISION I" if div_num == 1 else "DIVISION II"
+        div_color = "#00E8DA" if div_num == 1 else "#FFA64D"
+        season_totals = div_info.get('season_totals', {})
+        div_players_list = div_info.get('players', [])
+        div_player_names = {p['name'] for p in div_players_list}
+        
+        # Filter weekly_stats to only this division's players
+        div_stats = {name: stats for name, stats in weekly_stats.items() if player_divisions.get(name) == div_num}
+        
+        html += f'<div style="margin-bottom: 30px;">\n'
+        html += f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">\n'
+        html += f'  <h3 style="color: {div_color}; margin: 0;">{div_label}</h3>\n'
+        html += f'  <select id="score-toggle-{div_num}" onchange="toggleScoreView({div_num})" style="background: #2a2a2c; color: #d7dadc; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; font-size: 0.85em;">\n'
+        html += f'    <option value="weekly">Weekly Score</option>\n'
+        html += f'    <option value="season">Season Total</option>\n'
+        html += f'  </select>\n'
+        html += f'</div>\n'
+        
+        html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+<div class="table-container" style="overflow-x: auto;">
+<table id="div-table-{div_num}">
+<thead>
+<tr>
+    <th class="sticky-column">Player</th>
+    <th class="score-col-weekly-{div_num}">Weekly Score</th>
+    <th class="score-col-season-{div_num}" style="display:none;">Season Total</th>
+    <th>Used Scores</th>
+    <th>Failed</th>
+    <th>Thrown Out</th>
+'''
+        for wordle_num in week_wordles:
+            day_name = get_day_name(wordle_num)
+            html += f'    <th>{day_name}</th>\n'
+        
+        html += '</tr>\n</thead>\n<tbody>\n'
+        
+        # Sort players
+        sorted_players = sorted(
+            div_stats.items(),
+            key=lambda x: (
+                x[1]['used_scores'] < 5,
+                -x[1]['used_scores'] if x[1]['used_scores'] < 5 else 0,
+                x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999,
+                -x[1]['games_played']
+            )
+        )
+        
+        for player_name, stats in sorted_players:
+            row_style = ''
+            if stats['used_scores'] >= 5:
+                row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"' if div_num == 1 else ' style="background-color: rgba(255, 166, 77, 0.15);"'
+            
+            # Check immunity for season total display
+            st_val = season_totals.get(player_name)
+            season_total_display = "Immune" if st_val is None else str(st_val) if st_val else "-"
+            
+            html += f'<tr{row_style}>\n'
+            html += f'    <td class="sticky-column"><strong>{player_name}</strong></td>\n'
+            
+            weekly_display = str(stats["best_5_total"]) if stats["used_scores"] > 0 else "-"
+            html += f'    <td class="score-col-weekly-{div_num}" style="font-weight: bold;">{weekly_display}</td>\n'
+            html += f'    <td class="score-col-season-{div_num}" style="display:none; font-weight: bold;">{season_total_display}</td>\n'
+            html += f'    <td>{stats["used_scores"]}</td>\n'
+            
+            if stats["failed_attempts"] > 0:
+                html += f'    <td style="color: #ff5c5c; font-weight: bold;">{stats["failed_attempts"]}</td>\n'
+            else:
+                html += f'    <td>-</td>\n'
+            
+            if stats["thrown_out"] and len(stats["thrown_out"]) > 0:
+                thrown_out_display = ', '.join(str(s) for s in stats["thrown_out"])
+                html += f'    <td>{thrown_out_display}</td>\n'
+            else:
+                html += f'    <td>-</td>\n'
+            
+            for wordle_num in week_wordles:
+                if wordle_num in stats['daily_scores']:
+                    score = stats['daily_scores'][wordle_num]['score']
+                    html += generate_score_cell(score)
+                else:
+                    html += '<td>-</td>\n'
+            
+            html += '</tr>\n'
+        
+        # Include division players with no scores this week
+        for p in div_players_list:
+            if p['name'] not in div_stats:
+                st_val = season_totals.get(p['name'])
+                season_total_display = "Immune" if st_val is None else str(st_val) if st_val else "-"
+                html += f'<tr>\n'
+                html += f'    <td class="sticky-column"><strong>{p["name"]}</strong></td>\n'
+                html += f'    <td class="score-col-weekly-{div_num}">-</td>\n'
+                html += f'    <td class="score-col-season-{div_num}" style="display:none;">{season_total_display}</td>\n'
+                html += f'    <td>0</td><td>-</td><td>-</td>\n'
+                for _ in week_wordles:
+                    html += '<td>-</td>\n'
+                html += '</tr>\n'
+        
+        html += '</tbody>\n</table>\n</div>\n</div>\n'
+    
+    # JavaScript for toggling Weekly Score / Season Total
+    html += '''<script>
+function toggleScoreView(divNum) {
+    var sel = document.getElementById('score-toggle-' + divNum);
+    var mode = sel.value;
+    var weeklyCols = document.querySelectorAll('.score-col-weekly-' + divNum);
+    var seasonCols = document.querySelectorAll('.score-col-season-' + divNum);
+    if (mode === 'season') {
+        weeklyCols.forEach(function(el) { el.style.display = 'none'; });
+        seasonCols.forEach(function(el) { el.style.display = ''; });
+    } else {
+        weeklyCols.forEach(function(el) { el.style.display = ''; });
+        seasonCols.forEach(function(el) { el.style.display = 'none'; });
+    }
+}
+</script>
+'''
+    
+    return html
+
+
+def generate_division_season_stats_html(league_data):
+    """Generate Season / All-Time Stats tab with two division tables."""
+    division_data = league_data.get('division_data', {})
+    
+    html = ''
+    
+    for div_num in (1, 2):
+        div_info = division_data.get(div_num, {})
+        div_label = "Division I" if div_num == 1 else "Division II"
+        div_color = "#00E8DA" if div_num == 1 else "#FFA64D"
+        current_season = div_info.get('current_season', 1)
+        season_standings = div_info.get('season_standings', {})
+        season_winners = div_info.get('season_winners', [])
+        past_season_breakdowns = div_info.get('past_season_breakdowns', {})
+        wins_needed = div_info.get('wins_needed', 3)
+        
+        html += f'<div class="season-container" style="margin-bottom: 30px;">\n'
+        html += f'<h3 style="margin-bottom: 10px; color: {div_color};">{div_label} - Season {current_season}</h3>\n'
+        html += '<table class="season-table">\n'
+        html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
+        html += '<tbody>\n'
+        
+        if season_standings:
+            def sort_key(item):
+                player_name, data = item
+                last_win_wordle = data['weeks'][-1] if data['weeks'] else 9999
+                return (-data['wins'], last_win_wordle)
+            
+            sorted_standings = sorted(season_standings.items(), key=sort_key)
+            for player_name, data in sorted_standings:
+                wins = data['wins']
+                weeks_display = '<br>'.join([f"{wordle_to_date_string(w)} ({s})" for w, s in zip(data['weeks'], data['scores'])])
+                row_style = ''
+                if wins >= wins_needed:
+                    row_style = f' style="background-color: rgba({0 if div_num == 1 else 255}, {232 if div_num == 1 else 166}, {218 if div_num == 1 else 77}, 0.15);"'
+                html += f'<tr{row_style}>\n'
+                html += f'    <td><strong>{player_name}</strong></td>\n'
+                html += f'    <td>{wins}</td>\n'
+                html += f'    <td style="white-space: nowrap;">{weeks_display if weeks_display else "-"}</td>\n'
+                html += '</tr>\n'
+        
+        html += '</tbody>\n</table>\n'
+        html += f'<p style="margin-top: 5px; font-size: 14px; font-style: italic; background: {div_color}20; padding: 8px; border-radius: 6px;">If players are tied at the end of the week, all players get a weekly win. First Player to get <strong>{wins_needed} weekly wins</strong> is the {div_label} Season Champ!</p>\n'
+        
+        # Show past division season winners
+        modals_html = ''
+        if season_winners:
+            seasons_dict = {}
+            for winner in season_winners:
+                sn = winner.get('season', 0)
+                wn = winner.get('name', 'Unknown')
+                if sn not in seasons_dict:
+                    seasons_dict[sn] = []
+                seasons_dict[sn].append(wn)
+            
+            sorted_season_nums = sorted(seasons_dict.keys(), reverse=True)
+            for season_num in sorted_season_nums[:2]:
+                winners = seasons_dict[season_num]
+                winner_text = _build_season_winner_text(season_num, winners)
+                # Prefix with division label
+                display_text = f"{div_label} {winner_text}"
+                has_breakdown = season_num in past_season_breakdowns
+                
+                if has_breakdown:
+                    modal_id = f'div{div_num}-season-modal-{season_num}'
+                    html += f'<p class="season-winner-message" style="color: {div_color}; font-weight: bold; margin-top: 10px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{display_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                    # Generate modal with div-specific ID
+                    rows_html = _build_breakdown_rows(past_season_breakdowns[season_num])
+                    modals_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:{div_color}; margin:0;">{div_label} Season {season_num}</h3>
+      <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+  </div>
+</div>
+'''
+                else:
+                    html += f'<p class="season-winner-message" style="color: {div_color}; font-weight: bold; margin-top: 10px;">{display_text}</p>\n'
+        
+        html += '</div>\n'
+        html += modals_html
+    
+    # All-Time Stats (unchanged - shows all players regardless of division)
+    html += '<div class="all-time-container">\n'
+    html += '<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>\n'
+    html += '<table>\n'
+    html += '<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>\n'
+    html += '<tbody>\n'
+    
+    for i, stats in enumerate(league_data['all_time_stats']):
+        has_scores = stats["games_played"] > 0
+        row_class = ' class="highlight" style="background-color: rgba(0, 232, 218, 0.15);"' if i == 0 and has_scores else ''
+        html += f'<tr{row_class}>\n'
+        html += f'    <td><strong>{stats["name"]}</strong></td>\n'
+        html += f'    <td>{stats["games_played"] if has_scores else "-"}</td>\n'
+        avg_display = f'{stats["avg_score"]:.2f}' if has_scores else "-"
+        html += f'    <td>{avg_display}</td>\n'
+        html += '</tr>\n'
+    
+    html += '</tbody>\n</table>\n</div>\n'
+    
+    return html
+
+
 def generate_full_html(league_data, league_name="League 6 Beta"):
     """Generate complete HTML page"""
     latest_html = generate_latest_scores_html(league_data)
-    weekly_html = generate_weekly_totals_html(league_data)
-    stats_html = generate_season_stats_html(league_data)
+    
+    if league_data.get('division_mode'):
+        weekly_html = generate_division_weekly_totals_html(league_data)
+        stats_html = generate_division_season_stats_html(league_data)
+    else:
+        weekly_html = generate_weekly_totals_html(league_data)
+        stats_html = generate_season_stats_html(league_data)
     
     html = f'''<!DOCTYPE html>
 <html lang="en">

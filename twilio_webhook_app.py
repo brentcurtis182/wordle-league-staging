@@ -6219,6 +6219,109 @@ def dashboard_revert_alltime_player(league_id):
         return redirect(f'/dashboard/league/{league_id}?error=❌ Error: {_safe_redirect_msg(e)}')
 
 
+# ============================================================
+# Division Mode Routes
+# ============================================================
+
+@app.route('/dashboard/league/<int:league_id>/division-toggle', methods=['POST'])
+def dashboard_division_toggle(league_id):
+    """Toggle division mode on or off"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard')
+    
+    try:
+        from division_manager import toggle_division_mode, get_division_status
+        status = get_division_status(league_id)
+        enable = not (status and status['division_mode'])
+        
+        result = toggle_division_mode(league_id, enable)
+        if result['success']:
+            if enable:
+                return redirect(f'/dashboard/league/{league_id}?message=Division Mode enabled! Drag players to arrange divisions, then confirm.')
+            else:
+                return redirect(f'/dashboard/league/{league_id}?message=Division Mode disabled. Players restored to single league.')
+        else:
+            return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(result["error"])}')
+    except Exception as e:
+        logging.error(f"Error toggling division mode: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(e)}')
+
+
+@app.route('/dashboard/league/<int:league_id>/division-assign', methods=['POST'])
+def dashboard_division_assign(league_id):
+    """Assign a player to a division (AJAX endpoint)"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Not authorized'}), 403
+    
+    try:
+        from division_manager import assign_player_division
+        data = request.get_json() or request.form
+        player_id = int(data.get('player_id', 0))
+        division = int(data.get('division', 0))
+        
+        result = assign_player_division(league_id, player_id, division)
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error assigning division: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/dashboard/league/<int:league_id>/division-confirm', methods=['POST'])
+def dashboard_division_confirm(league_id):
+    """Confirm division mode setup"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard')
+    
+    try:
+        from division_manager import confirm_division_mode
+        result = confirm_division_mode(league_id)
+        if result['success']:
+            return redirect(f'/dashboard/league/{league_id}?message=Division Mode confirmed! Div I: {result["division_1_count"]} players, Div II: {result["division_2_count"]} players.')
+        else:
+            return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(result["error"])}')
+    except Exception as e:
+        logging.error(f"Error confirming division mode: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(e)}')
+
+
+@app.route('/dashboard/league/<int:league_id>/division-reset', methods=['POST'])
+def dashboard_division_reset(league_id):
+    """Reset seasons for divisions"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+    if not can_manage_league(user['id'], league_id):
+        return redirect('/dashboard')
+    
+    try:
+        from division_manager import reset_division_seasons
+        result = reset_division_seasons(league_id)
+        if result['success']:
+            return redirect(f'/dashboard/league/{league_id}?message=Division seasons reset! Both divisions start fresh at Season 1. You can rearrange players now.')
+        else:
+            return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(result["error"])}')
+    except Exception as e:
+        logging.error(f"Error resetting division seasons: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(e)}')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

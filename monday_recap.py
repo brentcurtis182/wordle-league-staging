@@ -66,13 +66,27 @@ def get_last_week_results(league_id):
     cursor = conn.cursor()
     
     try:
+        # Check if league is in division mode
+        cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+        div_row = cursor.fetchone()
+        is_division_mode = div_row and div_row[0]
+        
         # Get last week's winner(s) from weekly_winners table
-        cursor.execute("""
-            SELECT player_name, score
-            FROM weekly_winners
-            WHERE league_id = %s AND week_wordle_number = %s
-            ORDER BY score ASC
-        """, (league_id, last_week_start_wordle))
+        if is_division_mode:
+            # Fetch winners per division
+            cursor.execute("""
+                SELECT player_name, score, division
+                FROM weekly_winners
+                WHERE league_id = %s AND week_wordle_number = %s AND division IS NOT NULL
+                ORDER BY division, score ASC
+            """, (league_id, last_week_start_wordle))
+        else:
+            cursor.execute("""
+                SELECT player_name, score
+                FROM weekly_winners
+                WHERE league_id = %s AND week_wordle_number = %s
+                ORDER BY score ASC
+            """, (league_id, last_week_start_wordle))
         
         winners = cursor.fetchall()
         
@@ -80,8 +94,20 @@ def get_last_week_results(league_id):
             logging.info(f"No winners found for league {league_id} week {last_week_start_wordle}")
             return None
         
-        winner_names = [w[0] for w in winners]
-        winner_score = winners[0][1]
+        # Build division winners info if applicable
+        division_winners = None
+        if is_division_mode:
+            division_winners = {1: [], 2: []}
+            for row in winners:
+                div_num = row[2]
+                if div_num in division_winners:
+                    division_winners[div_num].append({'name': row[0], 'score': row[1]})
+            # Flatten for backward compat
+            winner_names = [w[0] for w in winners]
+            winner_score = winners[0][1]
+        else:
+            winner_names = [w[0] for w in winners]
+            winner_score = winners[0][1]
         
         # Get all player scores for last week for fun stats
         cursor.execute("""
@@ -230,6 +256,8 @@ def get_last_week_results(league_id):
             'league_slug': league_slug,
             'week_start': last_monday,
             'week_end': last_sunday,
+            'division_mode': is_division_mode,
+            'division_winners': division_winners,
         }
         
     except Exception as e:
@@ -261,12 +289,26 @@ def send_monday_recap(league_id):
         # Build the scenario text for the AI
         scenario_parts = []
         
-        # Winner announcement
-        if results['is_tie']:
-            winner_list = " and ".join(results['winner_names'])
-            scenario_parts.append(f"WEEKLY WINNER: {winner_list} TIED with a best-5 total of {results['winner_score']}! They share the win.")
+        # Division-aware winner announcement
+        if results.get('division_mode') and results.get('division_winners'):
+            div_winners = results['division_winners']
+            for div_num in (1, 2):
+                div_label = "Division I" if div_num == 1 else "Division II"
+                dw = div_winners.get(div_num, [])
+                if not dw:
+                    continue
+                if len(dw) > 1:
+                    names = " and ".join([w['name'] for w in dw])
+                    scenario_parts.append(f"{div_label} WINNER: {names} TIED with a best-5 total of {dw[0]['score']}!")
+                else:
+                    scenario_parts.append(f"{div_label} WINNER: {dw[0]['name']} won with a best-5 total of {dw[0]['score']}!")
         else:
-            scenario_parts.append(f"WEEKLY WINNER: {results['winner_names'][0]} won the week with a best-5 total of {results['winner_score']}!")
+            # Normal mode winner announcement
+            if results['is_tie']:
+                winner_list = " and ".join(results['winner_names'])
+                scenario_parts.append(f"WEEKLY WINNER: {winner_list} TIED with a best-5 total of {results['winner_score']}! They share the win.")
+            else:
+                scenario_parts.append(f"WEEKLY WINNER: {results['winner_names'][0]} won the week with a best-5 total of {results['winner_score']}!")
         
         # Season clinch - THIS IS THE BIG ONE
         if results['season_just_clinched']:
@@ -305,15 +347,16 @@ def send_monday_recap(league_id):
         logging.info(f"League {league_id} Monday recap scenario: {scenario_text}")
         
         # Build the prompt
+        is_div = results.get('division_mode', False)
+        
         if results['season_just_clinched']:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} THE SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the season champion! Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
+        elif is_div:
+            prompt = f"It's Monday morning! Here's last week's Wordle league recap (this league has DIVISIONS): {scenario_text} Announce each division's winner! Mention any notable stats. Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
         else:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+        system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
 1. Announce the weekly WINNER prominently - this is the main event!
@@ -323,10 +366,20 @@ IMPORTANT RULES:
 5. Use emojis for excitement
 6. Don't invent stats or names - only use what's provided
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
-8. If it's a tie, celebrate both/all winners equally"""},
+8. If it's a tie, celebrate both/all winners equally"""
+        
+        if is_div:
+            system_msg += """
+9. This league has DIVISIONS (Division I and Division II). Announce each division's winner separately.
+10. Division seasons require 3 wins (not 4). If a Division II player wins their division season, they get PROMOTED to Division I!"""
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=250,
+            max_tokens=300 if is_div else 250,
             temperature=0.7
         )
         

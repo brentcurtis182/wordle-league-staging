@@ -307,6 +307,32 @@ def get_complete_league_data(league_id):
     # Get season data (will be populated by season_management module)
     season_data = get_season_data(league_id)
     
+    # Check if league is in division mode
+    div_conn = get_db_connection()
+    div_cursor = div_conn.cursor()
+    div_cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+    div_result = div_cursor.fetchone()
+    is_division_mode = div_result and div_result[0]
+    div_cursor.close()
+    div_conn.close()
+    
+    division_data = None
+    if is_division_mode:
+        division_data = get_division_season_data(league_id)
+    
+    # Get player division assignments for weekly stats filtering
+    player_divisions = {}
+    if is_division_mode:
+        pd_conn = get_db_connection()
+        pd_cursor = pd_conn.cursor()
+        pd_cursor.execute("""
+            SELECT name, division FROM players
+            WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+        """, (league_id,))
+        player_divisions = {row[0]: row[1] for row in pd_cursor.fetchall()}
+        pd_cursor.close()
+        pd_conn.close()
+    
     return {
         'league_id': league_id,
         'today_wordle': today_wordle,
@@ -316,6 +342,9 @@ def get_complete_league_data(league_id):
         'weekly_winner': weekly_winner,
         'all_time_stats': all_time_stats,
         'season_data': season_data,
+        'division_mode': is_division_mode,
+        'division_data': division_data,
+        'player_divisions': player_divisions,
         'timestamp': datetime.now()
     }
 
@@ -475,6 +504,180 @@ def get_season_data(league_id):
         'season_winners': season_winners,
         'past_season_breakdowns': past_season_breakdowns
     }
+
+def get_division_season_data(league_id):
+    """Get division-specific season data for a league in division mode.
+    Returns data for both divisions including standings, winners, and breakdowns."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    DIVISION_WINS = 3  # Wins needed for division season
+    
+    division_data = {}
+    
+    for div_num in (1, 2):
+        # Get current division season
+        cursor.execute("""
+            SELECT current_season, season_start_week
+            FROM division_seasons
+            WHERE league_id = %s AND division = %s
+        """, (league_id, div_num))
+        
+        ds_result = cursor.fetchone()
+        current_season = ds_result[0] if ds_result else 1
+        season_start_week = ds_result[1] if ds_result else None
+        
+        # Get season boundaries
+        cursor.execute("""
+            SELECT start_week, end_week
+            FROM division_season_boundaries
+            WHERE league_id = %s AND division = %s AND season_number = %s
+        """, (league_id, div_num, current_season))
+        
+        bounds = cursor.fetchone()
+        season_start = bounds[0] if bounds else season_start_week
+        season_end = bounds[1] if bounds else None
+        
+        # Get current season standings
+        season_standings = {}
+        if season_start and season_end:
+            cursor.execute("""
+                SELECT ww.player_name, ww.week_wordle_number, ww.score
+                FROM weekly_winners ww
+                WHERE ww.league_id = %s AND ww.division = %s
+                  AND ww.week_wordle_number >= %s AND ww.week_wordle_number <= %s
+                ORDER BY ww.player_name, ww.week_wordle_number
+            """, (league_id, div_num, season_start, season_end))
+        elif season_start:
+            cursor.execute("""
+                SELECT ww.player_name, ww.week_wordle_number, ww.score
+                FROM weekly_winners ww
+                WHERE ww.league_id = %s AND ww.division = %s
+                  AND ww.week_wordle_number >= %s
+                ORDER BY ww.player_name, ww.week_wordle_number
+            """, (league_id, div_num, season_start))
+        else:
+            cursor.execute("""
+                SELECT ww.player_name, ww.week_wordle_number, ww.score
+                FROM weekly_winners ww
+                WHERE ww.league_id = %s AND ww.division = %s
+                ORDER BY ww.player_name, ww.week_wordle_number
+            """, (league_id, div_num))
+        
+        for row in cursor.fetchall():
+            player_name, week_num, score = row[0], row[1], row[2]
+            if player_name not in season_standings:
+                season_standings[player_name] = {'wins': 0, 'weeks': [], 'scores': []}
+            season_standings[player_name]['wins'] += 1
+            season_standings[player_name]['weeks'].append(week_num)
+            season_standings[player_name]['scores'].append(score)
+        
+        # Get division season winners (past seasons)
+        cursor.execute("""
+            SELECT sw.season_number, p.name, sw.wins
+            FROM season_winners sw
+            JOIN players p ON sw.player_id = p.id
+            WHERE sw.league_id = %s AND sw.division = %s
+            ORDER BY sw.season_number DESC
+        """, (league_id, div_num))
+        
+        season_winners = []
+        for row in cursor.fetchall():
+            season_winners.append({
+                'season': row[0],
+                'name': row[1],
+                'wins': row[2]
+            })
+        
+        # Get past season breakdowns
+        past_season_breakdowns = {}
+        if season_winners:
+            past_season_nums = list(set(w['season'] for w in season_winners))
+            for sn in past_season_nums:
+                cursor.execute("""
+                    SELECT start_week, end_week
+                    FROM division_season_boundaries
+                    WHERE league_id = %s AND division = %s AND season_number = %s
+                """, (league_id, div_num, sn))
+                sb = cursor.fetchone()
+                if sb and sb[0] and sb[1]:
+                    cursor.execute("""
+                        SELECT ww.player_name, ww.week_wordle_number, ww.score
+                        FROM weekly_winners ww
+                        WHERE ww.league_id = %s AND ww.division = %s
+                          AND ww.week_wordle_number >= %s AND ww.week_wordle_number <= %s
+                        ORDER BY ww.week_wordle_number, ww.player_name
+                    """, (league_id, div_num, sb[0], sb[1]))
+                    
+                    breakdown = {}
+                    winning_week = None
+                    for pname, wnum, wscore in cursor.fetchall():
+                        if winning_week is not None and wnum > winning_week:
+                            break
+                        if pname not in breakdown:
+                            breakdown[pname] = {'wins': 0, 'weeks': [], 'scores': []}
+                        breakdown[pname]['wins'] += 1
+                        breakdown[pname]['weeks'].append(wnum)
+                        breakdown[pname]['scores'].append(wscore)
+                        if breakdown[pname]['wins'] >= DIVISION_WINS and winning_week is None:
+                            winning_week = wnum
+                    
+                    if breakdown:
+                        recorded = [w['name'] for w in season_winners if w['season'] == sn]
+                        top = max(breakdown.items(), key=lambda x: x[1]['wins'])[0]
+                        if top in recorded and max(d['wins'] for d in breakdown.values()) >= DIVISION_WINS:
+                            past_season_breakdowns[sn] = breakdown
+        
+        # Get players in this division with immunity info
+        cursor.execute("""
+            SELECT id, name, division_immunity, division_joined_week
+            FROM players
+            WHERE league_id = %s AND division = %s AND active = TRUE
+            ORDER BY name
+        """, (league_id, div_num))
+        
+        div_players = []
+        for row in cursor.fetchall():
+            div_players.append({
+                'id': row[0],
+                'name': row[1],
+                'immunity': row[2] or False,
+                'joined_week': row[3]
+            })
+        
+        # Calculate season totals for each player
+        season_totals = {}
+        for p in div_players:
+            if p['immunity']:
+                season_totals[p['name']] = None  # Will display as "Immune"
+            elif season_start:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(score), 0)
+                    FROM weekly_winners
+                    WHERE league_id = %s AND division = %s
+                      AND player_name = %s AND week_wordle_number >= %s
+                """, (league_id, div_num, p['name'], season_start))
+                result = cursor.fetchone()
+                season_totals[p['name']] = result[0] if result else 0
+            else:
+                season_totals[p['name']] = 0
+        
+        division_data[div_num] = {
+            'current_season': current_season,
+            'season_start_week': season_start_week,
+            'season_standings': season_standings,
+            'season_winners': season_winners,
+            'past_season_breakdowns': past_season_breakdowns,
+            'players': div_players,
+            'season_totals': season_totals,
+            'wins_needed': DIVISION_WINS
+        }
+    
+    cursor.close()
+    conn.close()
+    
+    return division_data
+
 
 if __name__ == "__main__":
     # Test the adapter

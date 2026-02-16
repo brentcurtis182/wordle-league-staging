@@ -290,7 +290,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
         # Get league info from database
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT channel_type, twilio_conversation_sid, display_name, slug FROM leagues WHERE id = %s", (league_id,))
+        cursor.execute("SELECT channel_type, twilio_conversation_sid, display_name, slug, division_mode FROM leagues WHERE id = %s", (league_id,))
         league_row = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -302,6 +302,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
         channel_type = league_row[0] or 'sms'
         conversation_sid = league_row[1]
         league_display_name = league_row[2] or f"League {league_id}"
+        is_division_mode = league_row[4] or False
         league_slug = league_row[3] or f"league{league_id}"
         league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
         
@@ -583,10 +584,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
             else:
                 prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": """You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+        sunday_system_msg = """You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math
@@ -597,10 +595,19 @@ IMPORTANT RULES:
 6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently!
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. When someone clinches the SEASON (not just the week), make it a BIG DEAL - this is a major accomplishment!"""},
+9. When someone clinches the SEASON (not just the week), make it a BIG DEAL - this is a major accomplishment!"""
+        
+        if is_division_mode:
+            sunday_system_msg += """
+10. This league has DIVISIONS (Division I and Division II) competing separately. Each division has its own weekly winner. Division seasons require 3 wins (not 4). Winning a Division II season earns a PROMOTION to Division I!"""
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": sunday_system_msg},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=200,
+            max_tokens=250 if is_division_mode else 200,
             temperature=0.7
         )
         

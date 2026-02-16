@@ -300,34 +300,83 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 logging.info(f"Week {week_wordle}: No eligible players (need {MIN_GAMES_REQUIRED} games)")
                 continue
             
-            # Find winner(s) - lowest best 5 total
-            min_total = min(p['total'] for p in eligible_players.values())
-            winners = [
-                {'name': name, 'score': data['total'], 'player_id': data['player_id']}
-                for name, data in eligible_players.items()
-                if data['total'] == min_total
-            ]
+            # Check if league is in division mode
+            cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+            div_row = cursor.fetchone()
+            is_division_mode = div_row and div_row[0]
             
-            # Save winners to data structure
-            week_key = str(week_wordle)
-            league_info['weekly_winners'][week_key] = [
-                {'name': w['name'], 'score': w['score']}
-                for w in winners
-            ]
-            
-            # Save winners to database weekly_winners table
-            for winner in winners:
+            if is_division_mode:
+                # Division mode: calculate winners per division
+                # Get player division assignments
                 cursor.execute("""
-                    INSERT INTO weekly_winners (league_id, player_id, week_wordle_number, player_name, score)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (league_id, week_wordle_number, player_id) DO UPDATE
-                    SET player_name = EXCLUDED.player_name, score = EXCLUDED.score
-                """, (league_id, winner['player_id'], week_wordle, winner['name'], winner['score']))
-            
-            conn.commit()
-            
-            winner_names = ', '.join([w['name'] for w in winners])
-            logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
+                    SELECT id, division FROM players
+                    WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+                """, (league_id,))
+                player_divisions = {row[0]: row[1] for row in cursor.fetchall()}
+                
+                for div_num in (1, 2):
+                    div_eligible = {
+                        name: data for name, data in eligible_players.items()
+                        if player_divisions.get(data['player_id']) == div_num
+                    }
+                    
+                    if not div_eligible:
+                        logging.info(f"Week {week_wordle} Div {div_num}: No eligible players")
+                        continue
+                    
+                    min_total = min(p['total'] for p in div_eligible.values())
+                    div_winners = [
+                        {'name': name, 'score': data['total'], 'player_id': data['player_id']}
+                        for name, data in div_eligible.items()
+                        if data['total'] == min_total
+                    ]
+                    
+                    for winner in div_winners:
+                        cursor.execute("""
+                            INSERT INTO weekly_winners (league_id, player_id, week_wordle_number, player_name, score, division)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (league_id, week_wordle_number, player_id) DO UPDATE
+                            SET player_name = EXCLUDED.player_name, score = EXCLUDED.score, division = EXCLUDED.division
+                        """, (league_id, winner['player_id'], week_wordle, winner['name'], winner['score'], div_num))
+                    
+                    winner_names = ', '.join([w['name'] for w in div_winners])
+                    logging.info(f"Week {week_wordle} Div {div_num}: Winner(s) = {winner_names} with total {min_total}")
+                
+                # Lock division mode after first weekly winners are recorded
+                cursor.execute("""
+                    UPDATE leagues SET division_locked = TRUE WHERE id = %s AND division_locked = FALSE
+                """, (league_id,))
+                
+                conn.commit()
+            else:
+                # Normal mode: single winner across all players
+                min_total = min(p['total'] for p in eligible_players.values())
+                winners = [
+                    {'name': name, 'score': data['total'], 'player_id': data['player_id']}
+                    for name, data in eligible_players.items()
+                    if data['total'] == min_total
+                ]
+                
+                # Save winners to data structure
+                week_key = str(week_wordle)
+                league_info['weekly_winners'][week_key] = [
+                    {'name': w['name'], 'score': w['score']}
+                    for w in winners
+                ]
+                
+                # Save winners to database weekly_winners table
+                for winner in winners:
+                    cursor.execute("""
+                        INSERT INTO weekly_winners (league_id, player_id, week_wordle_number, player_name, score)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (league_id, week_wordle_number, player_id) DO UPDATE
+                        SET player_name = EXCLUDED.player_name, score = EXCLUDED.score
+                    """, (league_id, winner['player_id'], week_wordle, winner['name'], winner['score']))
+                
+                conn.commit()
+                
+                winner_names = ', '.join([w['name'] for w in winners])
+                logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
         
         # Save back to database
         save_weekly_winners(winners_data)
@@ -546,7 +595,28 @@ def run_full_update_for_league(league_id):
             return False
         
         # Step 2: Check for season transitions (ONLY runs in scheduled task, not manual)
-        check_and_handle_season_transition(league_id)
+        # Check if league is in division mode
+        div_conn = get_db_connection()
+        div_cursor = div_conn.cursor()
+        div_cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+        div_result = div_cursor.fetchone()
+        is_division_mode = div_result and div_result[0]
+        div_cursor.close()
+        div_conn.close()
+        
+        if is_division_mode:
+            from division_manager import check_division_season_transition, check_division1_relegation, clear_immunity
+            # Check each division separately
+            for div_num in (1, 2):
+                transitioned = check_division_season_transition(league_id, div_num)
+                if transitioned:
+                    # Clear immunity for players in this division (their first full season just ended)
+                    clear_immunity(league_id, div_num)
+                    if div_num == 1:
+                        # Division I season ended - relegate worst Season Total player
+                        check_division1_relegation(league_id)
+        else:
+            check_and_handle_season_transition(league_id)
         
         # Step 3: Generate HTML (using existing pipeline)
         from update_pipeline import run_update_pipeline
