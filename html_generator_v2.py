@@ -526,9 +526,12 @@ def generate_division_weekly_totals_html(league_data):
         html += f'  </select>\n'
         html += f'</div>\n'
         
-        html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
+        # Only show instructions above Division I
+        if div_num == 1:
+            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
 <p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
-<div class="table-container" style="overflow-x: auto;">
+'''
+        html += f'''<div class="table-container" style="overflow-x: auto;">
 <table id="div-table-{div_num}">
 <thead>
 <tr>
@@ -609,6 +612,10 @@ def generate_division_weekly_totals_html(league_data):
         
         html += '</tbody>\n</table>\n</div>\n</div>\n'
     
+    # Footer text (shown once after both division tables)
+    html += '''<p style="margin-top: 10px; font-size: 0.85em; color: #8a8a8a;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your best 5 scores. Additional scores appear in 'Thrown Out'</p>
+'''
+    
     # JavaScript for toggling Weekly Score / Season Total
     html += '''<script>
 function toggleScoreView(divNum) {
@@ -672,7 +679,9 @@ def generate_division_season_stats_html(league_data):
                 html += '</tr>\n'
         
         html += '</tbody>\n</table>\n'
-        html += f'<p style="margin-top: 5px; font-size: 14px; font-style: italic; background: {div_color}20; padding: 8px; border-radius: 6px;">If players are tied at the end of the week, all players get a weekly win. First Player to get <strong>{wins_needed} weekly wins</strong> is the {div_label} Season Champ!</p>\n'
+        # Only show instruction text under Division I
+        if div_num == 1:
+            html += f'<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, all players get a weekly win. First Player to get <strong style="color: #00E8DA;">{wins_needed} weekly wins</strong> is the Season Champ!</p>\n'
         
         # Show past division season winners
         modals_html = ''
