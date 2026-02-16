@@ -375,6 +375,10 @@ def run_monday_recaps():
         success = send_monday_recap(league_id)
         if not success:
             all_success = False
+        
+        # Add delay between leagues to avoid Twilio delivery queue issues
+        import time
+        time.sleep(2)
     
     return all_success
 
