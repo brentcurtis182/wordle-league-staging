@@ -3490,11 +3490,25 @@ def trigger_daily_loser_roast():
     try:
         # Get league_id from request, or check all leagues
         if request.method == 'POST' and request.is_json:
-            league_ids = request.get_json().get('league_ids', [1, 3, 4, 7])
+            league_ids = request.get_json().get('league_ids')
+            if not league_ids:
+                # Query all active leagues from DB
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM leagues WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL) ORDER BY id")
+                league_ids = [r[0] for r in cursor.fetchall()]
+                cursor.close()
+                conn.close()
         elif request.args.get('league_id'):
             league_ids = [int(request.args.get('league_id'))]
         else:
-            league_ids = [1, 3, 4, 7]  # All active leagues
+            # Query all active leagues from DB
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM leagues WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL) ORDER BY id")
+            league_ids = [r[0] for r in cursor.fetchall()]
+            cursor.close()
+            conn.close()
         
         wordle_num = get_todays_wordle_number()
         results = []
@@ -3993,8 +4007,16 @@ def regenerate_all_html():
     try:
         from update_pipeline import run_update_pipeline
         
+        # Get all active leagues from DB
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM leagues WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL) ORDER BY id")
+        league_ids = [r[0] for r in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        
         results = []
-        for league_id in [1, 3, 4, 7]:
+        for league_id in league_ids:
             logging.info(f"Regenerating HTML for League {league_id}...")
             success = run_update_pipeline(league_id)
             results.append({
@@ -5087,8 +5109,16 @@ def calculate_last_week_winners():
         from update_tables_cloud import run_full_update_for_league
         from datetime import datetime, timedelta
         
+        # Get all active leagues from DB
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM leagues WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL) ORDER BY id")
+        league_ids = [r[0] for r in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        
         results = []
-        for league_id in [1, 3, 4, 7]:
+        for league_id in league_ids:
             logging.info(f"Calculating last week's winners for league {league_id}")
             success = run_full_update_for_league(league_id)
             results.append({
