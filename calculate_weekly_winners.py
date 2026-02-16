@@ -65,8 +65,14 @@ def calculate_last_week_winners(league_id):
 if __name__ == "__main__":
     print("Calculating last week's winners...")
     
-    # Calculate for both leagues
-    leagues = [6, 7]
+    # Get all active leagues from DB
+    from db_connection import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM leagues WHERE (twilio_conversation_sid IS NOT NULL OR slack_channel_id IS NOT NULL OR discord_channel_id IS NOT NULL) ORDER BY id")
+    leagues = [r[0] for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
     
     for league_id in leagues:
         print(f"\n{'='*60}")

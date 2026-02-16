@@ -746,8 +746,8 @@ def run_sunday_race_updates():
         leagues = [(r[0], r[1], r[2] or 'sms') for r in rows]
         logging.info(f"Found {len(leagues)} active leagues for Sunday race update: {[(l[0], l[1], l[2]) for l in leagues]}")
     except Exception as e:
-        logging.error(f"Failed to fetch active leagues, falling back to hardcoded list: {e}")
-        leagues = [(1, 'Warriorz', 'sms'), (3, 'PAL', 'sms'), (4, 'Party', 'sms'), (7, 'BellyUp', 'sms'), (8, 'Nerds Only', 'sms')]
+        logging.error(f"Failed to fetch active leagues from database: {e}")
+        return False
     
     all_success = True
     for league_id, league_name, channel_type in leagues:
