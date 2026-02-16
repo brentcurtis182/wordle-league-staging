@@ -333,6 +333,24 @@ def get_complete_league_data(league_id):
         pd_cursor.close()
         pd_conn.close()
     
+    # Count regular (pre-division) seasons for unified season numbering
+    regular_season_count = 0
+    if is_division_mode:
+        rs_conn = get_db_connection()
+        rs_cursor = rs_conn.cursor()
+        rs_cursor.execute("""
+            SELECT COUNT(*) FROM season_winners
+            WHERE league_id = %s AND division IS NULL
+        """, (league_id,))
+        # Use max season_number from regular winners as the offset
+        rs_cursor.execute("""
+            SELECT COALESCE(MAX(season_number), 0) FROM season_winners
+            WHERE league_id = %s AND division IS NULL
+        """, (league_id,))
+        regular_season_count = rs_cursor.fetchone()[0]
+        rs_cursor.close()
+        rs_conn.close()
+    
     return {
         'league_id': league_id,
         'today_wordle': today_wordle,
@@ -345,6 +363,7 @@ def get_complete_league_data(league_id):
         'division_mode': is_division_mode,
         'division_data': division_data,
         'player_divisions': player_divisions,
+        'regular_season_count': regular_season_count,
         'timestamp': datetime.now()
     }
 
@@ -431,12 +450,12 @@ def get_season_data(league_id):
         season_standings[player_name]['weeks'].append(week_num)
         season_standings[player_name]['scores'].append(score)
     
-    # Get past season winners
+    # Get past season winners (regular/non-division only)
     cursor.execute("""
         SELECT sw.season_number, p.name, sw.wins
         FROM season_winners sw
         JOIN players p ON sw.player_id = p.id
-        WHERE sw.league_id = %s
+        WHERE sw.league_id = %s AND sw.division IS NULL
         ORDER BY sw.season_number DESC
     """, (league_id,))
     
