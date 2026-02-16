@@ -2256,6 +2256,8 @@ def dashboard_add_player(league_id):
         # For SMS, identifier is required. For Slack/Discord, only name is needed.
         if not name:
             return redirect(f'/dashboard/league/{league_id}?error=Player name is required')
+        if len(name) > 14:
+            return redirect(f'/dashboard/league/{league_id}?error=Player name must be 14 characters or less')
         if channel_type == 'sms' and not identifier:
             return redirect(f'/dashboard/league/{league_id}?error=Name and phone number are required')
         
@@ -2376,6 +2378,8 @@ def dashboard_edit_player(league_id):
     
     if not player_id or not new_name:
         return redirect(f'/dashboard/league/{league_id}?error=Player ID and name are required')
+    if len(new_name) > 14:
+        return redirect(f'/dashboard/league/{league_id}?error=Player name must be 14 characters or less')
     
     try:
         conn = get_db_connection()

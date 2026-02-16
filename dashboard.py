@@ -1867,7 +1867,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <form id="form-{player['id']}" class="edit-form">
                         <input type="hidden" name="player_id" value="{player['id']}">
                         <div class="edit-fields">
-                            <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name">
+                            <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name" maxlength="14">
                             <input type="text" name="identifier" value="{identifier_value}" class="edit-input" placeholder="{identifier_placeholder}">
                         </div>
                         <div class="edit-actions">
@@ -2134,7 +2134,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
                         <div class="form-group">
                             <label>Player Name</label>
-                            <input type="text" name="name" required placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}" {f'disabled' if channel_type == 'sms' and len(players) >= 9 else ''}>
+                            <input type="text" name="name" required maxlength="14" placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}" {f'disabled' if channel_type == 'sms' and len(players) >= 9 else ''}>
                         </div>
                         {f'<div class="form-group"><label>{identifier_label}</label><input type="text" name="identifier" required placeholder="{identifier_placeholder}" {"disabled" if len(players) >= 9 else ""}></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
                     </div>
