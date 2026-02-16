@@ -779,7 +779,7 @@ def generate_division_season_stats_html(league_data):
         
         if sdata.get('type') == 'division':
             # "Season N:" header in cyan
-            entry_html += f'<p style="color: #00E8DA; font-weight: bold; margin-top: 12px; margin-bottom: 2px; font-size: 1em;">Season {display_num}:</p>\n'
+            entry_html += f'<p style="color: #00E8DA; font-weight: bold; margin: 12px 0 0 0; font-size: 1em;">Season {display_num}:</p>\n'
             
             div1_names = ', '.join(sdata.get('div1', []))
             div2_names = ', '.join(sdata.get('div2', []))
@@ -794,7 +794,7 @@ def generate_division_season_stats_html(league_data):
                         break
                 if div1_bk_key and div1_bk_key in sdata['breakdowns']:
                     modal_id = f'div1-season-modal-{display_num}'
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin-top: 0px;{indent_style} padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div1_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div1_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
                     rows_html = _build_breakdown_rows(sdata['breakdowns'][div1_bk_key])
                     modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
@@ -810,7 +810,7 @@ def generate_division_season_stats_html(league_data):
 </div>
 '''
                 else:
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin-top: 0px; padding-left: 20px;">{div1_text}</p>\n'
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div1_text}</p>\n'
             
             # Division II winner (indented, orange, no gap from Div I)
             if div2_names:
@@ -822,7 +822,7 @@ def generate_division_season_stats_html(league_data):
                         break
                 if div2_bk_key and div2_bk_key in sdata['breakdowns']:
                     modal_id = f'div2-season-modal-{display_num}'
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin-top: 0px; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div2_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div2_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
                     rows_html = _build_breakdown_rows(sdata['breakdowns'][div2_bk_key])
                     modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
@@ -838,10 +838,10 @@ def generate_division_season_stats_html(league_data):
 </div>
 '''
                 else:
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin-top: 0px; padding-left: 20px;">{div2_text}</p>\n'
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div2_text}</p>\n'
             elif sdata.get('div1'):
                 # Div I has winner but Div II doesn't yet
-                entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin-top: 0px; padding-left: 20px;">Division II Winner: <span style="font-style: italic; opacity: 0.6;">In Progress</span></p>\n'
+                entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">Division II Winner: <span style="font-style: italic; opacity: 0.6;">In Progress</span></p>\n'
         
         elif sdata.get('type') == 'regular':
             regular_names = ', '.join(sdata.get('regular_names', []))
