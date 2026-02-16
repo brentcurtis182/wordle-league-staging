@@ -755,6 +755,10 @@ def run_sunday_race_updates():
         success = send_sunday_race_update(league_id)
         if not success:
             all_success = False
+        
+        # Add delay between leagues to avoid carrier SMS throttling
+        import time
+        time.sleep(2)
     
     return all_success
 
