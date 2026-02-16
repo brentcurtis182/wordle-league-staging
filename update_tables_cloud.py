@@ -361,10 +361,11 @@ def check_and_handle_season_transition(league_id):
     try:
         # Get current season info
         cursor.execute("""
-            SELECT current_season FROM league_seasons WHERE league_id = %s
+            SELECT current_season, season_start_week FROM league_seasons WHERE league_id = %s
         """, (league_id,))
         result = cursor.fetchone()
         current_season = result[0] if result else 1
+        league_season_start_week = result[1] if result else None
         
         # Get current season boundaries
         cursor.execute("""
@@ -374,11 +375,39 @@ def check_and_handle_season_transition(league_id):
         season_bounds = cursor.fetchone()
         
         if not season_bounds or not season_bounds[0]:
-            logging.warning(f"No season boundaries found for league {league_id} season {current_season}")
-            return False
-        
-        season_start = season_bounds[0]
-        season_end = season_bounds[1]  # Will be None if season is in progress
+            # Fallback: use league_seasons.season_start_week or earliest weekly winner
+            if league_season_start_week:
+                season_start = league_season_start_week
+                logging.info(f"No seasons table entry for league {league_id} season {current_season}, using league_seasons.season_start_week={season_start}")
+            else:
+                # Derive from earliest weekly winner
+                cursor.execute("SELECT MIN(week_wordle_number) FROM weekly_winners WHERE league_id = %s", (league_id,))
+                min_row = cursor.fetchone()
+                if min_row and min_row[0]:
+                    season_start = min_row[0]
+                    logging.info(f"No season_start_week for league {league_id}, derived from earliest weekly winner: {season_start}")
+                else:
+                    logging.warning(f"No season boundaries found for league {league_id} season {current_season}")
+                    return False
+            
+            # Auto-create the missing seasons table entry so future checks work
+            cursor.execute("""
+                INSERT INTO seasons (league_id, season_number, start_week, end_week)
+                VALUES (%s, %s, %s, NULL)
+                ON CONFLICT (league_id, season_number) DO NOTHING
+            """, (league_id, current_season, season_start))
+            
+            # Also fix league_seasons if it was NULL
+            if not league_season_start_week:
+                cursor.execute("""
+                    UPDATE league_seasons SET season_start_week = %s WHERE league_id = %s
+                """, (season_start, league_id))
+            
+            conn.commit()
+            season_end = None
+        else:
+            season_start = season_bounds[0]
+            season_end = season_bounds[1]  # Will be None if season is in progress
         
         # If season already ended, no need to check
         if season_end:

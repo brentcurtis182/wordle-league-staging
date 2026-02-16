@@ -165,12 +165,13 @@ def reset_current_season(league_id):
             WHERE league_id = %s
         """, (current_week_wordle, league_id))
         
-        # Also update the seasons table boundary
+        # Also update the seasons table boundary (upsert in case no entry exists)
         cursor.execute("""
-            UPDATE seasons
-            SET start_week = %s
-            WHERE league_id = %s AND season_number = %s
-        """, (current_week_wordle, league_id, current_season))
+            INSERT INTO seasons (league_id, season_number, start_week, end_week)
+            VALUES (%s, %s, %s, NULL)
+            ON CONFLICT (league_id, season_number) DO UPDATE
+            SET start_week = EXCLUDED.start_week
+        """, (league_id, current_season, current_week_wordle))
         
         conn.commit()
         
@@ -222,12 +223,13 @@ def revert_current_season(league_id):
             WHERE league_id = %s
         """, (original_start_week, league_id))
         
-        # Update seasons table boundary back
+        # Update seasons table boundary back (upsert in case no entry exists)
         cursor.execute("""
-            UPDATE seasons
-            SET start_week = %s
-            WHERE league_id = %s AND season_number = %s
-        """, (original_start_week, league_id, original_season))
+            INSERT INTO seasons (league_id, season_number, start_week, end_week)
+            VALUES (%s, %s, %s, NULL)
+            ON CONFLICT (league_id, season_number) DO UPDATE
+            SET start_week = EXCLUDED.start_week, end_week = NULL
+        """, (league_id, original_season, original_start_week))
         
         # Restore weekly winners
         for ww in snapshot['weekly_winners']:
