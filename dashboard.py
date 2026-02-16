@@ -3905,6 +3905,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('resetModalText').textContent = 
                     'Once a week has completed, you cannot undo Division Mode without resetting the season for everyone. ' +
                     'If you turn Division Mode off prior to a week completing, it will revert back to its current state (current weekly winners will remain).';
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                confirmBtn.textContent = 'Confirm';
+                confirmBtn.style.background = '{COLORS['accent']}';
                 pendingResetForm = null;
                 pendingResetAction = '/dashboard/league/{league['id']}/division-confirm';
                 modal.classList.add('active');
