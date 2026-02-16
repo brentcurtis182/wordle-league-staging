@@ -3919,6 +3919,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('resetModalTitle').textContent = 'Turn Off Division Mode?';
                 document.getElementById('resetModalText').textContent = 
                     'This will disable Division Mode and restore players to a single league. Current weekly winners will remain.';
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                confirmBtn.textContent = 'Confirm';
+                confirmBtn.style.background = '{COLORS['accent']}';
                 pendingResetForm = document.getElementById('divisionToggleForm');
                 pendingResetAction = null;
                 modal.classList.add('active');
