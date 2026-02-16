@@ -318,7 +318,7 @@ def get_complete_league_data(league_id):
     
     division_data = None
     if is_division_mode:
-        division_data = get_division_season_data(league_id)
+        division_data = get_division_season_data(league_id, weekly_stats=weekly_stats)
     
     # Get player division assignments for weekly stats filtering
     player_divisions = {}
@@ -505,9 +505,10 @@ def get_season_data(league_id):
         'past_season_breakdowns': past_season_breakdowns
     }
 
-def get_division_season_data(league_id):
+def get_division_season_data(league_id, weekly_stats=None):
     """Get division-specific season data for a league in division mode.
-    Returns data for both divisions including standings, winners, and breakdowns."""
+    Returns data for both divisions including standings, winners, and breakdowns.
+    weekly_stats: if provided, current week's best_5_total is added to season totals."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -646,19 +647,57 @@ def get_division_season_data(league_id):
             })
         
         # Calculate season totals for each player
+        # Season total = sum of best-5 weekly scores from ALL weeks in the season
+        # Calculated from the scores table, not just weekly_winners
+        # This is used for relegation (worst/highest total in Div I gets relegated)
         season_totals = {}
+        
+        # Determine current week start wordle from weekly_stats
+        current_week_start = None
+        if weekly_stats:
+            for pname, pstats in weekly_stats.items():
+                if pstats.get('daily_scores'):
+                    current_week_start = min(pstats['daily_scores'].keys())
+                    break
+        
         for p in div_players:
             if p['immunity']:
                 season_totals[p['name']] = None  # Will display as "Immune"
             elif season_start:
+                # Get all scores for this player from the season start onwards
                 cursor.execute("""
-                    SELECT COALESCE(SUM(score), 0)
-                    FROM weekly_winners
-                    WHERE league_id = %s AND division = %s
-                      AND player_name = %s AND week_wordle_number >= %s
-                """, (league_id, div_num, p['name'], season_start))
-                result = cursor.fetchone()
-                season_totals[p['name']] = result[0] if result else 0
+                    SELECT s.wordle_number, s.score
+                    FROM scores s
+                    WHERE s.player_id = %s
+                      AND s.wordle_number >= %s
+                    ORDER BY s.wordle_number
+                """, (p['id'], season_start))
+                
+                # Group scores by week (7-day blocks from season_start)
+                week_scores = {}
+                for wn, sc in cursor.fetchall():
+                    week_start = wn - ((wn - season_start) % 7)
+                    if week_start not in week_scores:
+                        week_scores[week_start] = []
+                    week_scores[week_start].append(sc)
+                
+                # Sum best-5 from each past week (exclude current week)
+                past_total = 0
+                for ws_start, scores in week_scores.items():
+                    if current_week_start and ws_start >= current_week_start:
+                        continue  # Skip current week, handled via weekly_stats
+                    valid = sorted([s for s in scores if s < 7])
+                    best5 = sum(valid[:5]) if len(valid) >= 5 else sum(valid)
+                    past_total += best5
+                
+                # Add current week's live best-5 total from weekly_stats
+                current_week_score = 0
+                if weekly_stats and p['name'] in weekly_stats:
+                    ws = weekly_stats[p['name']]
+                    if ws.get('used_scores', 0) > 0:
+                        current_week_score = ws.get('best_5_total', 0)
+                
+                season_totals[p['name']] = past_total + current_week_score
             else:
                 season_totals[p['name']] = 0
         
