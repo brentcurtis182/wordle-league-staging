@@ -2536,6 +2536,26 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             </div>
         </div>
         
+        <!-- Edit Player Modal (used in division mode) -->
+        <div class="modal-overlay" id="editPlayerModal">
+            <div class="modal">
+                <h3>✏️ Edit Player</h3>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>Name</label>
+                    <input type="text" id="editPlayerModalName" style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>{identifier_label}</label>
+                    <input type="text" id="editPlayerModalIdentifier" style="width: 100%;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closeEditPlayerModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-small" onclick="editPlayerRemove()">Remove</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="editPlayerSave()">Save</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Remove Confirmation Modal -->
         <div class="modal-overlay" id="removeModal">
             <div class="modal">
@@ -3023,6 +3043,42 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             let currentEditPlayerId = null;
             let currentRemovePlayerId = null;
+            let editPlayerModalId = null;
+            
+            function editPlayer(playerId, playerName, playerIdentifier) {{
+                editPlayerModalId = playerId;
+                document.getElementById('editPlayerModalName').value = playerName;
+                document.getElementById('editPlayerModalIdentifier').value = playerIdentifier || '';
+                document.getElementById('editPlayerModal').classList.add('active');
+            }}
+            
+            function closeEditPlayerModal() {{
+                document.getElementById('editPlayerModal').classList.remove('active');
+                editPlayerModalId = null;
+            }}
+            
+            function editPlayerSave() {{
+                if (editPlayerModalId) {{
+                    const name = document.getElementById('editPlayerModalName').value;
+                    const identifier = document.getElementById('editPlayerModalIdentifier').value;
+                    
+                    document.getElementById('editPlayerId').value = editPlayerModalId;
+                    document.getElementById('editPlayerName').value = name;
+                    document.getElementById('editPlayerPhone').value = identifier;
+                    
+                    closeEditPlayerModal();
+                    showLoading('Saving changes...');
+                    document.getElementById('editPlayerForm').submit();
+                }}
+            }}
+            
+            function editPlayerRemove() {{
+                if (editPlayerModalId) {{
+                    const name = document.getElementById('editPlayerModalName').value;
+                    closeEditPlayerModal();
+                    showRemoveModal(editPlayerModalId, name);
+                }}
+            }}
             
             function enterEditMode(playerId) {{
                 // Hide view, show edit
@@ -3718,12 +3774,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     closeAISettingsModal();
                     closeMessageConfig();
                     closeMessageConfigConfirm();
+                    closeEditPlayerModal();
                 }}
             }});
             
             // Close modals on overlay click
             document.getElementById('saveModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeSaveModal();
+            }});
+            document.getElementById('editPlayerModal').addEventListener('click', function(e) {{
+                if (e.target === this) closeEditPlayerModal();
             }});
             document.getElementById('removeModal').addEventListener('click', function(e) {{
                 if (e.target === this) closeRemoveModal();

@@ -204,25 +204,10 @@ def _disable_division_mode(league_id, cursor, conn, was_locked):
             WHERE league_id = %s AND division IS NOT NULL
         """, (league_id,))
         
-        # Mark incomplete division seasons as "closed" by updating season_winners
-        # Find division seasons that don't have winners yet (incomplete)
-        cursor.execute("""
-            SELECT DISTINCT ds.current_season, ds.division
-            FROM division_seasons ds
-            LEFT JOIN season_winners sw ON sw.league_id = ds.league_id 
-                AND sw.season_number = ds.current_season AND sw.division = ds.division
-            WHERE ds.league_id = %s AND sw.id IS NULL
-        """, (league_id,))
-        incomplete_seasons = cursor.fetchall()
+        # Note: Incomplete division seasons will show as "Closed" in the display logic
+        # We don't insert placeholder entries because player_id has a NOT NULL constraint
         
-        # Insert placeholder "closed" entries for incomplete seasons
-        for season_num, div in incomplete_seasons:
-            cursor.execute("""
-                INSERT INTO season_winners (league_id, season_number, player_id, wins, division, completed_date)
-                VALUES (%s, %s, NULL, 0, %s, CURRENT_DATE)
-            """, (league_id, season_num, div))
-        
-        logging.info(f"Division mode disabled after lock for league {league_id}: reset season {unified_season}, marked {len(incomplete_seasons)} incomplete seasons as closed")
+        logging.info(f"Division mode disabled after lock for league {league_id}: reset season {unified_season}, weekly winners cleared")
     
     # Restore player divisions to NULL
     cursor.execute("""
