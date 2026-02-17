@@ -318,32 +318,35 @@ def confirm_division_mode(league_id):
         # Get current week
         current_week = calculate_wordle_number(get_week_start_date())
         
-        # Get the current regular season's start week so we can carry over existing wins
+        # Get the current regular season number and start week so divisions continue from the same season
         cursor.execute("""
-            SELECT s.start_week FROM seasons s
-            JOIN league_seasons ls ON ls.league_id = s.league_id AND ls.current_season = s.season_number
-            WHERE s.league_id = %s
+            SELECT ls.current_season, s.start_week FROM league_seasons ls
+            LEFT JOIN seasons s ON s.league_id = ls.league_id AND s.season_number = ls.current_season
+            WHERE ls.league_id = %s
         """, (league_id,))
         reg_season_row = cursor.fetchone()
-        # Use regular season start if available, otherwise fall back to current week
-        division_start_week = reg_season_row[0] if reg_season_row and reg_season_row[0] else current_week
+        # Use regular season number and start week if available
+        current_regular_season = reg_season_row[0] if reg_season_row and reg_season_row[0] else 1
+        division_start_week = reg_season_row[1] if reg_season_row and reg_season_row[1] else current_week
         
-        # Initialize division seasons for both divisions (start from regular season start)
+        logging.info(f"Division mode confirm: using regular season {current_regular_season}, start_week {division_start_week}")
+        
+        # Initialize division seasons for both divisions (continue from current regular season)
         for div in (1, 2):
             cursor.execute("""
                 INSERT INTO division_seasons (league_id, division, current_season, season_start_week)
-                VALUES (%s, %s, 1, %s)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (league_id, division) DO UPDATE
-                SET current_season = 1, season_start_week = EXCLUDED.season_start_week,
+                SET current_season = %s, season_start_week = EXCLUDED.season_start_week,
                     updated_at = CURRENT_TIMESTAMP
-            """, (league_id, div, division_start_week))
+            """, (league_id, div, current_regular_season, division_start_week, current_regular_season))
             
             cursor.execute("""
                 INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
-                VALUES (%s, %s, 1, %s, NULL)
+                VALUES (%s, %s, %s, %s, NULL)
                 ON CONFLICT (league_id, division, season_number) DO UPDATE
                 SET start_week = EXCLUDED.start_week, end_week = NULL
-            """, (league_id, div, division_start_week))
+            """, (league_id, div, current_regular_season, division_start_week))
         
         # Carry over existing weekly wins: update weekly_winners from the current season
         # to set the division based on each player's assigned division
