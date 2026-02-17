@@ -348,7 +348,7 @@ def confirm_division_mode(league_id):
         # Carry over existing weekly wins: update weekly_winners from the current season
         # to set the division based on each player's assigned division
         cursor.execute("""
-            SELECT p.name, p.division FROM players
+            SELECT name, division FROM players
             WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
         """, (league_id,))
         player_div_map = {row[0]: row[1] for row in cursor.fetchall()}
