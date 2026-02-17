@@ -207,10 +207,10 @@ def _disable_division_mode(league_id, cursor, conn, was_locked):
         # Mark incomplete division seasons as "closed" by updating season_winners
         # Find division seasons that don't have winners yet (incomplete)
         cursor.execute("""
-            SELECT DISTINCT ds.season_number, ds.division
+            SELECT DISTINCT ds.current_season, ds.division
             FROM division_seasons ds
             LEFT JOIN season_winners sw ON sw.league_id = ds.league_id 
-                AND sw.season_number = ds.season_number AND sw.division = ds.division
+                AND sw.season_number = ds.current_season AND sw.division = ds.division
             WHERE ds.league_id = %s AND sw.id IS NULL
         """, (league_id,))
         incomplete_seasons = cursor.fetchall()

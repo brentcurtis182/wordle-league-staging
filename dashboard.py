@@ -1861,18 +1861,20 @@ def _render_division_players(league, players, is_chat_platform):
         drag_attr = 'draggable="true"' if draggable and not division_locked else ''
         cursor = "grab" if draggable and not division_locked else "default"
         
-        # Edit and remove buttons
+        # Edit button (remove functionality integrated into edit modal)
         phone = player.get('phone_number', '')
         identifier_type = 'Phone' if is_chat_platform else 'Email'
         identifier_value = phone if is_chat_platform else player.get('email', '')
+        
+        # Escape values for JavaScript - replace single quotes with &#39;
+        name_escaped = name.replace("'", "&#39;").replace('"', "&quot;")
+        identifier_escaped = identifier_value.replace("'", "&#39;").replace('"', "&quot;")
+        
         edit_remove_btns = f'''
             <div style="display: flex; gap: 8px; align-items: center;">
-                <button onclick="editPlayer('{pid}', '{name}', '{identifier_value}')" 
+                <button onclick="editPlayer('{pid}', '{name_escaped}', '{identifier_escaped}')" 
                     style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
                     title="Edit player">✏️</button>
-                <button onclick="removePlayer('{pid}', '{name}')" 
-                    style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
-                    title="Remove player">🗑️</button>
                 <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">&#x2630;</span>
             </div>'''
         
