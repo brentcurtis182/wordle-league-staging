@@ -568,7 +568,11 @@ def generate_division_weekly_totals_html(league_data):
             
             # Check immunity for season total display
             st_val = season_totals.get(player_name)
-            season_total_display = "Immune" if st_val is None else str(st_val) if st_val else "-"
+            # Color "Immune" text with division color
+            if st_val is None:
+                season_total_display = f'<span style="color: {div_color};">Immune</span>'
+            else:
+                season_total_display = str(st_val) if st_val else "-"
             
             # Highlight immune player names with division color
             name_style = f' style="color: {div_color};"' if player_name in immune_players else ''
@@ -604,7 +608,11 @@ def generate_division_weekly_totals_html(league_data):
         for p in div_players_list:
             if p['name'] not in div_stats:
                 st_val = season_totals.get(p['name'])
-                season_total_display = "Immune" if st_val is None else str(st_val) if st_val else "-"
+                # Color "Immune" text with division color
+                if st_val is None:
+                    season_total_display = f'<span style="color: {div_color};">Immune</span>'
+                else:
+                    season_total_display = str(st_val) if st_val else "-"
                 name_style = f' style="color: {div_color};"' if p['name'] in immune_players else ''
                 html += f'<tr>\n'
                 html += f'    <td class="sticky-column"><strong{name_style}>{p["name"]}</strong></td>\n'
