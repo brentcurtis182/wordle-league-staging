@@ -1792,7 +1792,8 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     if division_mode:
         toggle_onclick = f"showDivisionOffModal(event, {str(division_locked).lower()})"
     else:
-        toggle_onclick = "document.getElementById('divisionToggleForm').submit()"
+        # Show confirmation modal before enabling division mode
+        toggle_onclick = "showDivisionConfirmModal(event)"
     
     toggle_class = "division-toggle active" if division_mode else "division-toggle"
     
@@ -1860,12 +1861,27 @@ def _render_division_players(league, players, is_chat_platform):
         drag_attr = 'draggable="true"' if draggable and not division_locked else ''
         cursor = "grab" if draggable and not division_locked else "default"
         
+        # Edit and remove buttons
+        phone = player.get('phone_number', '')
+        identifier_type = 'Phone' if is_chat_platform else 'Email'
+        identifier_value = phone if is_chat_platform else player.get('email', '')
+        edit_remove_btns = f'''
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button onclick="editPlayer('{pid}', '{name}', '{identifier_value}')" 
+                    style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
+                    title="Edit player">✏️</button>
+                <button onclick="removePlayer('{pid}', '{name}')" 
+                    style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
+                    title="Remove player">🗑️</button>
+                <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">&#x2630;</span>
+            </div>'''
+        
         return f'''<div class="division-player" data-player-id="{pid}" {drag_attr}
             style="background: {bg}; border: 1px solid {border}; border-radius: 8px; padding: 10px 14px; 
             margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; cursor: {cursor};"
             ondragstart="dragStart(event)" ondragend="dragEnd(event)">
             <span style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</span>
-            <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">&#x2630;</span>
+            {edit_remove_btns}
         </div>'''
     
     div1_html = "".join(player_chip(p) for p in div1_players)
@@ -3897,17 +3913,18 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // ============================================================
             // Division Mode: Modals
             // ============================================================
-            function showDivisionConfirmModal() {{
+            function showDivisionConfirmModal(event) {{
+                if (event) event.preventDefault();
                 const modal = document.getElementById('resetModal');
-                document.getElementById('resetModalTitle').textContent = 'Confirm Division Mode';
+                document.getElementById('resetModalTitle').textContent = 'Enable Division Mode?';
                 document.getElementById('resetModalText').textContent = 
-                    'Once a week has completed, you cannot undo Division Mode without resetting the season for everyone. ' +
-                    'If you turn Division Mode off prior to a week completing, it will revert back to its current state (current weekly winners will remain).';
+                    'This will enable Division Mode and split players into two divisions. You can rearrange players before confirming. ' +
+                    'Once a week has completed, you cannot turn off Division Mode without resetting the season.';
                 const confirmBtn = document.getElementById('resetModalConfirmBtn');
-                confirmBtn.textContent = 'Confirm';
+                confirmBtn.textContent = 'Enable';
                 confirmBtn.style.background = '{COLORS['accent']}';
-                pendingResetForm = null;
-                pendingResetAction = '/dashboard/league/{league['id']}/division-confirm';
+                pendingResetForm = document.getElementById('divisionToggleForm');
+                pendingResetAction = null;
                 modal.classList.add('active');
             }}
             

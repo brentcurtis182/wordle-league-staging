@@ -897,18 +897,83 @@ def generate_division_season_stats_html(league_data):
                     div2_names = ', '.join(sdata.get('div2', []))
                     full_list_items += f'<div style="margin-bottom: 10px;">'
                     full_list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 0;">Season {display_num}:</p>'
+                    
+                    # Division I - check if clickable
                     if div1_names:
-                        full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division I: {div1_names}</p>'
+                        if div1_names == 'Closed':
+                            full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division I: <span style="font-style: italic; opacity: 0.6;">Closed</span></p>'
+                        else:
+                            div1_bk_key = None
+                            for k in sdata.get('breakdowns', {}):
+                                if k[0] == 1:
+                                    div1_bk_key = k
+                                    break
+                            if div1_bk_key and div1_bk_key in sdata['breakdowns']:
+                                modal_id = f'full-list-div1-season-{display_num}'
+                                full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">Division I: {div1_names} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>'
+                                rows_html = _build_breakdown_rows(sdata['breakdowns'][div1_bk_key])
+                                full_list_modals += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1001; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#00E8DA; margin:0;">Division I - Season {display_num}</h3>
+      <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+  </div>
+</div>
+'''
+                            else:
+                                full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division I: {div1_names}</p>'
+                    
+                    # Division II - check if clickable
                     if div2_names:
-                        full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division II: {div2_names}</p>'
+                        if div2_names == 'Closed':
+                            full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division II: <span style="font-style: italic; opacity: 0.6;">Closed</span></p>'
+                        else:
+                            div2_bk_key = None
+                            for k in sdata.get('breakdowns', {}):
+                                if k[0] == 2:
+                                    div2_bk_key = k
+                                    break
+                            if div2_bk_key and div2_bk_key in sdata['breakdowns']:
+                                modal_id = f'full-list-div2-season-{display_num}'
+                                full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">Division II: {div2_names} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>'
+                                rows_html = _build_breakdown_rows(sdata['breakdowns'][div2_bk_key])
+                                full_list_modals += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1001; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#FFA64D; margin:0;">Division II - Season {display_num}</h3>
+      <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+  </div>
+</div>
+'''
+                            else:
+                                full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px;">Division II: {div2_names}</p>'
                     elif sdata.get('div1'):
                         full_list_items += f'<p style="color: #FFA64D; font-weight: bold; margin: 0 0 0 20px; opacity: 0.6; font-style: italic;">Division II: In Progress</p>'
                     full_list_items += '</div>'
                 elif sdata.get('type') == 'regular':
                     regular_names = ', '.join(sdata.get('regular_names', []))
-                    full_list_items += f'<div style="margin-bottom: 10px;">'
-                    full_list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 0;">Season {display_num} Winner: {regular_names}</p>'
-                    full_list_items += '</div>'
+                    real_sn = sdata.get('regular_sn', display_num)
+                    has_breakdown = real_sn in regular_past_breakdowns
+                    if has_breakdown:
+                        modal_id = f'full-list-season-{display_num}'
+                        full_list_items += f'<div style="margin-bottom: 10px;">'
+                        full_list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 0; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">Season {display_num} Winner: {regular_names} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>'
+                        full_list_items += '</div>'
+                        full_list_modals += generate_season_breakdown_modal(real_sn, regular_past_breakdowns[real_sn], modal_id)
+                    else:
+                        full_list_items += f'<div style="margin-bottom: 10px;">'
+                        full_list_items += f'<p style="color: #00E8DA; font-weight: bold; margin: 0;">Season {display_num} Winner: {regular_names}</p>'
+                        full_list_items += '</div>'
             
             all_modals_html += f'''<div id="div-season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
@@ -920,6 +985,8 @@ def generate_division_season_stats_html(league_data):
   </div>
 </div>
 '''
+            # Append breakdown modals from Full List
+            all_modals_html += full_list_modals
     
     # All-Time Stats (unchanged - shows all players regardless of division)
     html += '<div class="all-time-container">\n'
@@ -950,7 +1017,10 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     """Generate complete HTML page"""
     latest_html = generate_latest_scores_html(league_data)
     
-    if league_data.get('division_mode'):
+    # Only show division mode if both enabled AND confirmed
+    division_active = league_data.get('division_mode') and league_data.get('division_confirmed_at') is not None
+    
+    if division_active:
         weekly_html = generate_division_weekly_totals_html(league_data)
         stats_html = generate_division_season_stats_html(league_data)
     else:

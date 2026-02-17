@@ -310,9 +310,10 @@ def get_complete_league_data(league_id):
     # Check if league is in division mode
     div_conn = get_db_connection()
     div_cursor = div_conn.cursor()
-    div_cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+    div_cursor.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
     div_result = div_cursor.fetchone()
     is_division_mode = div_result and div_result[0]
+    division_confirmed_at = div_result[1] if div_result else None
     div_cursor.close()
     div_conn.close()
     
@@ -361,6 +362,7 @@ def get_complete_league_data(league_id):
         'all_time_stats': all_time_stats,
         'season_data': season_data,
         'division_mode': is_division_mode,
+        'division_confirmed_at': division_confirmed_at,
         'division_data': division_data,
         'player_divisions': player_divisions,
         'regular_season_count': regular_season_count,
