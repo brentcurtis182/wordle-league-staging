@@ -6291,6 +6291,12 @@ def dashboard_division_confirm(league_id):
         from division_manager import confirm_division_mode
         result = confirm_division_mode(league_id)
         if result['success']:
+            # Regenerate HTML to show divisions on league page
+            try:
+                from update_pipeline import run_update_pipeline
+                run_update_pipeline(league_id)
+            except Exception as regen_error:
+                logging.error(f"Error regenerating HTML after division confirm: {regen_error}")
             return redirect(f'/dashboard/league/{league_id}?message=Division Mode confirmed! Div I: {result["division_1_count"]} players, Div II: {result["division_2_count"]} players.')
         else:
             return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(result["error"])}')

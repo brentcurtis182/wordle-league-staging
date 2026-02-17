@@ -1793,7 +1793,7 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
         toggle_onclick = f"showDivisionOffModal(event, {str(division_locked).lower()})"
     else:
         # Show confirmation modal before enabling division mode
-        toggle_onclick = "showDivisionConfirmModal(event)"
+        toggle_onclick = "showEnableDivisionModal(event)"
     
     toggle_class = "division-toggle active" if division_mode else "division-toggle"
     
@@ -1905,7 +1905,7 @@ def _render_division_players(league, players, is_chat_platform):
     confirm_btn = ""
     if not division_confirmed:
         confirm_btn = f'''<div style="margin-top: 16px; text-align: center;">
-            <button type="button" class="btn btn-primary" onclick="showDivisionConfirmModal()" style="padding: 10px 24px;">
+            <button type="button" class="btn btn-primary" onclick="showFinalizeConfirmModal()" style="padding: 10px 24px;">
                 Confirm Division Mode
             </button>
         </div>'''
@@ -3913,18 +3913,32 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // ============================================================
             // Division Mode: Modals
             // ============================================================
-            function showDivisionConfirmModal(event) {{
+            function showEnableDivisionModal(event) {{
                 if (event) event.preventDefault();
                 const modal = document.getElementById('resetModal');
                 document.getElementById('resetModalTitle').textContent = 'Enable Division Mode?';
                 document.getElementById('resetModalText').textContent = 
                     'This will enable Division Mode and split players into two divisions. You can rearrange players before confirming. ' +
-                    'Once a week has completed, you cannot turn off Division Mode without resetting the season.';
+                    'The league page will not change until you click Confirm Division Mode.';
                 const confirmBtn = document.getElementById('resetModalConfirmBtn');
                 confirmBtn.textContent = 'Enable';
                 confirmBtn.style.background = '{COLORS['accent']}';
                 pendingResetForm = document.getElementById('divisionToggleForm');
                 pendingResetAction = null;
+                modal.classList.add('active');
+            }}
+            
+            function showFinalizeConfirmModal() {{
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Publish Divisions?';
+                document.getElementById('resetModalText').textContent = 
+                    'This will publish the division setup to your league page. Players will see the two divisions with their current assignments. ' +
+                    'After a week completes, divisions become locked and cannot be turned off without resetting the season.';
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                confirmBtn.textContent = 'Publish';
+                confirmBtn.style.background = '{COLORS['accent']}';
+                pendingResetForm = null;
+                pendingResetAction = '/dashboard/league/{league['id']}/division-confirm';
                 modal.classList.add('active');
             }}
             
