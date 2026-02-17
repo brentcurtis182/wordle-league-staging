@@ -209,6 +209,14 @@ def _disable_division_mode(league_id, cursor, conn, was_locked):
         
         logging.info(f"Division mode disabled after lock for league {league_id}: reset season {unified_season}, weekly winners cleared")
     
+    # Revert weekly winners division back to NULL so they appear in regular season standings
+    if not was_locked:
+        cursor.execute("""
+            UPDATE weekly_winners SET division = NULL
+            WHERE league_id = %s AND division IS NOT NULL
+        """, (league_id,))
+        logging.info(f"Division mode disabled before lock for league {league_id}: reverted weekly winners to regular season")
+    
     # Restore player divisions to NULL
     cursor.execute("""
         UPDATE players 
@@ -310,7 +318,17 @@ def confirm_division_mode(league_id):
         # Get current week
         current_week = calculate_wordle_number(get_week_start_date())
         
-        # Initialize division seasons for both divisions
+        # Get the current regular season's start week so we can carry over existing wins
+        cursor.execute("""
+            SELECT s.start_week FROM seasons s
+            JOIN league_seasons ls ON ls.league_id = s.league_id AND ls.current_season = s.season_number
+            WHERE s.league_id = %s
+        """, (league_id,))
+        reg_season_row = cursor.fetchone()
+        # Use regular season start if available, otherwise fall back to current week
+        division_start_week = reg_season_row[0] if reg_season_row and reg_season_row[0] else current_week
+        
+        # Initialize division seasons for both divisions (start from regular season start)
         for div in (1, 2):
             cursor.execute("""
                 INSERT INTO division_seasons (league_id, division, current_season, season_start_week)
@@ -318,20 +336,40 @@ def confirm_division_mode(league_id):
                 ON CONFLICT (league_id, division) DO UPDATE
                 SET current_season = 1, season_start_week = EXCLUDED.season_start_week,
                     updated_at = CURRENT_TIMESTAMP
-            """, (league_id, div, current_week))
+            """, (league_id, div, division_start_week))
             
             cursor.execute("""
                 INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
                 VALUES (%s, %s, 1, %s, NULL)
                 ON CONFLICT (league_id, division, season_number) DO UPDATE
                 SET start_week = EXCLUDED.start_week, end_week = NULL
-            """, (league_id, div, current_week))
+            """, (league_id, div, division_start_week))
+        
+        # Carry over existing weekly wins: update weekly_winners from the current season
+        # to set the division based on each player's assigned division
+        cursor.execute("""
+            SELECT p.name, p.division FROM players
+            WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+        """, (league_id,))
+        player_div_map = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        # Update weekly winners from this season that have no division set
+        for player_name, div_num in player_div_map.items():
+            cursor.execute("""
+                UPDATE weekly_winners
+                SET division = %s
+                WHERE league_id = %s AND player_name = %s
+                  AND week_wordle_number >= %s AND division IS NULL
+            """, (div_num, league_id, player_name, division_start_week))
+        
+        carried_over = sum(1 for _ in player_div_map)
+        logging.info(f"Division mode confirm: carried over weekly wins for {carried_over} players from week {division_start_week}")
         
         # Set joined_week for all players
         cursor.execute("""
             UPDATE players SET division_joined_week = %s
             WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
-        """, (current_week, league_id))
+        """, (division_start_week, league_id))
         
         # Mark as confirmed
         cursor.execute("""

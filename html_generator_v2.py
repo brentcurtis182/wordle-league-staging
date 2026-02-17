@@ -558,25 +558,87 @@ def generate_season_stats_html(league_data):
             
             if len(sorted_display_nums) > max_inline:
                 html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="openFullList()">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
-                # Build full list modal with unified seasons
-                full_list_items = ''
-                full_list_modals = ''
+                # Build full list modal matching regular league style
+                fl_list_items = ''
+                fl_detail_views = ''
                 for display_num in sorted_display_nums:
-                    e, m = _render_unified_entry(display_num, unified_seasons[display_num], prefix='fl-')
-                    full_list_items += f'<div style="margin-bottom: 10px;">{e}</div>'
-                    full_list_modals += m
+                    sdata = unified_seasons[display_num]
+                    if sdata.get('type') == 'division':
+                        div1_names = ', '.join(sdata.get('div1', []))
+                        div2_names = ', '.join(sdata.get('div2', []))
+                        # Build name text for the row
+                        parts = []
+                        if div1_names:
+                            parts.append(f'Div I: {div1_names}')
+                        if div2_names:
+                            parts.append(f'Div II: {div2_names}')
+                        elif div1_names:
+                            parts.append('Div II: <span style="opacity:0.6; font-style:italic;">In Progress</span>')
+                        name_text = ' / '.join(parts)
+                        fl_list_items += f'<div style="display:flex; align-items:baseline; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px; font-size:0.9em;">{name_text}</span></div>\n'
+                    elif sdata.get('type') == 'regular':
+                        regular_names = ', '.join(sdata.get('regular_names', []))
+                        real_sn = sdata.get('regular_sn', display_num)
+                        has_breakdown = real_sn in past_season_breakdowns
+                        if has_breakdown:
+                            fl_list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({real_sn})"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
+                        else:
+                            fl_list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names}</span></div>\n'
                 
-                modals_html += f'''<div id="season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h3 style="color:#FFA64D; margin:0;">Season Winners</h3>
+                # Build breakdown detail views for regular seasons (same as generate_full_list_modal)
+                for display_num in sorted_display_nums:
+                    sdata = unified_seasons[display_num]
+                    if sdata.get('type') == 'regular':
+                        real_sn = sdata.get('regular_sn', display_num)
+                        if real_sn in past_season_breakdowns:
+                            rows_html = _build_breakdown_rows(past_season_breakdowns[real_sn])
+                            fl_detail_views += f'''<div id="fl-detail-{real_sn}" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    {full_list_items}
-  </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
 </div>
 '''
-                modals_html += full_list_modals
+                
+                # JS for toggling views (same functions as regular full list)
+                fl_js = '''<script>
+function showSeasonDetail(sn) {
+  document.getElementById('fl-list-view').style.display = 'none';
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  var el = document.getElementById('fl-detail-' + sn);
+  if (el) el.style.display = 'block';
+}
+function backToFullList() {
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  document.getElementById('fl-list-view').style.display = 'block';
+}
+function openFullList() {
+  backToFullList();
+  document.getElementById('season-full-list-modal').style.display = 'flex';
+}
+</script>
+'''
+                
+                modals_html += f'''<div id="season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){{backToFullList();this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div id="fl-list-view">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="color:#FFA64D; margin:0;">Season Winners</h3>
+        <span onclick="backToFullList();document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+      </div>
+      {fl_list_items}
+    </div>
+    {fl_detail_views}
+  </div>
+</div>
+{fl_js}'''
     elif season_winners:
         # No division history - show regular season winners only
         # Group winners by season to handle ties
