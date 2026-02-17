@@ -1789,10 +1789,8 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     league_id = league['id']
     
     # Division toggle onclick logic
-    if division_mode and division_locked:
-        toggle_onclick = "showDivisionLockedModal(event)"
-    elif division_mode and not division_locked:
-        toggle_onclick = "showDivisionOffModal(event)"
+    if division_mode:
+        toggle_onclick = f"showDivisionOffModal(event, {str(division_locked).lower()})"
     else:
         toggle_onclick = "document.getElementById('divisionToggleForm').submit()"
     
@@ -3913,12 +3911,25 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 modal.classList.add('active');
             }}
             
-            function showDivisionOffModal(event) {{
+            function showDivisionOffModal(event, isLocked) {{
                 if (event) event.preventDefault();
                 const modal = document.getElementById('resetModal');
                 document.getElementById('resetModalTitle').textContent = 'Turn Off Division Mode?';
-                document.getElementById('resetModalText').textContent = 
-                    'This will disable Division Mode and restore players to a single league. Current weekly winners will remain.';
+                
+                // Conditional message based on whether weeks have completed
+                if (isLocked) {{
+                    document.getElementById('resetModalText').textContent = 
+                        'Divisions have completed at least one week. Turning off Division Mode will:\n\n' +
+                        '• Reset the current season (all weekly winners will be cleared)\n' +
+                        '• Merge all players back into a single league\n' +
+                        '• Mark incomplete division seasons as "Closed"\n' +
+                        '• Past season winners will remain unchanged\n\n' +
+                        'The league will continue with the higher season number from the two divisions.';
+                }} else {{
+                    document.getElementById('resetModalText').textContent = 
+                        'This will disable Division Mode and restore players to a single league. Current weekly winners will remain.';
+                }}
+                
                 const confirmBtn = document.getElementById('resetModalConfirmBtn');
                 confirmBtn.textContent = 'Confirm';
                 confirmBtn.style.background = '{COLORS['accent']}';

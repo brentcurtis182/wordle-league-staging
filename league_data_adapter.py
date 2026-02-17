@@ -594,18 +594,19 @@ def get_division_season_data(league_id, weekly_stats=None):
         
         # Get division season winners (past seasons)
         cursor.execute("""
-            SELECT sw.season_number, p.name, sw.wins
+            SELECT sw.season_number, p.name, sw.wins, sw.player_id
             FROM season_winners sw
-            JOIN players p ON sw.player_id = p.id
+            LEFT JOIN players p ON sw.player_id = p.id
             WHERE sw.league_id = %s AND sw.division = %s
             ORDER BY sw.season_number DESC
         """, (league_id, div_num))
         
         season_winners = []
         for row in cursor.fetchall():
+            # If player_id is NULL, this is a "Closed" season
             season_winners.append({
                 'season': row[0],
-                'name': row[1],
+                'name': row[1] if row[3] is not None else 'Closed',
                 'wins': row[2]
             })
         

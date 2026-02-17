@@ -98,13 +98,10 @@ def toggle_division_mode(league_id, enable):
         if not enable and not current_mode:
             return {'success': False, 'error': 'Division mode is already disabled'}
         
-        if not enable and is_locked:
-            return {'success': False, 'error': 'Division mode is locked. Use "Reset Season for Divisions" to make changes.'}
-        
         if enable:
             return _enable_division_mode(league_id, cursor, conn)
         else:
-            return _disable_division_mode(league_id, cursor, conn)
+            return _disable_division_mode(league_id, cursor, conn, is_locked)
     
     except Exception as e:
         conn.rollback()
@@ -180,8 +177,52 @@ def _enable_division_mode(league_id, cursor, conn):
     }
 
 
-def _disable_division_mode(league_id, cursor, conn):
+def _disable_division_mode(league_id, cursor, conn, was_locked):
     """Disable division mode: revert players to no-division state"""
+    
+    # If divisions were locked (weeks completed), handle season reset
+    if was_locked:
+        # Find the higher season number between the two divisions
+        cursor.execute("""
+            SELECT MAX(current_season) FROM division_seasons WHERE league_id = %s
+        """, (league_id,))
+        row = cursor.fetchone()
+        higher_season = row[0] if row and row[0] else 1
+        
+        # Get regular season count to calculate unified season number
+        cursor.execute("""
+            SELECT COALESCE(MAX(season_number), 0) FROM season_winners
+            WHERE league_id = %s AND division IS NULL
+        """, (league_id,))
+        regular_count = cursor.fetchone()[0]
+        unified_season = higher_season + regular_count
+        
+        # Delete weekly winners for that unified season
+        # Division weekly winners are stored with division column set
+        cursor.execute("""
+            DELETE FROM weekly_winners
+            WHERE league_id = %s AND division IS NOT NULL
+        """, (league_id,))
+        
+        # Mark incomplete division seasons as "closed" by updating season_winners
+        # Find division seasons that don't have winners yet (incomplete)
+        cursor.execute("""
+            SELECT DISTINCT ds.season_number, ds.division
+            FROM division_seasons ds
+            LEFT JOIN season_winners sw ON sw.league_id = ds.league_id 
+                AND sw.season_number = ds.season_number AND sw.division = ds.division
+            WHERE ds.league_id = %s AND sw.id IS NULL
+        """, (league_id,))
+        incomplete_seasons = cursor.fetchall()
+        
+        # Insert placeholder "closed" entries for incomplete seasons
+        for season_num, div in incomplete_seasons:
+            cursor.execute("""
+                INSERT INTO season_winners (league_id, season_number, player_id, wins, division, completed_date)
+                VALUES (%s, %s, NULL, 0, %s, CURRENT_DATE)
+            """, (league_id, season_num, div))
+        
+        logging.info(f"Division mode disabled after lock for league {league_id}: reset season {unified_season}, marked {len(incomplete_seasons)} incomplete seasons as closed")
     
     # Restore player divisions to NULL
     cursor.execute("""

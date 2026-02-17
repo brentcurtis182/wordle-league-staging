@@ -794,17 +794,21 @@ def generate_division_season_stats_html(league_data):
             
             # Division I winner (indented, orange)
             if div1_names:
-                div1_text = f"Division I Winner: {div1_names}"
-                div1_bk_key = None
-                for k in sdata.get('breakdowns', {}):
-                    if k[0] == 1:
-                        div1_bk_key = k
-                        break
-                if div1_bk_key and div1_bk_key in sdata['breakdowns']:
-                    modal_id = f'div1-season-modal-{display_num}'
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div1_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
-                    rows_html = _build_breakdown_rows(sdata['breakdowns'][div1_bk_key])
-                    modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+                # Check if this is a "Closed" season
+                if div1_names == 'Closed':
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">Division I Winner: <span style="font-style: italic; opacity: 0.6;">Closed</span></p>\n'
+                else:
+                    div1_text = f"Division I Winner: {div1_names}"
+                    div1_bk_key = None
+                    for k in sdata.get('breakdowns', {}):
+                        if k[0] == 1:
+                            div1_bk_key = k
+                            break
+                    if div1_bk_key and div1_bk_key in sdata['breakdowns']:
+                        modal_id = f'div1-season-modal-{display_num}'
+                        entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div1_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                        rows_html = _build_breakdown_rows(sdata['breakdowns'][div1_bk_key])
+                        modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="color:#00E8DA; margin:0;">Division I - Season {display_num}</h3>
@@ -817,22 +821,26 @@ def generate_division_season_stats_html(league_data):
   </div>
 </div>
 '''
-                else:
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div1_text}</p>\n'
+                    else:
+                        entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div1_text}</p>\n'
             
             # Division II winner (indented, orange, no gap from Div I)
             if div2_names:
-                div2_text = f"Division II Winner: {div2_names}"
-                div2_bk_key = None
-                for k in sdata.get('breakdowns', {}):
-                    if k[0] == 2:
-                        div2_bk_key = k
-                        break
-                if div2_bk_key and div2_bk_key in sdata['breakdowns']:
-                    modal_id = f'div2-season-modal-{display_num}'
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div2_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
-                    rows_html = _build_breakdown_rows(sdata['breakdowns'][div2_bk_key])
-                    modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+                # Check if this is a "Closed" season
+                if div2_names == 'Closed':
+                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">Division II Winner: <span style="font-style: italic; opacity: 0.6;">Closed</span></p>\n'
+                else:
+                    div2_text = f"Division II Winner: {div2_names}"
+                    div2_bk_key = None
+                    for k in sdata.get('breakdowns', {}):
+                        if k[0] == 2:
+                            div2_bk_key = k
+                            break
+                    if div2_bk_key and div2_bk_key in sdata['breakdowns']:
+                        modal_id = f'div2-season-modal-{display_num}'
+                        entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById(\'{modal_id}\').style.display=\'flex\'">{div2_text} <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+                        rows_html = _build_breakdown_rows(sdata['breakdowns'][div2_bk_key])
+                        modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="color:#FFA64D; margin:0;">Division II - Season {display_num}</h3>
@@ -845,8 +853,8 @@ def generate_division_season_stats_html(league_data):
   </div>
 </div>
 '''
-                else:
-                    entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div2_text}</p>\n'
+                    else:
+                        entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">{div2_text}</p>\n'
             elif sdata.get('div1'):
                 # Div I has winner but Div II doesn't yet
                 entry_html += f'<p class="season-winner-message" style="color: #FFA64D; font-weight: bold; margin: 0; padding-left: 20px;">Division II Winner: <span style="font-style: italic; opacity: 0.6;">In Progress</span></p>\n'
