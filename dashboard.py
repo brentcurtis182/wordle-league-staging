@@ -3919,11 +3919,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 // Conditional message based on whether weeks have completed
                 if (isLocked) {{
                     document.getElementById('resetModalText').textContent = 
-                        'Divisions have completed at least one week. Turning off Division Mode will:\n\n' +
-                        '• Reset the current season (all weekly winners will be cleared)\n' +
-                        '• Merge all players back into a single league\n' +
-                        '• Mark incomplete division seasons as "Closed"\n' +
-                        '• Past season winners will remain unchanged\n\n' +
+                        'Divisions have completed at least one week. Turning off Division Mode will:\\n\\n' +
+                        '• Reset the current season (all weekly winners will be cleared)\\n' +
+                        '• Merge all players back into a single league\\n' +
+                        '• Mark incomplete division seasons as "Closed"\\n' +
+                        '• Past season winners will remain unchanged\\n\\n' +
                         'The league will continue with the higher season number from the two divisions.';
                 }} else {{
                     document.getElementById('resetModalText').textContent = 
