@@ -317,8 +317,20 @@ def get_complete_league_data(league_id):
     div_cursor.close()
     div_conn.close()
     
+    # Check if there are any division season winners in the database (even if division mode is OFF)
+    # This ensures division season history is retained when toggling division mode off
+    div_check_conn = get_db_connection()
+    div_check_cursor = div_check_conn.cursor()
+    div_check_cursor.execute("""
+        SELECT COUNT(*) FROM season_winners
+        WHERE league_id = %s AND division IS NOT NULL
+    """, (league_id,))
+    has_division_history = div_check_cursor.fetchone()[0] > 0
+    div_check_cursor.close()
+    div_check_conn.close()
+    
     division_data = None
-    if is_division_mode:
+    if is_division_mode or has_division_history:
         division_data = get_division_season_data(league_id, weekly_stats=weekly_stats)
     
     # Get player division assignments for weekly stats filtering
@@ -335,15 +347,11 @@ def get_complete_league_data(league_id):
         pd_conn.close()
     
     # Count regular (pre-division) seasons for unified season numbering
+    # Always compute this if there's division history, so unified numbering works
     regular_season_count = 0
-    if is_division_mode:
+    if is_division_mode or has_division_history:
         rs_conn = get_db_connection()
         rs_cursor = rs_conn.cursor()
-        rs_cursor.execute("""
-            SELECT COUNT(*) FROM season_winners
-            WHERE league_id = %s AND division IS NULL
-        """, (league_id,))
-        # Use max season_number from regular winners as the offset
         rs_cursor.execute("""
             SELECT COALESCE(MAX(season_number), 0) FROM season_winners
             WHERE league_id = %s AND division IS NULL
