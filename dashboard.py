@@ -1830,16 +1830,20 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
 
 
 def _render_division_players(league, players, is_chat_platform):
-    """Render players in two division zones with drag-and-drop"""
+    """Render players in two division zones with drag-and-drop locked behind Edit button"""
     league_id = league['id']
     division_locked = league.get('division_locked', False)
     division_confirmed = league.get('division_confirmed_at') is not None
+    
+    identifier_empty = 'No phone'
+    if is_chat_platform:
+        identifier_empty = ''
     
     div1_players = [p for p in players if p.get('division') == 1]
     div2_players = [p for p in players if p.get('division') == 2]
     unassigned = [p for p in players if p.get('division') is None]
     
-    def player_chip(player, draggable=True):
+    def player_chip(player):
         pid = player['id']
         name = player['name']
         immunity = player.get('division_immunity', False)
@@ -1858,32 +1862,35 @@ def _render_division_players(league, players, is_chat_platform):
             border = "transparent"
             badge = ""
         
-        drag_attr = 'draggable="true"' if draggable and not division_locked else ''
-        cursor = "grab" if draggable and not division_locked else "default"
+        # Phone / identifier display
+        phone = player.get('phone', '') or ''
+        identifier_value = phone if not is_chat_platform else (player.get('slack_user_id') or player.get('discord_user_id') or '')
+        identifier_display = phone or identifier_empty
         
-        # Edit button (remove functionality integrated into edit modal)
-        phone = player.get('phone_number', '')
-        identifier_type = 'Phone' if is_chat_platform else 'Email'
-        identifier_value = phone if is_chat_platform else player.get('email', '')
-        
-        # Escape values for JavaScript - replace single quotes with &#39;
+        # Escape values for JavaScript
         name_escaped = name.replace("'", "&#39;").replace('"', "&quot;")
         identifier_escaped = identifier_value.replace("'", "&#39;").replace('"', "&quot;")
         
-        edit_remove_btns = f'''
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <button onclick="editPlayer('{pid}', '{name_escaped}', '{identifier_escaped}')" 
-                    style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
-                    title="Edit player">✏️</button>
-                <span style="color: {COLORS['text_muted']}; font-size: 0.8em;">&#x2630;</span>
-            </div>'''
+        # Per-player edit button (always visible, opens edit modal for name/phone)
+        edit_btn = f'''<button onclick="editPlayer('{pid}', '{name_escaped}', '{identifier_escaped}')" 
+            style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
+            title="Edit player">✏️</button>'''
         
-        return f'''<div class="division-player" data-player-id="{pid}" {drag_attr}
+        # Drag handle (only visible in rearrange mode, hidden by default)
+        drag_handle = f'<span class="div-drag-handle" style="color: {COLORS["text_muted"]}; font-size: 0.9em; cursor: grab; display: none; padding: 0 4px;">&#x2630;</span>'
+        
+        return f'''<div class="division-player" data-player-id="{pid}"
             style="background: {bg}; border: 1px solid {border}; border-radius: 8px; padding: 10px 14px; 
-            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; cursor: {cursor};"
+            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;"
             ondragstart="dragStart(event)" ondragend="dragEnd(event)">
-            <span style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</span>
-            {edit_remove_btns}
+            <div style="flex: 1; min-width: 0; overflow: hidden;">
+                <div style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</div>
+                <div style="color: {COLORS['text_muted']}; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis;">{identifier_display}</div>
+            </div>
+            <div style="display: flex; gap: 4px; align-items: center;">
+                {edit_btn}
+                {drag_handle}
+            </div>
         </div>'''
     
     div1_html = "".join(player_chip(p) for p in div1_players)
@@ -1912,8 +1919,24 @@ def _render_division_players(league, players, is_chat_platform):
             </button>
         </div>'''
     
+    # Edit Divisions button (show when confirmed and not locked)
+    edit_divisions_btn = ""
+    if division_confirmed and not division_locked:
+        edit_divisions_btn = f'''<button type="button" id="editDivisionsBtn" class="btn btn-small" 
+            style="background: {COLORS['accent']}; color: white; padding: 6px 14px; font-size: 0.85em;"
+            onclick="showEditDivisionsModal()">Edit Divisions</button>'''
+    
+    # Done Editing button (hidden by default, shown when in rearrange mode)
+    done_editing_btn = f'''<button type="button" id="doneEditingDivisionsBtn" class="btn btn-small" 
+        style="background: {COLORS['accent_orange']}; color: white; padding: 6px 14px; font-size: 0.85em; display: none;"
+        onclick="exitDivisionEditMode()">Done Editing</button>'''
+    
     return f'''
     {locked_msg}
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+        {edit_divisions_btn}
+        {done_editing_btn}
+    </div>
     <div style="display: flex; flex-direction: column; gap: 16px;">
         <!-- Division I -->
         <div class="division-zone" id="division-1" data-division="1"
@@ -3796,11 +3819,72 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }});
             
             // ============================================================
-            // Division Mode: Drag and Drop
+            // Division Mode: Drag and Drop (gated behind Edit mode)
             // ============================================================
             let draggedPlayer = null;
+            let divisionEditMode = {'true' if not league.get('division_confirmed_at') else 'false'};
+            // Pre-confirmation: always in edit mode so user can arrange freely
+            
+            // On page load, if pre-confirmation, enable dragging immediately
+            if (divisionEditMode) {{
+                setTimeout(function() {{ enterDivisionEditMode(true); }}, 100);
+            }}
+            
+            function enterDivisionEditMode(silent) {{
+                divisionEditMode = true;
+                // Show drag handles, make players draggable
+                document.querySelectorAll('.division-player').forEach(function(el) {{
+                    el.setAttribute('draggable', 'true');
+                    el.style.cursor = 'grab';
+                    var handle = el.querySelector('.div-drag-handle');
+                    if (handle) handle.style.display = 'inline';
+                }});
+                // Toggle buttons
+                var editBtn = document.getElementById('editDivisionsBtn');
+                var doneBtn = document.getElementById('doneEditingDivisionsBtn');
+                if (editBtn) editBtn.style.display = 'none';
+                if (doneBtn && !silent) doneBtn.style.display = 'inline-block';
+            }}
+            
+            function exitDivisionEditMode() {{
+                divisionEditMode = false;
+                // Hide drag handles, remove draggable
+                document.querySelectorAll('.division-player').forEach(function(el) {{
+                    el.removeAttribute('draggable');
+                    el.style.cursor = 'default';
+                    var handle = el.querySelector('.div-drag-handle');
+                    if (handle) handle.style.display = 'none';
+                }});
+                // Toggle buttons
+                var editBtn = document.getElementById('editDivisionsBtn');
+                var doneBtn = document.getElementById('doneEditingDivisionsBtn');
+                if (editBtn) editBtn.style.display = 'inline-block';
+                if (doneBtn) doneBtn.style.display = 'none';
+            }}
+            
+            function showEditDivisionsModal() {{
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Edit Division Assignments';
+                document.getElementById('resetModalText').textContent = 
+                    'You can rearrange players between divisions until a week completes with weekly winners recorded in both divisions. ' +
+                    'After that point, players will be locked in place unless you use "Reset Season for Divisions" (which erases all weekly wins for the current division season).';
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                confirmBtn.textContent = 'Edit Divisions';
+                confirmBtn.style.background = '{COLORS['accent']}';
+                pendingResetForm = null;
+                pendingResetAction = null;
+                // Override confirm to enter edit mode, then restore default handler
+                confirmBtn.onclick = function() {{
+                    modal.classList.remove('active');
+                    enterDivisionEditMode(false);
+                    // Restore default handler for other modals
+                    confirmBtn.onclick = function() {{ confirmReset(); }};
+                }};
+                modal.classList.add('active');
+            }}
             
             function dragStart(e) {{
+                if (!divisionEditMode) {{ e.preventDefault(); return; }}
                 draggedPlayer = e.target.closest('.division-player');
                 if (draggedPlayer) {{
                     draggedPlayer.classList.add('dragging');
@@ -3818,11 +3902,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             function dragOver(e) {{
+                if (!divisionEditMode) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
             }}
             
             function dragEnter(e) {{
+                if (!divisionEditMode) return;
                 e.preventDefault();
                 const zone = e.target.closest('.division-zone');
                 if (zone) zone.classList.add('drag-over');
@@ -3837,6 +3923,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             function dropPlayer(e) {{
                 e.preventDefault();
+                if (!divisionEditMode) return;
                 const zone = e.target.closest('.division-zone');
                 if (!zone || !draggedPlayer) return;
                 
@@ -3846,12 +3933,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 // Move the DOM element
                 const playerList = zone.querySelector('.division-player-list');
-                // Remove placeholder text if present
                 const placeholder = playerList.querySelector('p');
                 if (placeholder) placeholder.remove();
                 playerList.appendChild(draggedPlayer);
                 
-                // Update counts
                 updateDivisionCounts();
                 
                 // Save to server
@@ -3890,6 +3975,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 let touchOffsetY = 0;
                 
                 document.addEventListener('touchstart', function(e) {{
+                    if (!divisionEditMode) return;
                     const player = e.target.closest('.division-player[draggable]');
                     if (!player) return;
                     
@@ -3898,7 +3984,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     touchOffsetX = e.touches[0].clientX - rect.left;
                     touchOffsetY = e.touches[0].clientY - rect.top;
                     
-                    // Create visual clone
                     touchClone = player.cloneNode(true);
                     touchClone.style.position = 'fixed';
                     touchClone.style.zIndex = '9999';
@@ -3919,7 +4004,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     touchClone.style.left = x + 'px';
                     touchClone.style.top = y + 'px';
                     
-                    // Highlight drop zone
                     document.querySelectorAll('.division-zone').forEach(zone => {{
                         const r = zone.getBoundingClientRect();
                         if (e.touches[0].clientX >= r.left && e.touches[0].clientX <= r.right &&
@@ -3934,13 +4018,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.addEventListener('touchend', function(e) {{
                     if (!touchPlayer || !touchClone) return;
                     
-                    // Find drop target
                     const touch = e.changedTouches[0];
                     document.querySelectorAll('.division-zone').forEach(zone => {{
                         const r = zone.getBoundingClientRect();
                         if (touch.clientX >= r.left && touch.clientX <= r.right &&
                             touch.clientY >= r.top && touch.clientY <= r.bottom) {{
-                            // Drop here
                             const division = parseInt(zone.dataset.division);
                             const playerId = touchPlayer.dataset.playerId;
                             const playerList = zone.querySelector('.division-player-list');
