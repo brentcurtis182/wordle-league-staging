@@ -3858,6 +3858,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const confirmBtn = document.getElementById('resetModalConfirmBtn');
                 confirmBtn.textContent = 'OK';
                 confirmBtn.style.background = '{COLORS['accent']}';
+                confirmBtn.style.color = '#000';
                 pendingResetForm = null;
                 pendingResetAction = null;
                 confirmBtn.onclick = function() {{
@@ -3891,6 +3892,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const confirmBtn = document.getElementById('resetModalConfirmBtn');
                 confirmBtn.textContent = 'Edit Divisions';
                 confirmBtn.style.background = '{COLORS['accent']}';
+                confirmBtn.style.color = '#000';
                 pendingResetForm = null;
                 pendingResetAction = null;
                 // Override confirm to enter edit mode, then restore default handler
