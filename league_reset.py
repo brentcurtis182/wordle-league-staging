@@ -173,9 +173,41 @@ def reset_current_season(league_id):
             SET start_week = EXCLUDED.start_week
         """, (league_id, current_season, current_week_wordle))
         
+        # If division mode is active, also reset division season data
+        cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+        div_row = cursor.fetchone()
+        if div_row and div_row[0]:
+            # Reset division_seasons start weeks to current week
+            for div in (1, 2):
+                cursor.execute("""
+                    UPDATE division_seasons
+                    SET season_start_week = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE league_id = %s AND division = %s
+                """, (current_week_wordle, league_id, div))
+                
+                # Update current division_season_boundaries start_week
+                cursor.execute("""
+                    SELECT current_season FROM division_seasons
+                    WHERE league_id = %s AND division = %s
+                """, (league_id, div))
+                ds_row = cursor.fetchone()
+                if ds_row:
+                    cursor.execute("""
+                        UPDATE division_season_boundaries
+                        SET start_week = %s, end_week = NULL
+                        WHERE league_id = %s AND division = %s AND season_number = %s
+                    """, (current_week_wordle, league_id, div, ds_row[0]))
+            
+            # Unlock divisions so players can be rearranged
+            cursor.execute("""
+                UPDATE leagues SET division_locked = FALSE WHERE id = %s
+            """, (league_id,))
+            
+            logging.info(f"Division mode active: also reset division season data for league {league_id}")
+        
         conn.commit()
         
-        logging.info(f"✅ Reset current season for league {league_id}: deleted {deleted_count} weekly winner records")
+        logging.info(f"Reset current season for league {league_id}: deleted {deleted_count} weekly winner records")
         return True, f"Season {current_season} reset successfully. {deleted_count} weekly winner records cleared."
         
     except Exception as e:
@@ -451,7 +483,7 @@ def reset_season_winners(league_id):
                           expired = FALSE
         """, (league_id, json.dumps(snapshot)))
         
-        # Delete all season winners
+        # Delete all season winners (including division winners)
         cursor.execute("DELETE FROM season_winners WHERE league_id = %s", (league_id,))
         deleted_winners = cursor.rowcount
         
@@ -474,9 +506,39 @@ def reset_season_winners(league_id):
             SET start_week = EXCLUDED.start_week, end_week = NULL
         """, (league_id, current_season_start))
         
+        # If division mode is active, also reset division season tracking
+        cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+        div_row = cursor.fetchone()
+        if div_row and div_row[0]:
+            # Delete all division season boundaries
+            cursor.execute("DELETE FROM division_season_boundaries WHERE league_id = %s", (league_id,))
+            
+            # Reset both divisions to Season 1 with current start week
+            for div in (1, 2):
+                cursor.execute("""
+                    UPDATE division_seasons
+                    SET current_season = 1, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE league_id = %s AND division = %s
+                """, (current_season_start, league_id, div))
+                
+                cursor.execute("""
+                    INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
+                    VALUES (%s, %s, 1, %s, NULL)
+                    ON CONFLICT (league_id, division, season_number) DO UPDATE
+                    SET start_week = EXCLUDED.start_week, end_week = NULL
+                """, (league_id, div, current_season_start))
+            
+            # Also clear division weekly winners and unlock
+            cursor.execute("""
+                DELETE FROM weekly_winners WHERE league_id = %s AND division IS NOT NULL
+            """, (league_id,))
+            cursor.execute("UPDATE leagues SET division_locked = FALSE WHERE id = %s", (league_id,))
+            
+            logging.info(f"Division mode active: also reset division seasons/winners for league {league_id}")
+        
         conn.commit()
         
-        logging.info(f"✅ Reset season winners for league {league_id}: deleted {deleted_winners} season winner records, reset to Season 1")
+        logging.info(f"Reset season winners for league {league_id}: deleted {deleted_winners} season winner records, reset to Season 1")
         return True, f"Season winners reset successfully. {deleted_winners} season winner records cleared. Now on Season 1."
         
     except Exception as e:
