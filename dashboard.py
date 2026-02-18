@@ -1797,11 +1797,6 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     
     toggle_class = "division-toggle active" if division_mode else "division-toggle"
     
-    # Reset button (only show when division mode is confirmed)
-    reset_btn = ""
-    if division_mode and division_confirmed:
-        reset_btn = f'<button type="button" class="btn btn-small" style="background: {COLORS["accent_orange"]}; color: white;" onclick="showDivisionResetModal()">Reset Season for Divisions</button>'
-    
     # Player content: either division view or normal view
     if division_mode:
         player_content = _render_division_players(league, players, is_chat_platform)
@@ -1813,7 +1808,6 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <h2 style="margin: 0;">👥 Players ({len(players)})</h2>
             <div style="display: flex; align-items: center; gap: 12px;">
-                {reset_btn}
                 <form method="POST" action="/dashboard/league/{league_id}/division-toggle" id="divisionToggleForm" style="display: inline;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
                         <span style="font-size: 0.85em; color: {COLORS['text_muted']};">Division Mode</span>
@@ -1919,23 +1913,31 @@ def _render_division_players(league, players, is_chat_platform):
             </button>
         </div>'''
     
-    # Edit Divisions button (show when confirmed and not locked)
+    # Unified button bar for division management (same size, black text)
+    btn_style = f'padding: 8px 16px; font-size: 0.85em; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; color: #000; min-width: 140px; text-align: center;'
+    
     edit_divisions_btn = ""
     if division_confirmed and not division_locked:
-        edit_divisions_btn = f'''<button type="button" id="editDivisionsBtn" class="btn btn-small" 
-            style="background: {COLORS['accent']}; color: white; padding: 6px 14px; font-size: 0.85em;"
+        edit_divisions_btn = f'''<button type="button" id="editDivisionsBtn" 
+            style="background: {COLORS['accent']}; {btn_style}"
             onclick="showEditDivisionsModal()">Edit Divisions</button>'''
     
-    # Done Editing button (hidden by default, shown when in rearrange mode)
-    done_editing_btn = f'''<button type="button" id="doneEditingDivisionsBtn" class="btn btn-small" 
-        style="background: {COLORS['accent_orange']}; color: white; padding: 6px 14px; font-size: 0.85em; display: none;"
+    done_editing_btn = f'''<button type="button" id="doneEditingDivisionsBtn" 
+        style="background: {COLORS['accent_orange']}; {btn_style} display: none;"
         onclick="exitDivisionEditMode()">Done Editing</button>'''
+    
+    reset_btn = ""
+    if division_confirmed:
+        reset_btn = f'''<button type="button" id="resetDivisionsBtn"
+            style="background: {COLORS['accent_orange']}; {btn_style}"
+            onclick="showDivisionResetModal()">Reset Season</button>'''
     
     return f'''
     {locked_msg}
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
         {edit_divisions_btn}
         {done_editing_btn}
+        {reset_btn}
     </div>
     <div style="display: flex; flex-direction: column; gap: 16px;">
         <!-- Division I -->
