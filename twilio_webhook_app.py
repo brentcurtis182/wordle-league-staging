@@ -2288,6 +2288,22 @@ def dashboard_add_player(league_id):
                 cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, phone_number = %s WHERE id = %s", (id_value, inactive_player[0]))
             else:
                 cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE WHERE id = %s", (inactive_player[0],))
+            
+            # Auto-assign to a division if league is in division mode
+            div_suffix = ""
+            cursor.execute("SELECT division_mode FROM leagues WHERE id = %s", (league_id,))
+            dm_row = cursor.fetchone()
+            if dm_row and dm_row[0]:
+                cursor.execute("""
+                    SELECT division, COUNT(*) FROM players
+                    WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+                    GROUP BY division
+                """, (league_id,))
+                dc = {r[0]: r[1] for r in cursor.fetchall()}
+                td = 1 if dc.get(1, 0) <= dc.get(2, 0) else 2
+                cursor.execute("UPDATE players SET division = %s WHERE id = %s", (td, inactive_player[0]))
+                div_suffix = f" (assigned to Division {'I' if td == 1 else 'II'})"
+            
             conn.commit()
             cursor.close()
             conn.close()
@@ -2298,7 +2314,7 @@ def dashboard_add_player(league_id):
             run_update_pipeline(league_id)
             
             logging.info(f"Reactivated player {name} in league {league_id} (channel={channel_type}) - HTML regenerated")
-            return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!')
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!{div_suffix}')
         
         # Determine which column to use based on channel type
         if channel_type == 'slack':
@@ -2332,6 +2348,34 @@ def dashboard_add_player(league_id):
             """, (name, id_value, league_id, is_active_league))
         
         conn.commit()
+        
+        # If league is in division mode, auto-assign new player to the division with fewer players
+        division_msg_suffix = ""
+        cursor2 = conn.cursor()
+        cursor2.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
+        div_row = cursor2.fetchone()
+        if div_row and div_row[0]:
+            # Count players in each division
+            cursor2.execute("""
+                SELECT division, COUNT(*) FROM players
+                WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+                GROUP BY division
+            """, (league_id,))
+            div_counts = {r[0]: r[1] for r in cursor2.fetchall()}
+            # Assign to the division with fewer players (default to Div II if equal)
+            target_div = 1 if div_counts.get(1, 0) <= div_counts.get(2, 0) else 2
+            div_label = "I" if target_div == 1 else "II"
+            
+            # Get the newly inserted player's ID
+            cursor2.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = TRUE", (league_id, name))
+            new_player = cursor2.fetchone()
+            if new_player:
+                cursor2.execute("UPDATE players SET division = %s WHERE id = %s", (target_div, new_player[0]))
+                conn.commit()
+                division_msg_suffix = f" (assigned to Division {div_label})"
+                logging.info(f"Auto-assigned new player {name} to Division {div_label} in league {league_id}")
+        
+        cursor2.close()
         cursor.close()
         conn.close()
         
@@ -2345,11 +2389,11 @@ def dashboard_add_player(league_id):
         logging.info(f"Added player {name} to league {league_id} (channel={channel_type}) - HTML regenerated")
         
         if channel_type in ('slack', 'discord'):
-            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added! Their account will be linked when they post their first score.')
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added{division_msg_suffix}! Their account will be linked when they post their first score.')
         elif is_active_league:
-            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added. Note: They won\'t receive messages until you re-link your channel.')
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added{division_msg_suffix}. Note: They won\'t receive messages until you re-link your channel.')
         else:
-            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully')
+            return redirect(f'/dashboard/league/{league_id}?message=Player {name} added successfully{division_msg_suffix}')
     except Exception as e:
         logging.error(f"Error adding player: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to add player')
