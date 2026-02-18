@@ -3099,9 +3099,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             function editPlayerRemove() {{
                 if (editPlayerModalId) {{
+                    const pid = editPlayerModalId;
                     const name = document.getElementById('editPlayerModalName').value;
                     closeEditPlayerModal();
-                    showRemoveModal(editPlayerModalId, name);
+                    showRemoveModal(pid, name);
                 }}
             }}
             
