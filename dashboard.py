@@ -3849,15 +3849,32 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             function exitDivisionEditMode() {{
+                // Show confirmation modal before exiting
+                const modal = document.getElementById('resetModal');
+                document.getElementById('resetModalTitle').textContent = 'Division Changes Saved';
+                document.getElementById('resetModalText').textContent = 
+                    'Your division player assignments have been saved. Players are now locked from rearranging until you click Edit Divisions again.';
+                const confirmBtn = document.getElementById('resetModalConfirmBtn');
+                confirmBtn.textContent = 'OK';
+                confirmBtn.style.background = '{COLORS['accent']}';
+                pendingResetForm = null;
+                pendingResetAction = null;
+                confirmBtn.onclick = function() {{
+                    modal.classList.remove('active');
+                    confirmBtn.onclick = function() {{ confirmReset(); }};
+                    _finishExitDivisionEditMode();
+                }};
+                modal.classList.add('active');
+            }}
+            
+            function _finishExitDivisionEditMode() {{
                 divisionEditMode = false;
-                // Hide drag handles, remove draggable
                 document.querySelectorAll('.division-player').forEach(function(el) {{
                     el.removeAttribute('draggable');
                     el.style.cursor = 'default';
                     var handle = el.querySelector('.div-drag-handle');
                     if (handle) handle.style.display = 'none';
                 }});
-                // Toggle buttons
                 var editBtn = document.getElementById('editDivisionsBtn');
                 var doneBtn = document.getElementById('doneEditingDivisionsBtn');
                 if (editBtn) editBtn.style.display = 'inline-block';
