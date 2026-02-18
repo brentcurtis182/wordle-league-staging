@@ -325,7 +325,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     # First, check if this is a verification code to link a channel
     cursor = db_connection.cursor()
     cursor.execute("""
-        SELECT id, slack_bot_token, display_name, verification_code
+        SELECT id, slack_bot_token, display_name, verification_code, slug
         FROM leagues 
         WHERE channel_type = 'slack' 
         AND slack_team_id = %s 
@@ -337,7 +337,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     logging.info(f"Slack verification check: team_id={team_id}, text='{text}', pending_leagues={len(pending_leagues)}")
     
     for league_row in pending_leagues:
-        league_id, bot_token, league_name, verification_code = league_row
+        league_id, bot_token, league_name, verification_code, slug = league_row
         logging.info(f"Checking league {league_id} ({league_name}): stored_code='{verification_code}' vs received='{text}'")
         if verification_code and text.upper() == verification_code.upper():
             # Match! Link this channel to the league
@@ -348,11 +348,14 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
             """, (channel_id, league_id))
             db_connection.commit()
             
-            # Send confirmation message
+            # Build public page URL
+            public_url = f"https://app.wordplayleague.com/leagues/{slug}" if slug else f"https://www.wordplayleague.com/league-{league_id}"
+            
+            # Send confirmation message with public page link
             send_slack_message(
                 bot_token, 
                 channel_id, 
-                f"🎉 Success! This channel is now connected to **{league_name}**. Players can start posting their Wordle scores!"
+                f"🎉 Success! This channel is now connected to **{league_name}**. Players can start posting their Wordle scores!\n\nView your league page: {public_url}"
             )
             
             logging.info(f"League {league_id} linked to Slack channel {channel_id}")
