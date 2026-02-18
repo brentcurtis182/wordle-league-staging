@@ -2059,10 +2059,10 @@ def dashboard_create_league():
         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM leagues")
         next_id = cursor.fetchone()[0]
         
-        # Create the league (all AI messages default to OFF)
+        # Create the league (Sunday race update and Monday recap default to ON)
         cursor.execute("""
             INSERT INTO leagues (id, name, display_name, slug, channel_type, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast, ai_monday_recap)
-            VALUES (%s, %s, %s, %s, %s, false, false, false, false, true)
+            VALUES (%s, %s, %s, %s, %s, false, false, true, false, true)
             RETURNING id
         """, (next_id, slug, league_name, slug, channel_type))
         
