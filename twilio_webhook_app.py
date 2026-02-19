@@ -132,6 +132,12 @@ def get_db_connection():
             )
         
         logging.info("Database connection successful!")
+        
+        # Set statement timeout to 20 seconds to prevent hanging queries
+        cursor = conn.cursor()
+        cursor.execute("SET statement_timeout = '20s'")
+        cursor.close()
+        
         return conn
     except Exception as e:
         logging.error(f"Database connection error: {e}")
