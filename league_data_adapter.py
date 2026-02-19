@@ -74,9 +74,11 @@ def get_current_week_wordles():
     
     return week_wordles
 
-def get_all_league_players(league_id):
+def get_all_league_players(league_id, conn=None):
     """Get all active players in a league"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("""
@@ -95,23 +97,26 @@ def get_all_league_players(league_id):
         })
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return players
 
-def get_latest_scores_for_display(league_id):
+def get_latest_scores_for_display(league_id, conn=None):
     """
     Get the most recent score for each player for the Latest Scores tab
     Returns: dict with player_name -> {score, emoji_pattern, wordle_num, date}
     """
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get today's Wordle number
     today_wordle = calculate_wordle_number()
     
     # Get all players
-    players = get_all_league_players(league_id)
+    players = get_all_league_players(league_id, conn=conn)
     
     latest_scores = {}
     
@@ -144,16 +149,19 @@ def get_latest_scores_for_display(league_id):
             }
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return latest_scores, today_wordle
 
-def get_weekly_stats(league_id):
+def get_weekly_stats(league_id, conn=None):
     """
     Get weekly statistics using the Monday-Sunday week and best 5 scores rule
     This matches the logic from export_leaderboard.py
     """
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get current week's Wordle numbers (Monday-Sunday)
@@ -164,7 +172,7 @@ def get_weekly_stats(league_id):
     logging.info(f"Calculating weekly stats for league {league_id}, week {week_start}-{week_end} (Mon-Sun)")
     
     # Get all players
-    players = get_all_league_players(league_id)
+    players = get_all_league_players(league_id, conn=conn)
     
     weekly_stats = {}
     
@@ -223,17 +231,20 @@ def get_weekly_stats(league_id):
         }
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return weekly_stats, week_wordles
 
-def get_all_time_stats(league_id):
+def get_all_time_stats(league_id, conn=None):
     """Get all-time statistics for all players (including those with no scores)"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get ALL players first
-    players = get_all_league_players(league_id)
+    players = get_all_league_players(league_id, conn=conn)
     
     # Get stats for players with scores
     cursor.execute("""
@@ -273,89 +284,95 @@ def get_all_time_stats(league_id):
     stats.sort(key=lambda x: (x['avg_score'] is None, x['avg_score'] if x['avg_score'] else 999, -x['games_played']))
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return stats
 
 def get_complete_league_data(league_id):
     """
     Get all data needed for HTML generation
-    This is the main function that combines everything
+    This is the main function that combines everything.
+    Uses a single shared DB connection for all sub-queries.
     """
     logging.info(f"Fetching complete data for league {league_id}")
     
-    # Get latest scores for display
-    latest_scores, today_wordle = get_latest_scores_for_display(league_id)
+    # Single shared connection for all queries
+    conn = get_db_connection()
     
-    # Get weekly stats
-    weekly_stats, week_wordles = get_weekly_stats(league_id)
-    
-    # Get all-time stats
-    all_time_stats = get_all_time_stats(league_id)
-    
-    # Determine weekly winner (must have at least 5 scores)
-    eligible_players = {
-        name: stats 
-        for name, stats in weekly_stats.items() 
-        if stats['used_scores'] >= 5
-    }
-    
-    weekly_winner = None
-    if eligible_players:
-        winner_name = min(eligible_players.keys(), key=lambda n: eligible_players[n]['best_5_total'])
-        weekly_winner = {
-            'name': winner_name,
-            'stats': eligible_players[winner_name]
+    try:
+        # Get latest scores for display
+        latest_scores, today_wordle = get_latest_scores_for_display(league_id, conn=conn)
+        
+        # Get weekly stats
+        weekly_stats, week_wordles = get_weekly_stats(league_id, conn=conn)
+        
+        # Get all-time stats
+        all_time_stats = get_all_time_stats(league_id, conn=conn)
+        
+        # Determine weekly winner (must have at least 5 scores)
+        eligible_players = {
+            name: stats 
+            for name, stats in weekly_stats.items() 
+            if stats['used_scores'] >= 5
         }
-        logging.info(f"Weekly winner: {winner_name} with best 5 total of {eligible_players[winner_name]['best_5_total']}")
-    else:
-        logging.warning(f"No players met minimum 5 games requirement for week {week_wordles[0]}")
-    
-    # Get season data (will be populated by season_management module)
-    season_data = get_season_data(league_id)
-    
-    # Use a single connection for all division-related queries
-    div_conn = get_db_connection()
-    div_cursor = div_conn.cursor()
-    
-    # Check if league is in division mode
-    div_cursor.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
-    div_result = div_cursor.fetchone()
-    is_division_mode = div_result and div_result[0]
-    division_confirmed_at = div_result[1] if div_result else None
-    
-    # Check if there are any division season winners in the database (even if division mode is OFF)
-    # This ensures division season history is retained when toggling division mode off
-    div_cursor.execute("""
-        SELECT COUNT(*) FROM season_winners
-        WHERE league_id = %s AND division IS NOT NULL
-    """, (league_id,))
-    has_division_history = div_cursor.fetchone()[0] > 0
-    
-    # Get player division assignments for weekly stats filtering
-    player_divisions = {}
-    if is_division_mode:
+        
+        weekly_winner = None
+        if eligible_players:
+            winner_name = min(eligible_players.keys(), key=lambda n: eligible_players[n]['best_5_total'])
+            weekly_winner = {
+                'name': winner_name,
+                'stats': eligible_players[winner_name]
+            }
+            logging.info(f"Weekly winner: {winner_name} with best 5 total of {eligible_players[winner_name]['best_5_total']}")
+        else:
+            logging.warning(f"No players met minimum 5 games requirement for week {week_wordles[0]}")
+        
+        # Get season data
+        season_data = get_season_data(league_id, conn=conn)
+        
+        # Division-related queries
+        div_cursor = conn.cursor()
+        
+        # Check if league is in division mode
+        div_cursor.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
+        div_result = div_cursor.fetchone()
+        is_division_mode = div_result and div_result[0]
+        division_confirmed_at = div_result[1] if div_result else None
+        
+        # Check if there are any division season winners in the database (even if division mode is OFF)
+        # This ensures division season history is retained when toggling division mode off
         div_cursor.execute("""
-            SELECT name, division FROM players
-            WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+            SELECT COUNT(*) FROM season_winners
+            WHERE league_id = %s AND division IS NOT NULL
         """, (league_id,))
-        player_divisions = {row[0]: row[1] for row in div_cursor.fetchall()}
-    
-    # Count regular (pre-division) seasons for unified season numbering
-    regular_season_count = 0
-    if is_division_mode or has_division_history:
-        div_cursor.execute("""
-            SELECT COALESCE(MAX(season_number), 0) FROM season_winners
-            WHERE league_id = %s AND division IS NULL
-        """, (league_id,))
-        regular_season_count = div_cursor.fetchone()[0]
-    
-    div_cursor.close()
-    div_conn.close()
-    
-    division_data = None
-    if is_division_mode or has_division_history:
-        division_data = get_division_season_data(league_id, weekly_stats=weekly_stats)
+        has_division_history = div_cursor.fetchone()[0] > 0
+        
+        # Get player division assignments for weekly stats filtering
+        player_divisions = {}
+        if is_division_mode:
+            div_cursor.execute("""
+                SELECT name, division FROM players
+                WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
+            """, (league_id,))
+            player_divisions = {row[0]: row[1] for row in div_cursor.fetchall()}
+        
+        # Count regular (pre-division) seasons for unified season numbering
+        regular_season_count = 0
+        if is_division_mode or has_division_history:
+            div_cursor.execute("""
+                SELECT COALESCE(MAX(season_number), 0) FROM season_winners
+                WHERE league_id = %s AND division IS NULL
+            """, (league_id,))
+            regular_season_count = div_cursor.fetchone()[0]
+        
+        div_cursor.close()
+        
+        division_data = None
+        if is_division_mode or has_division_history:
+            division_data = get_division_season_data(league_id, weekly_stats=weekly_stats, conn=conn)
+    finally:
+        conn.close()
     
     return {
         'league_id': league_id,
@@ -374,9 +391,11 @@ def get_complete_league_data(league_id):
         'timestamp': datetime.now()
     }
 
-def get_season_data(league_id):
+def get_season_data(league_id, conn=None):
     """Get season information from PostgreSQL"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get current season
@@ -522,7 +541,8 @@ def get_season_data(league_id):
                         past_season_breakdowns[sn] = breakdown
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return {
         'current_season': current_season,
@@ -531,11 +551,13 @@ def get_season_data(league_id):
         'past_season_breakdowns': past_season_breakdowns
     }
 
-def get_division_season_data(league_id, weekly_stats=None):
+def get_division_season_data(league_id, weekly_stats=None, conn=None):
     """Get division-specific season data for a league in division mode.
     Returns data for both divisions including standings, winners, and breakdowns.
     weekly_stats: if provided, current week's best_5_total is added to season totals."""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     DIVISION_WINS = 3  # Wins needed for division season
@@ -740,7 +762,8 @@ def get_division_season_data(league_id, weekly_stats=None):
         }
     
     cursor.close()
-    conn.close()
+    if own_conn:
+        conn.close()
     
     return division_data
 
