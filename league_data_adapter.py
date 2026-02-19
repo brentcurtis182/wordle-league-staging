@@ -14,14 +14,15 @@ def get_db_connection():
     """Get PostgreSQL database connection"""
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(database_url, connect_timeout=10)
     else:
         conn = psycopg2.connect(
             host=os.environ.get('PGHOST'),
             database=os.environ.get('PGDATABASE'),
             user=os.environ.get('PGUSER'),
             password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT', 5432)
+            port=os.environ.get('PGPORT', 5432),
+            connect_timeout=10
         )
     
     # Set statement timeout to 20 seconds to prevent hanging queries
@@ -313,58 +314,48 @@ def get_complete_league_data(league_id):
     # Get season data (will be populated by season_management module)
     season_data = get_season_data(league_id)
     
-    # Check if league is in division mode
+    # Use a single connection for all division-related queries
     div_conn = get_db_connection()
     div_cursor = div_conn.cursor()
+    
+    # Check if league is in division mode
     div_cursor.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
     div_result = div_cursor.fetchone()
     is_division_mode = div_result and div_result[0]
     division_confirmed_at = div_result[1] if div_result else None
-    div_cursor.close()
-    div_conn.close()
     
     # Check if there are any division season winners in the database (even if division mode is OFF)
     # This ensures division season history is retained when toggling division mode off
-    div_check_conn = get_db_connection()
-    div_check_cursor = div_check_conn.cursor()
-    div_check_cursor.execute("""
+    div_cursor.execute("""
         SELECT COUNT(*) FROM season_winners
         WHERE league_id = %s AND division IS NOT NULL
     """, (league_id,))
-    has_division_history = div_check_cursor.fetchone()[0] > 0
-    div_check_cursor.close()
-    div_check_conn.close()
-    
-    division_data = None
-    if is_division_mode or has_division_history:
-        division_data = get_division_season_data(league_id, weekly_stats=weekly_stats)
+    has_division_history = div_cursor.fetchone()[0] > 0
     
     # Get player division assignments for weekly stats filtering
     player_divisions = {}
     if is_division_mode:
-        pd_conn = get_db_connection()
-        pd_cursor = pd_conn.cursor()
-        pd_cursor.execute("""
+        div_cursor.execute("""
             SELECT name, division FROM players
             WHERE league_id = %s AND active = TRUE AND division IS NOT NULL
         """, (league_id,))
-        player_divisions = {row[0]: row[1] for row in pd_cursor.fetchall()}
-        pd_cursor.close()
-        pd_conn.close()
+        player_divisions = {row[0]: row[1] for row in div_cursor.fetchall()}
     
     # Count regular (pre-division) seasons for unified season numbering
-    # Always compute this if there's division history, so unified numbering works
     regular_season_count = 0
     if is_division_mode or has_division_history:
-        rs_conn = get_db_connection()
-        rs_cursor = rs_conn.cursor()
-        rs_cursor.execute("""
+        div_cursor.execute("""
             SELECT COALESCE(MAX(season_number), 0) FROM season_winners
             WHERE league_id = %s AND division IS NULL
         """, (league_id,))
-        regular_season_count = rs_cursor.fetchone()[0]
-        rs_cursor.close()
-        rs_conn.close()
+        regular_season_count = div_cursor.fetchone()[0]
+    
+    div_cursor.close()
+    div_conn.close()
+    
+    division_data = None
+    if is_division_mode or has_division_history:
+        division_data = get_division_season_data(league_id, weekly_stats=weekly_stats)
     
     return {
         'league_id': league_id,

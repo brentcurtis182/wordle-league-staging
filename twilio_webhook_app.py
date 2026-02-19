@@ -113,7 +113,7 @@ def get_db_connection():
         
         if database_url:
             logging.info(f"Connecting via DATABASE_URL")
-            conn = psycopg2.connect(database_url)
+            conn = psycopg2.connect(database_url, connect_timeout=10)
         else:
             # Fall back to individual environment variables
             pghost = os.environ.get('PGHOST')
@@ -128,7 +128,8 @@ def get_db_connection():
                 database=pgdb,
                 user=pguser,
                 password=os.environ.get('PGPASSWORD'),
-                port=pgport
+                port=pgport,
+                connect_timeout=10
             )
         
         logging.info("Database connection successful!")

@@ -19,14 +19,15 @@ def get_db_connection():
     """Get PostgreSQL database connection"""
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(database_url, connect_timeout=10)
     else:
         conn = psycopg2.connect(
             host=os.environ.get('PGHOST'),
             database=os.environ.get('PGDATABASE'),
             user=os.environ.get('PGUSER'),
             password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT', 5432)
+            port=os.environ.get('PGPORT', 5432),
+            connect_timeout=10
         )
     
     # Set statement timeout to 20 seconds to prevent hanging queries
