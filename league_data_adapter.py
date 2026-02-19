@@ -14,15 +14,21 @@ def get_db_connection():
     """Get PostgreSQL database connection"""
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        return psycopg2.connect(database_url)
+        conn = psycopg2.connect(database_url)
     else:
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             host=os.environ.get('PGHOST'),
             database=os.environ.get('PGDATABASE'),
             user=os.environ.get('PGUSER'),
             password=os.environ.get('PGPASSWORD'),
             port=os.environ.get('PGPORT', 5432)
         )
+    
+    # Set statement timeout to 20 seconds to prevent hanging queries
+    cursor = conn.cursor()
+    cursor.execute("SET statement_timeout = '20s'")
+    cursor.close()
+    return conn
 
 def calculate_wordle_number(target_date=None):
     """Calculate the Wordle number based on the date (from export_leaderboard.py)"""
