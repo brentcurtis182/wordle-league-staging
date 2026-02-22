@@ -437,7 +437,7 @@ def generate_season_stats_html(league_data):
             html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
-    html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get 4 weekly wins is the Season Champ!</p>\n'
+    html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champ!</p>\n'
     
     # Show previous season winners if any (NEWEST FIRST)
     # Also include division season winner history if it exists (even when division mode is OFF)
@@ -566,16 +566,19 @@ def generate_season_stats_html(league_data):
                     if sdata.get('type') == 'division':
                         div1_names = ', '.join(sdata.get('div1', []))
                         div2_names = ', '.join(sdata.get('div2', []))
-                        # Build name text for the row
-                        parts = []
-                        if div1_names:
-                            parts.append(f'Div I: {div1_names}')
-                        if div2_names:
-                            parts.append(f'Div II: {div2_names}')
-                        elif div1_names:
-                            parts.append('Div II: <span style="opacity:0.6; font-style:italic;">In Progress</span>')
-                        name_text = ' / '.join(parts)
-                        fl_list_items += f'<div style="display:flex; align-items:baseline; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px; font-size:0.9em;">{name_text}</span></div>\n'
+                        div1_display = div1_names if div1_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
+                        div2_display = div2_names if div2_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
+                        fl_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
+  <div style="display:flex; padding-left:16px;">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
+  </div>
+  <div style="display:flex; padding-left:16px; margin-top:2px;">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
+  </div>
+</div>\n'''
                     elif sdata.get('type') == 'regular':
                         regular_names = ', '.join(sdata.get('regular_names', []))
                         real_sn = sdata.get('regular_sn', display_num)
@@ -1096,15 +1099,8 @@ def generate_division_season_stats_html(league_data):
                 if sdata.get('type') == 'division':
                     div1_names = ', '.join(sdata.get('div1', []))
                     div2_names = ', '.join(sdata.get('div2', []))
-                    # Build name text: "Div I: Name / Div II: Name"
-                    parts = []
-                    if div1_names:
-                        parts.append(f'Div I: {div1_names}')
-                    if div2_names:
-                        parts.append(f'Div II: {div2_names}')
-                    elif div1_names:
-                        parts.append('Div II: <span style="opacity:0.6; font-style:italic;">In Progress</span>')
-                    name_text = ' / '.join(parts)
+                    div1_display = div1_names if div1_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
+                    div2_display = div2_names if div2_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
                     
                     # Check if any division has a breakdown (clickable)
                     has_any_breakdown = False
@@ -1115,7 +1111,17 @@ def generate_division_season_stats_html(league_data):
                                 break
                     
                     if has_any_breakdown:
-                        full_list_items += f'<div style="display:flex; align-items:baseline; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="document.getElementById(\'div-fl-detail-{display_num}\').style.display=\'block\'; document.getElementById(\'div-fl-list-view\').style.display=\'none\';"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px; font-size:0.9em;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
+                        full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="document.getElementById('div-fl-detail-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}: <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></div>
+  <div style="display:flex; padding-left:16px;">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
+  </div>
+  <div style="display:flex; padding-left:16px; margin-top:2px;">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
+  </div>
+</div>\n'''
                         # Build detail view for this division season
                         detail_content = ''
                         for div_num_check, div_label_check in ((1, 'Division I'), (2, 'Division II')):
@@ -1139,7 +1145,17 @@ def generate_division_season_stats_html(league_data):
 </div>
 '''
                     else:
-                        full_list_items += f'<div style="display:flex; align-items:baseline; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px; font-size:0.9em;">{name_text}</span></div>\n'
+                        full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
+  <div style="display:flex; padding-left:16px;">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
+  </div>
+  <div style="display:flex; padding-left:16px; margin-top:2px;">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
+  </div>
+</div>\n'''
                 elif sdata.get('type') == 'regular':
                     regular_names = ', '.join(sdata.get('regular_names', []))
                     real_sn = sdata.get('regular_sn', display_num)
