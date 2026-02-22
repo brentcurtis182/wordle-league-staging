@@ -284,6 +284,133 @@ def generate_season_image(league_name, season_number, standings_data, highlight_
     
     return img
 
+def generate_division_weekly_image(league_name, div1_data, div2_data, week_date_str=None):
+    """
+    Generate a styled weekly standings image for division mode.
+    Shows two separate division tables with colored headers.
+    
+    div1_data / div2_data: list of dicts with keys:
+        - name, score, used, thrown, eligible, failed
+    """
+    width = 550
+    row_height = 50
+    div_header_height = 45
+    header_height = 80
+    section_gap = 20
+    padding = 20
+    
+    num_div1 = len(div1_data)
+    num_div2 = len(div2_data)
+    
+    # Calculate total height
+    height = (header_height +
+              div_header_height + (num_div1 * row_height) + 30 +
+              section_gap +
+              div_header_height + (num_div2 * row_height) + 30 +
+              padding * 2 + 30)
+    
+    img = Image.new('RGB', (width, height), hex_to_rgb(COLORS['background']))
+    draw = ImageDraw.Draw(img)
+    
+    title_font = get_font(32, bold=True)
+    div_title_font = get_font(24, bold=True)
+    header_font = get_font(20, bold=True)
+    player_font = get_font(26, bold=True)
+    score_font = get_font(26)
+    small_font = get_font(16)
+    
+    # Draw card background
+    draw_rounded_rect(draw, [8, 8, width - 8, height - 8], 12,
+                      fill=hex_to_rgb(COLORS['card_bg']),
+                      outline=hex_to_rgb(COLORS['border']), width=2)
+    
+    # Title
+    if week_date_str:
+        title = f"{league_name.upper()} - Week {week_date_str}"
+    else:
+        title = f"{league_name.upper()} - THIS WEEK"
+    draw.text((width // 2, 40), title, font=title_font,
+              fill=hex_to_rgb(COLORS['primary']), anchor="mm")
+    
+    col_player = 30
+    col_score = 250
+    col_out = 400
+    
+    def draw_division_table(y_start, div_label, div_color, div_data):
+        """Draw a single division table, return y position after table"""
+        nonlocal draw, img
+        
+        # Division header bar
+        draw.rectangle([20, y_start, width - 20, y_start + div_header_height],
+                       fill=hex_to_rgb(div_color) + (40,) if len(div_color) > 6 else None)
+        # Draw a subtle colored line under the division header
+        draw.line([(20, y_start + div_header_height), (width - 20, y_start + div_header_height)],
+                  fill=hex_to_rgb(div_color), width=2)
+        draw.text((col_player, y_start + 10), div_label, font=div_title_font,
+                  fill=hex_to_rgb(div_color))
+        
+        # Column headers
+        y = y_start + div_header_height + 5
+        draw.text((col_player, y), "Player", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
+        draw.text((col_score, y), "Score", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
+        draw.text((col_out, y), "Thrown Out", font=header_font, fill=hex_to_rgb(COLORS['text_secondary']))
+        
+        y += 28
+        
+        for i, player in enumerate(div_data):
+            row_y = y + (i * row_height)
+            
+            # Highlight eligible players with division color
+            if player.get('eligible', False):
+                overlay = Image.new('RGBA', (width - 40, row_height - 6), hex_to_rgb(div_color) + (45,))
+                img.paste(Image.blend(
+                    img.crop((20, row_y, width - 20, row_y + row_height - 6)).convert('RGBA'),
+                    overlay, 0.4).convert('RGB'), (20, row_y))
+                draw = ImageDraw.Draw(img)
+            
+            name = player.get('name', 'Unknown')
+            if len(name) > 12:
+                name = name[:11] + "…"
+            draw.text((col_player, row_y + 10), name, font=player_font,
+                      fill=hex_to_rgb(COLORS['text_primary']))
+            
+            score = player.get('score')
+            if score is not None and score > 0:
+                draw.text((col_score + 30, row_y + 10), str(score), font=score_font,
+                          fill=hex_to_rgb(COLORS['text_primary']))
+            else:
+                draw.text((col_score + 30, row_y + 10), "-", font=score_font,
+                          fill=hex_to_rgb(COLORS['text_secondary']))
+            
+            thrown = player.get('thrown', [])
+            if thrown:
+                thrown_text = ", ".join(str(s) for s in thrown[:3])
+                if len(thrown) > 3:
+                    thrown_text += "…"
+                draw.text((col_out, row_y + 10), thrown_text, font=score_font,
+                          fill=hex_to_rgb(COLORS['text_secondary']))
+            else:
+                draw.text((col_out + 20, row_y + 10), "-", font=score_font,
+                          fill=hex_to_rgb(COLORS['text_secondary']))
+        
+        return y + (len(div_data) * row_height) + 10
+    
+    # Draw Division I
+    y = header_height
+    y = draw_division_table(y, "DIVISION I", COLORS['primary'], div1_data)
+    
+    # Draw Division II
+    y += section_gap
+    y = draw_division_table(y, "DIVISION II", COLORS['secondary'], div2_data)
+    
+    # Footer
+    footer_y = height - 22
+    draw.text((width // 2, footer_y), "Lower score = Better!", font=small_font,
+              fill=hex_to_rgb(COLORS['text_secondary']), anchor="mm")
+    
+    return img
+
+
 def image_to_bytes(img, format='PNG'):
     """Convert PIL Image to bytes for sending via API"""
     buffer = io.BytesIO()
