@@ -133,7 +133,69 @@ def get_last_week_results(league_id):
             if score == 7:
                 player_stats[name]['fails'] += 1
         
-        # Get current season info and weekly wins
+        # ============================================================
+        # DIVISION MODE: per-division season info
+        # ============================================================
+        division_season_wins = None
+        division_season_clinched = None
+        division_current_seasons = None
+        
+        if is_division_mode:
+            division_season_wins = {1: {}, 2: {}}
+            division_season_clinched = []
+            division_current_seasons = {}
+            
+            for div_num in (1, 2):
+                # Get division season info
+                cursor.execute("""
+                    SELECT current_season, season_start_week
+                    FROM division_seasons
+                    WHERE league_id = %s AND division = %s
+                """, (league_id, div_num))
+                div_season_row = cursor.fetchone()
+                div_current_season = div_season_row[0] if div_season_row else 1
+                div_season_start = div_season_row[1] if div_season_row else last_week_start_wordle
+                division_current_seasons[div_num] = div_current_season
+                
+                # Get per-division weekly wins in current division season
+                cursor.execute("""
+                    SELECT player_name, COUNT(*) as wins
+                    FROM weekly_winners
+                    WHERE league_id = %s AND division = %s AND week_wordle_number >= %s
+                    GROUP BY player_name
+                    ORDER BY wins DESC
+                """, (league_id, div_num, div_season_start))
+                
+                for row in cursor.fetchall():
+                    division_season_wins[div_num][row[0]] = row[1]
+                
+                # Check if a division season was just clinched
+                cursor.execute("""
+                    SELECT p.name, sw.wins, sw.season_number, sw.completed_date, sw.division
+                    FROM season_winners sw
+                    JOIN players p ON sw.player_id = p.id
+                    WHERE sw.league_id = %s AND sw.division = %s
+                    ORDER BY sw.completed_date DESC NULLS LAST, sw.id DESC
+                    LIMIT 1
+                """, (league_id, div_num))
+                div_latest = cursor.fetchone()
+                if div_latest:
+                    completed_date = div_latest[3]
+                    if completed_date and completed_date >= last_monday:
+                        div_label = "Division I" if div_num == 1 else "Division II"
+                        clinch_info = {
+                            'division': div_num,
+                            'division_label': div_label,
+                            'name': div_latest[0],
+                            'wins': div_latest[1],
+                            'season_number': div_latest[2],
+                        }
+                        # Div II winner gets promoted
+                        if div_num == 2:
+                            clinch_info['promoted'] = True
+                        division_season_clinched.append(clinch_info)
+        
+        # Get current season info and weekly wins (standard mode / fallback)
         cursor.execute("""
             SELECT current_season, season_start_week
             FROM league_seasons
@@ -143,7 +205,7 @@ def get_last_week_results(league_id):
         current_season = season_row[0] if season_row else 1
         season_start_week = season_row[1] if season_row else last_week_start_wordle
         
-        # Get weekly wins in current season (AFTER this week's winner was recorded)
+        # Get weekly wins in current season (standard mode)
         cursor.execute("""
             SELECT player_name, COUNT(*) as wins
             FROM weekly_winners
@@ -156,13 +218,12 @@ def get_last_week_results(league_id):
         for row in cursor.fetchall():
             season_wins[row[0]] = row[1]
         
-        # Check if a season was just clinched (someone hit 4 wins)
-        # Look at season_winners table for the most recent entry
+        # Check if a season was just clinched (someone hit 4 wins) - standard mode
         cursor.execute("""
             SELECT p.name, sw.wins, sw.season_number, sw.completed_date
             FROM season_winners sw
             JOIN players p ON sw.player_id = p.id
-            WHERE sw.league_id = %s
+            WHERE sw.league_id = %s AND sw.division IS NULL
             ORDER BY sw.completed_date DESC NULLS LAST, sw.id DESC
             LIMIT 1
         """, (league_id,))
@@ -174,7 +235,6 @@ def get_last_week_results(league_id):
         clinched_season_number = None
         
         if latest_season_winner:
-            # Check if this was completed in the last week
             completed_date = latest_season_winner[3]
             if completed_date and completed_date >= last_monday:
                 season_just_clinched = True
@@ -182,13 +242,18 @@ def get_last_week_results(league_id):
                 season_clincher_wins = latest_season_winner[1]
                 clinched_season_number = latest_season_winner[2]
         
-        # Check for back-to-back wins
-        # Get the winner of the week BEFORE last week
+        # Check for back-to-back wins (division-aware)
         two_weeks_ago_wordle = last_week_start_wordle - 7
-        cursor.execute("""
-            SELECT player_name FROM weekly_winners
-            WHERE league_id = %s AND week_wordle_number = %s
-        """, (league_id, two_weeks_ago_wordle))
+        if is_division_mode:
+            cursor.execute("""
+                SELECT player_name, division FROM weekly_winners
+                WHERE league_id = %s AND week_wordle_number = %s AND division IS NOT NULL
+            """, (league_id, two_weeks_ago_wordle))
+        else:
+            cursor.execute("""
+                SELECT player_name FROM weekly_winners
+                WHERE league_id = %s AND week_wordle_number = %s
+            """, (league_id, two_weeks_ago_wordle))
         
         prev_week_winners = [r[0] for r in cursor.fetchall()]
         back_to_back = [name for name in winner_names if name in prev_week_winners]
@@ -212,7 +277,16 @@ def get_last_week_results(league_id):
                 streak_info[winner_name] = streak
         
         # Check if this is someone's first win of the season
-        first_win_of_season = [name for name in winner_names if season_wins.get(name, 0) == 1]
+        if is_division_mode:
+            # Check per-division first wins
+            first_win_of_season = []
+            for div_num in (1, 2):
+                dw = (division_winners or {}).get(div_num, [])
+                for w in dw:
+                    if division_season_wins.get(div_num, {}).get(w['name'], 0) == 1:
+                        first_win_of_season.append(w['name'])
+        else:
+            first_win_of_season = [name for name in winner_names if season_wins.get(name, 0) == 1]
         
         # Find any perfect scores (1/6) from last week
         perfect_scores = []
@@ -258,6 +332,9 @@ def get_last_week_results(league_id):
             'week_end': last_sunday,
             'division_mode': is_division_mode,
             'division_winners': division_winners,
+            'division_season_wins': division_season_wins,
+            'division_season_clinched': division_season_clinched,
+            'division_current_seasons': division_current_seasons,
         }
         
     except Exception as e:
@@ -288,39 +365,71 @@ def send_monday_recap(league_id):
         
         # Build the scenario text for the AI
         scenario_parts = []
+        is_div = results.get('division_mode', False)
         
-        # Division-aware winner announcement
-        if results.get('division_mode') and results.get('division_winners'):
+        # ============================================================
+        # DIVISION MODE scenario building
+        # ============================================================
+        if is_div and results.get('division_winners'):
             div_winners = results['division_winners']
+            div_season_wins = results.get('division_season_wins', {})
+            div_clinched = results.get('division_season_clinched', [])
+            div_seasons = results.get('division_current_seasons', {})
+            
             for div_num in (1, 2):
                 div_label = "Division I" if div_num == 1 else "Division II"
                 dw = div_winners.get(div_num, [])
                 if not dw:
+                    scenario_parts.append(f"{div_label}: No winner this week (not enough eligible players).")
                     continue
+                
+                # Winner announcement
                 if len(dw) > 1:
                     names = " and ".join([w['name'] for w in dw])
                     scenario_parts.append(f"{div_label} WINNER: {names} TIED with a best-5 total of {dw[0]['score']}!")
                 else:
                     scenario_parts.append(f"{div_label} WINNER: {dw[0]['name']} won with a best-5 total of {dw[0]['score']}!")
+                
+                # Per-division season standings
+                dsw = div_season_wins.get(div_num, {})
+                if dsw:
+                    standings = sorted(dsw.items(), key=lambda x: x[1], reverse=True)
+                    top_entries = standings[:4]
+                    standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_entries])
+                    div_season_num = div_seasons.get(div_num, 1)
+                    scenario_parts.append(f"{div_label} Season {div_season_num} standings: {standings_text}")
+            
+            # Division season clinch announcements
+            for clinch in div_clinched:
+                if clinch.get('promoted'):
+                    scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! A new season begins!")
+                else:
+                    scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The worst Season Total player in Division I gets RELEGATED to Division II. A new season begins!")
+        
+        # ============================================================
+        # STANDARD MODE scenario building
+        # ============================================================
         else:
-            # Normal mode winner announcement
             if results['is_tie']:
                 winner_list = " and ".join(results['winner_names'])
                 scenario_parts.append(f"WEEKLY WINNER: {winner_list} TIED with a best-5 total of {results['winner_score']}! They share the win.")
             else:
                 scenario_parts.append(f"WEEKLY WINNER: {results['winner_names'][0]} won the week with a best-5 total of {results['winner_score']}!")
+            
+            # Standard season clinch
+            if results['season_just_clinched']:
+                scenario_parts.append(f"🏆 SEASON CHAMPION: {results['season_clincher_name']} just clinched Season {results['clinched_season_number']} with {results['season_clincher_wins']} weekly wins! This is a HUGE accomplishment - a new season begins!")
+            
+            # Standard season standings
+            if results['season_wins']:
+                standings = sorted(results['season_wins'].items(), key=lambda x: x[1], reverse=True)
+                top_3 = standings[:3]
+                standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_3])
+                scenario_parts.append(f"Season {results['current_season']} standings: {standings_text}")
         
-        # Season clinch - THIS IS THE BIG ONE
-        if results['season_just_clinched']:
-            scenario_parts.append(f"🏆 SEASON CHAMPION: {results['season_clincher_name']} just clinched Season {results['clinched_season_number']} with {results['season_clincher_wins']} weekly wins! This is a HUGE accomplishment - a new season begins!")
-        
-        # Season standings context
-        if results['season_wins']:
-            standings = sorted(results['season_wins'].items(), key=lambda x: x[1], reverse=True)
-            top_3 = standings[:3]
-            standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_3])
-            scenario_parts.append(f"Season {results['current_season']} standings: {standings_text}")
-        
+        # ============================================================
+        # Shared stats (both modes)
+        # ============================================================
         # Back-to-back wins
         if results['back_to_back']:
             for name in results['back_to_back']:
@@ -333,8 +442,11 @@ def send_monday_recap(league_id):
         # First win of the season
         if results['first_win_of_season']:
             for name in results['first_win_of_season']:
-                if name not in results['back_to_back']:  # Don't double-mention
-                    scenario_parts.append(f"{name} got their FIRST win of Season {results['current_season']}!")
+                if name not in results['back_to_back']:
+                    if is_div:
+                        scenario_parts.append(f"{name} got their FIRST win of the division season!")
+                    else:
+                        scenario_parts.append(f"{name} got their FIRST win of Season {results['current_season']}!")
         
         # Perfect scores
         if results['perfect_scores']:
@@ -346,17 +458,33 @@ def send_monday_recap(league_id):
         scenario_text = " ".join(scenario_parts)
         logging.info(f"League {league_id} Monday recap scenario: {scenario_text}")
         
-        # Build the prompt
-        is_div = results.get('division_mode', False)
+        # Build the prompt and system message
+        has_div_clinch = is_div and results.get('division_season_clinched')
         
-        if results['season_just_clinched']:
+        if is_div:
+            if has_div_clinch:
+                prompt = f"It's Monday morning! Here's last week's Wordle league recap (DIVISIONS): {scenario_text} A DIVISION SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the champion! Use emojis. Keep it under 500 characters. Lower scores are better in Wordle."
+            else:
+                prompt = f"It's Monday morning! Here's last week's Wordle league recap (DIVISIONS): {scenario_text} Announce each division's winner separately! Mention any notable stats. Use emojis. Keep it under 500 characters. Lower scores are better in Wordle."
+            
+            system_msg = """You are an exciting sports announcer for a Wordle league with DIVISIONS doing a Monday morning recap. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+
+IMPORTANT RULES:
+1. Announce each division's weekly WINNER separately - Division I first, then Division II
+2. If someone clinched a DIVISION SEASON (3 weekly wins), make it a HUGE celebration!
+3. Division II season winners get PROMOTED to Division I! When a Division I season ends, the worst Season Total player gets RELEGATED to Division II.
+4. Mention back-to-back wins, win streaks, or first wins if provided
+5. Keep the tone exciting and celebratory
+6. Use emojis for excitement
+7. Don't invent stats or names - only use what's provided
+8. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
+9. Structure: Division I recap, then Division II recap, then shared stats
+10. Use line breaks between divisions"""
+        
+        elif results['season_just_clinched']:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} THE SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the season champion! Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
-        elif is_div:
-            prompt = f"It's Monday morning! Here's last week's Wordle league recap (this league has DIVISIONS): {scenario_text} Announce each division's winner! Mention any notable stats. Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
-        else:
-            prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
-        
-        system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            
+            system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
 1. Announce the weekly WINNER prominently - this is the main event!
@@ -368,10 +496,20 @@ IMPORTANT RULES:
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
 8. If it's a tie, celebrate both/all winners equally"""
         
-        if is_div:
-            system_msg += """
-9. This league has DIVISIONS (Division I and Division II). Announce each division's winner separately.
-10. Division seasons require 3 wins (not 4). If a Division II player wins their division season, they get PROMOTED to Division I!"""
+        else:
+            prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
+            
+            system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+
+IMPORTANT RULES:
+1. Announce the weekly WINNER prominently - this is the main event!
+2. If someone clinched the SEASON (4 weekly wins), make it a HUGE celebration - this is a major accomplishment!
+3. Mention back-to-back wins, win streaks, or first wins of the season if provided
+4. Keep the tone exciting and celebratory
+5. Use emojis for excitement
+6. Don't invent stats or names - only use what's provided
+7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
+8. If it's a tie, celebrate both/all winners equally"""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -379,7 +517,7 @@ IMPORTANT RULES:
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=300 if is_div else 250,
+            max_tokens=350 if is_div else 250,
             temperature=0.7
         )
         
