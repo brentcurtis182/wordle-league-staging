@@ -580,24 +580,24 @@ def generate_season_stats_html(league_data):
                         
                         # Div I row: clickable with arrow if has breakdown
                         if div1_bk_key:
-                            div1_row = f'''<div style="display:flex; padding-left:16px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div1-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
+                            div1_row = f'''<div style="display:flex; padding-left:32px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div1-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>'''
                         else:
-                            div1_row = f'''<div style="display:flex; padding-left:16px;">
+                            div1_row = f'''<div style="display:flex; padding-left:32px;">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
   </div>'''
                         
                         # Div II row: clickable with arrow if has breakdown
                         if div2_bk_key:
-                            div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div2-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
+                            div2_row = f'''<div style="display:flex; padding-left:32px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div2-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>'''
                         else:
-                            div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px;">
+                            div2_row = f'''<div style="display:flex; padding-left:32px; margin-top:2px;">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
   </div>'''
@@ -1159,24 +1159,24 @@ def generate_division_season_stats_html(league_data):
                     
                     # Div I row: clickable with arrow if has breakdown
                     if div1_bk_key:
-                        div1_row = f'''<div style="display:flex; padding-left:16px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+                        div1_row = f'''<div style="display:flex; padding-left:32px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>'''
                     else:
-                        div1_row = f'''<div style="display:flex; padding-left:16px;">
+                        div1_row = f'''<div style="display:flex; padding-left:32px;">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
   </div>'''
                     
                     # Div II row: clickable with arrow if has breakdown
                     if div2_bk_key:
-                        div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d2-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+                        div2_row = f'''<div style="display:flex; padding-left:32px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d2-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>'''
                     else:
-                        div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px;">
+                        div2_row = f'''<div style="display:flex; padding-left:32px; margin-top:2px;">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
   </div>'''
