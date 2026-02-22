@@ -568,17 +568,63 @@ def generate_season_stats_html(league_data):
                         div2_names = ', '.join(sdata.get('div2', []))
                         div1_display = div1_names if div1_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
                         div2_display = div2_names if div2_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
-                        fl_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
-  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
-  <div style="display:flex; padding-left:16px;">
+                        
+                        # Check which divisions have breakdowns
+                        div1_bk_key = None
+                        div2_bk_key = None
+                        for k in sdata.get('breakdowns', {}):
+                            if k[0] == 1:
+                                div1_bk_key = k
+                            elif k[0] == 2:
+                                div2_bk_key = k
+                        
+                        # Div I row: clickable with arrow if has breakdown
+                        if div1_bk_key:
+                            div1_row = f'''<div style="display:flex; padding-left:16px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div1-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>'''
+                        else:
+                            div1_row = f'''<div style="display:flex; padding-left:16px;">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
-  </div>
-  <div style="display:flex; padding-left:16px; margin-top:2px;">
+  </div>'''
+                        
+                        # Div II row: clickable with arrow if has breakdown
+                        if div2_bk_key:
+                            div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('fl-div2-{display_num}').style.display='block'; document.getElementById('fl-list-view').style.display='none';">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>'''
+                        else:
+                            div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px;">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
-  </div>
+  </div>'''
+                        
+                        fl_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
+  {div1_row}
+  {div2_row}
 </div>\n'''
+                        
+                        # Build individual detail views per division
+                        for div_num_check, div_label_check, bk_key in [(1, 'Division I', div1_bk_key), (2, 'Division II', div2_bk_key)]:
+                            if bk_key and bk_key in sdata['breakdowns']:
+                                rows_html = _build_breakdown_rows(sdata['breakdowns'][bk_key])
+                                detail_id = f'fl-div{div_num_check}-{display_num}'
+                                fl_detail_views += f'''<div id="{detail_id}" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}, {div_label_check}</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+</div>
+'''
                     elif sdata.get('type') == 'regular':
                         regular_names = ', '.join(sdata.get('regular_names', []))
                         real_sn = sdata.get('regular_sn', display_num)
@@ -1102,60 +1148,62 @@ def generate_division_season_stats_html(league_data):
                     div1_display = div1_names if div1_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
                     div2_display = div2_names if div2_names else '<span style="opacity:0.6; font-style:italic;">In Progress</span>'
                     
-                    # Check if any division has a breakdown (clickable)
-                    has_any_breakdown = False
-                    for div_check in (1, 2):
-                        for k in sdata.get('breakdowns', {}):
-                            if k[0] == div_check:
-                                has_any_breakdown = True
-                                break
+                    # Check which divisions have breakdowns
+                    div1_bk_key = None
+                    div2_bk_key = None
+                    for k in sdata.get('breakdowns', {}):
+                        if k[0] == 1:
+                            div1_bk_key = k
+                        elif k[0] == 2:
+                            div2_bk_key = k
                     
-                    if has_any_breakdown:
-                        full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="document.getElementById('div-fl-detail-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
-  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}: <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></div>
-  <div style="display:flex; padding-left:16px;">
+                    # Div I row: clickable with arrow if has breakdown
+                    if div1_bk_key:
+                        div1_row = f'''<div style="display:flex; padding-left:16px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>'''
+                    else:
+                        div1_row = f'''<div style="display:flex; padding-left:16px;">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
-  </div>
-  <div style="display:flex; padding-left:16px; margin-top:2px;">
+  </div>'''
+                    
+                    # Div II row: clickable with arrow if has breakdown
+                    if div2_bk_key:
+                        div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d2-{display_num}').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>'''
+                    else:
+                        div2_row = f'''<div style="display:flex; padding-left:16px; margin-top:2px;">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
-  </div>
+  </div>'''
+                    
+                    full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
+  {div1_row}
+  {div2_row}
 </div>\n'''
-                        # Build detail view for this division season
-                        detail_content = ''
-                        for div_num_check, div_label_check in ((1, 'Division I'), (2, 'Division II')):
-                            bk_key = None
-                            for k in sdata.get('breakdowns', {}):
-                                if k[0] == div_num_check:
-                                    bk_key = k
-                                    break
-                            if bk_key and bk_key in sdata['breakdowns']:
-                                rows_html = _build_breakdown_rows(sdata['breakdowns'][bk_key])
-                                detail_content += f'<h3 style="color:#00E8DA; margin:10px 0 8px 0; font-size:0.95em;">{div_label_check}</h3>'
-                                detail_content += f'<table class="season-table" style="width:100%;"><thead><tr><th>Player</th><th>Wins</th></tr></thead><tbody>{rows_html}</tbody></table>'
-                        
-                        full_list_detail_views += f'''<div id="div-fl-detail-{display_num}" style="display:none; padding-top:4px;">
+                    
+                    # Build individual detail views per division (same layout as standard season breakdowns)
+                    for div_num_check, div_label_check, bk_key in [(1, 'Division I', div1_bk_key), (2, 'Division II', div2_bk_key)]:
+                        if bk_key and bk_key in sdata['breakdowns']:
+                            rows_html = _build_breakdown_rows(sdata['breakdowns'][bk_key])
+                            detail_id = f'div-fl-d{div_num_check}-{display_num}'
+                            full_list_detail_views += f'''<div id="{detail_id}" style="display:none; padding-top:4px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span onclick="document.getElementById('div-fl-detail-{display_num}').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('{detail_id}').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}</h3>
-    {detail_content}
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}, {div_label_check}</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
 </div>
 '''
-                    else:
-                        full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
-  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
-  <div style="display:flex; padding-left:16px;">
-    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
-    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div1_display}</span>
-  </div>
-  <div style="display:flex; padding-left:16px; margin-top:2px;">
-    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
-    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
-  </div>
-</div>\n'''
                 elif sdata.get('type') == 'regular':
                     regular_names = ', '.join(sdata.get('regular_names', []))
                     real_sn = sdata.get('regular_sn', display_num)
@@ -1178,12 +1226,12 @@ def generate_division_season_stats_html(league_data):
                     else:
                         full_list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names}</span></div>\n'
             
-            all_modals_html += f'''<div id="div-season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){{var dvs=document.querySelectorAll('[id^=div-fl-detail-]');for(var i=0;i<dvs.length;i++)dvs[i].style.display='none';document.getElementById('div-fl-list-view').style.display='block';this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+            all_modals_html += f'''<div id="div-season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){{var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){{if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'}};document.getElementById('div-fl-list-view').style.display='block';this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div id="div-fl-list-view">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <h3 style="color:#FFA64D; margin:0;">Season Winners</h3>
-        <span onclick="var dvs=document.querySelectorAll('[id^=div-fl-detail-]');for(var i=0;i<dvs.length;i++)dvs[i].style.display='none';document.getElementById('div-fl-list-view').style.display='block';document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+        <span onclick="var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){{if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'}};document.getElementById('div-fl-list-view').style.display='block';document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
       </div>
       {full_list_items}
     </div>
