@@ -181,7 +181,7 @@ def get_last_week_results(league_id):
                 div_latest = cursor.fetchone()
                 if div_latest:
                     completed_date = div_latest[3]
-                    if completed_date and completed_date >= last_monday:
+                    if completed_date and completed_date > last_monday:
                         div_label = "Division I" if div_num == 1 else "Division II"
                         clinch_info = {
                             'division': div_num,
@@ -236,7 +236,7 @@ def get_last_week_results(league_id):
         
         if latest_season_winner:
             completed_date = latest_season_winner[3]
-            if completed_date and completed_date >= last_monday:
+            if completed_date and completed_date > last_monday:
                 season_just_clinched = True
                 season_clincher_name = latest_season_winner[0]
                 season_clincher_wins = latest_season_winner[1]
