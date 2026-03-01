@@ -2814,10 +2814,48 @@ def admin_dashboard():
                 'created_at': row[8],
                 'owner_email': row[9] or 'No owner',
                 'player_count': row[10] or 0,
+                'twilio_inbound': '-',
+                'twilio_outbound': '-',
             })
         
         cursor.close()
         conn.close()
+        
+        # Fetch Twilio message counts for SMS leagues (current month)
+        try:
+            from twilio.rest import Client as TwilioClient
+            import pytz
+            twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
+            
+            pacific = pytz.timezone('America/Los_Angeles')
+            now = datetime.now(pacific)
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            for lg in leagues:
+                conv_sid = lg.get('conversation_sid')
+                if not conv_sid or (lg.get('channel_type') or 'sms') != 'sms':
+                    continue
+                
+                try:
+                    messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(
+                        date_created_after=month_start
+                    )
+                    
+                    inbound = 0
+                    outbound = 0
+                    for msg in messages:
+                        if msg.author == twilio_phone:
+                            outbound += 1
+                        else:
+                            inbound += 1
+                    
+                    lg['twilio_inbound'] = inbound
+                    lg['twilio_outbound'] = outbound
+                except Exception as twilio_err:
+                    logging.warning(f"Could not fetch Twilio messages for league {lg['id']}: {twilio_err}")
+        except Exception as twilio_init_err:
+            logging.warning(f"Could not initialize Twilio client for admin dashboard: {twilio_init_err}")
         
         return render_admin_dashboard(user, leagues)
         

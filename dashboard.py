@@ -4337,7 +4337,8 @@ def render_admin_dashboard(user, leagues):
             <tr onclick="window.location='/admin/league/{lg['id']}'" style="cursor: pointer; transition: background 0.15s;"
                 data-id="{lg['id']}" data-name="{lg['display_name']}" data-status="{'1' if is_active else '0'}"
                 data-type="{channel_type}" data-created="{created_sort}" data-owner="{lg.get('owner_email', 'Unknown')}"
-                data-players="{lg.get('player_count', 0)}">
+                data-players="{lg.get('player_count', 0)}"
+                data-inbound="{lg.get('twilio_inbound', '-')}" data-outbound="{lg.get('twilio_outbound', '-')}">
                 <td class="col-id" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
                 <td class="col-name frozen-col" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
                 <td class="col-status" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
@@ -4345,6 +4346,8 @@ def render_admin_dashboard(user, leagues):
                 <td class="col-created" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{created_str}</td>
                 <td class="col-owner" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
                 <td class="col-players" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
+                <td class="col-inbound" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em; text-align: center;">{lg.get('twilio_inbound', '-')}</td>
+                <td class="col-outbound" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em; text-align: center;">{lg.get('twilio_outbound', '-')}</td>
             </tr>
         '''
     
@@ -4489,10 +4492,12 @@ def render_admin_dashboard(user, leagues):
                                 <th data-sort="created" onclick="sortTable('created')">Created <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="owner" onclick="sortTable('owner')">Owner <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="players" onclick="sortTable('players')">Players <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="inbound" onclick="sortTable('inbound')" style="text-align: center;">Inbound <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="outbound" onclick="sortTable('outbound')" style="text-align: center;">Outbound <span class="sort-arrow">&#9650;</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {league_rows if league_rows else f'<tr><td colspan="7" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                            {league_rows if league_rows else f'<tr><td colspan="9" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -4539,8 +4544,8 @@ def render_admin_dashboard(user, leagues):
                     var aVal = a.getAttribute('data-' + key) || '';
                     var bVal = b.getAttribute('data-' + key) || '';
                     
-                    // Numeric sort for id, players, status, created
-                    if (key === 'id' || key === 'players') {{
+                    // Numeric sort for id, players, status, created, inbound, outbound
+                    if (key === 'id' || key === 'players' || key === 'inbound' || key === 'outbound') {{
                         aVal = parseInt(aVal) || 0;
                         bVal = parseInt(bVal) || 0;
                         return sortAsc ? aVal - bVal : bVal - aVal;
