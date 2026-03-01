@@ -847,7 +847,10 @@ def generate_division_weekly_totals_html(league_data):
                 html += f'    <td>-</td>\n'
             
             pw_missed = missed_weeks_data.get(player_name, 0)
-            html += f'    <td>{pw_missed if pw_missed > 0 else "-"}</td>\n'
+            if pw_missed > 0:
+                html += f'    <td style="color: #ff5c5c; font-weight: bold;">{pw_missed}</td>\n'
+            else:
+                html += f'    <td>-</td>\n'
             
             for wordle_num in week_wordles:
                 if wordle_num in stats['daily_scores']:
@@ -873,8 +876,11 @@ def generate_division_weekly_totals_html(league_data):
                 html += f'    <td class="score-col-weekly-{div_num}">-</td>\n'
                 html += f'    <td class="score-col-season-{div_num}" style="display:none;">{season_total_display}</td>\n'
                 pw_missed = missed_weeks_data.get(p['name'], 0)
-                missed_display = str(pw_missed) if pw_missed > 0 else '-'
-                html += f'    <td>0</td><td>-</td><td>-</td><td>{missed_display}</td>\n'
+                if pw_missed > 0:
+                    missed_td = f'<td style="color: #ff5c5c; font-weight: bold;">{pw_missed}</td>'
+                else:
+                    missed_td = '<td>-</td>'
+                html += f'    <td>0</td><td>-</td><td>-</td>{missed_td}\n'
                 for _ in week_wordles:
                     html += '<td>-</td>\n'
                 html += '</tr>\n'
