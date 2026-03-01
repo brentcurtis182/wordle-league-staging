@@ -4571,6 +4571,45 @@ def render_admin_dashboard(user, leagues):
                     tbody.appendChild(row);
                 }});
             }}
+            
+            // Async Twilio usage loading
+            (function() {{
+                var inboundCells = document.querySelectorAll('.col-inbound');
+                var outboundCells = document.querySelectorAll('.col-outbound');
+                // Show loading dots
+                inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
+                outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
+                
+                fetch('/admin/api/twilio-usage')
+                    .then(function(r) {{ return r.json(); }})
+                    .then(function(data) {{
+                        if (data.error) {{
+                            inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                            outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                            return;
+                        }}
+                        var rows = document.querySelectorAll('#leaguesTable tbody tr');
+                        rows.forEach(function(row) {{
+                            var lid = row.getAttribute('data-id');
+                            var usage = data.usage[lid];
+                            var inCell = row.querySelector('.col-inbound');
+                            var outCell = row.querySelector('.col-outbound');
+                            if (usage && inCell && outCell) {{
+                                inCell.textContent = usage.inbound;
+                                outCell.textContent = usage.outbound;
+                                row.setAttribute('data-inbound', usage.inbound);
+                                row.setAttribute('data-outbound', usage.outbound);
+                            }} else if (inCell && outCell) {{
+                                inCell.textContent = '-';
+                                outCell.textContent = '-';
+                            }}
+                        }});
+                    }})
+                    .catch(function() {{
+                        inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                    }});
+            }})();
         </script>
     </body>
     </html>

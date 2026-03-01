@@ -6397,6 +6397,68 @@ def dashboard_division_reset(league_id):
 
 
 # ============================================================
+# Admin Twilio Usage API (Async)
+# ============================================================
+
+@app.route('/admin/api/twilio-usage')
+def admin_twilio_usage():
+    """Fetch Twilio inbound/outbound message counts per league for current month.
+    Called via AJAX so it doesn't block admin dashboard loading."""
+    from auth import validate_session
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user or user.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        from twilio.rest import Client as TwilioClient
+        import pytz
+        
+        twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
+        
+        pacific = pytz.timezone('America/Los_Angeles')
+        now = datetime.now(pacific)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get all SMS leagues with conversation SIDs
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, twilio_conversation_sid FROM leagues WHERE twilio_conversation_sid IS NOT NULL")
+        sms_leagues = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        results = {}
+        for league_id, conv_sid in sms_leagues:
+            try:
+                # Fetch recent messages (limit pages to avoid long waits)
+                messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(limit=500)
+                
+                inbound = 0
+                outbound = 0
+                for msg in messages:
+                    if msg.date_created and msg.date_created >= month_start:
+                        if msg.author == twilio_phone:
+                            outbound += 1
+                        else:
+                            inbound += 1
+                
+                results[str(league_id)] = {'inbound': inbound, 'outbound': outbound}
+            except Exception as e:
+                logging.warning(f"Twilio usage fetch failed for league {league_id}: {e}")
+                results[str(league_id)] = {'inbound': '?', 'outbound': '?'}
+        
+        return jsonify({'month': now.strftime('%B %Y'), 'usage': results})
+    
+    except Exception as e:
+        logging.error(f"Twilio usage API error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
 # Newsletter Routes (Admin Only)
 # ============================================================
 
