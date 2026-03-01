@@ -18,55 +18,67 @@ ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'Wordplayleague@gmail.com')
 
 def _get_email_template(title, body_html):
     """Wrap content in a branded HTML email template.
-    Uses bgcolor attributes + inline styles + Gmail div wrapper to force
-    dark backgrounds on mobile email clients that strip body/CSS styles."""
-    return f"""
-    <!DOCTYPE html>
-    <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="color-scheme" content="dark">
-        <meta name="supported-color-schemes" content="dark">
-        <title>{title}</title>
-        <style>
-            :root {{ color-scheme: dark; supported-color-schemes: dark; }}
-            body, html {{ background-color: #1a1a2e !important; }}
-            u + .body {{ background-color: #1a1a2e !important; }}
-        </style>
-    </head>
-    <body bgcolor="#1a1a2e" style="margin: 0; padding: 0; background-color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-    <!--[if mso]><table width="100%" bgcolor="#1a1a2e"><tr><td>&nbsp;</td><td width="600"><![endif]-->
-    <div class="body" style="background-color: #1a1a2e; width: 100%; margin: 0; padding: 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; padding: 40px 20px; margin: 0;">
-            <tr>
-                <td align="center" bgcolor="#1a1a2e" style="background-color: #1a1a2e;">
-                    <table role="presentation" width="500" cellpadding="0" cellspacing="0" border="0" bgcolor="#16213e" style="max-width: 500px; width: 100%; background-color: #16213e; border-radius: 12px; border: 1px solid #333;">
-                        <tr>
-                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 30px 30px 20px; text-align: center; border-bottom: 1px solid #333;">
-                                <span style="font-size: 1.5em; font-weight: bold; color: #00E8DA;">WordPlay<span style="color: #FFA64D;">League.com</span></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 30px;">
-                                <h2 style="color: #00E8DA; margin: 0 0 20px; font-size: 1.3em;">{title}</h2>
-                                {body_html}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 20px 30px; text-align: center; border-top: 1px solid #333; color: #888; font-size: 0.8em;">
-                                &copy; WordPlayLeague.com
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </div>
-    <!--[if mso]></td><td>&nbsp;</td></tr></table><![endif]-->
-    </body>
-    </html>
-    """
+    Uses bgcolor attributes + inline styles + multiple wrapper tables to force
+    dark backgrounds on Gmail app and other mobile email clients."""
+    # No leading whitespace - Gmail can be sensitive to it
+    return (
+'<!DOCTYPE html>'
+'<html xmlns="http://www.w3.org/1999/xhtml" lang="en">'
+'<head>'
+'<meta charset="utf-8">'
+'<meta name="viewport" content="width=device-width, initial-scale=1">'
+'<meta name="color-scheme" content="dark">'
+'<meta name="supported-color-schemes" content="dark">'
+f'<title>{title}</title>'
+'<style>'
+':root { color-scheme: dark; supported-color-schemes: dark; }'
+'body, html { background-color: #1a1a2e !important; margin: 0 !important; padding: 0 !important; }'
+'u + .body { background-color: #1a1a2e !important; }'
+'div[style*="margin: 16px 0"] { margin: 0 !important; }'
+'</style>'
+'</head>'
+'<body bgcolor="#1a1a2e" style="margin:0;padding:0;background-color:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">'
+'<!--[if mso]><table width="100%" bgcolor="#1a1a2e"><tr><td>&nbsp;</td><td width="600"><![endif]-->'
+'<div class="body" style="background-color:#1a1a2e;width:100%;margin:0;padding:0;">'
+'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color:#1a1a2e;margin:0;padding:0;border-collapse:collapse;">'
+'<tr><td bgcolor="#1a1a2e" style="background-color:#1a1a2e;padding:0;margin:0;">'
+'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color:#1a1a2e;border-collapse:collapse;">'
+# Top spacer
+'<tr><td bgcolor="#1a1a2e" style="background-color:#1a1a2e;height:40px;font-size:1px;line-height:1px;">&nbsp;</td></tr>'
+# Content row
+'<tr><td bgcolor="#1a1a2e" align="center" style="background-color:#1a1a2e;padding:0 20px;">'
+'<table role="presentation" width="500" cellpadding="0" cellspacing="0" border="0" bgcolor="#16213e" style="max-width:500px;width:100%;background-color:#16213e;border-radius:12px;border:1px solid #333;border-collapse:separate;">'
+# Header
+'<tr>'
+'<td bgcolor="#16213e" style="background-color:#16213e;padding:30px 30px 20px;text-align:center;border-bottom:1px solid #333;">'
+'<span style="font-size:1.5em;font-weight:bold;color:#00E8DA;">WordPlay<span style="color:#FFA64D;">League.com</span></span>'
+'</td>'
+'</tr>'
+# Body
+'<tr>'
+f'<td bgcolor="#16213e" style="background-color:#16213e;padding:30px;">'
+f'<h2 style="color:#00E8DA;margin:0 0 20px;font-size:1.3em;">{title}</h2>'
+f'{body_html}'
+'</td>'
+'</tr>'
+# Footer
+'<tr>'
+'<td bgcolor="#16213e" style="background-color:#16213e;padding:20px 30px;text-align:center;border-top:1px solid #333;color:#888;font-size:0.8em;">'
+'&copy; WordPlayLeague.com'
+'</td>'
+'</tr>'
+'</table>'
+'</td></tr>'
+# Bottom spacer
+'<tr><td bgcolor="#1a1a2e" style="background-color:#1a1a2e;height:40px;font-size:1px;line-height:1px;">&nbsp;</td></tr>'
+'</table>'
+'</td></tr>'
+'</table>'
+'</div>'
+'<!--[if mso]></td><td>&nbsp;</td></tr></table><![endif]-->'
+'</body>'
+'</html>'
+    )
 
 
 def _send_email_sync(to_email, subject, html_content):
