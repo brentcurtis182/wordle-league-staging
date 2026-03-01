@@ -784,7 +784,7 @@ def verify_email(token):
     
     try:
         cursor.execute("""
-            SELECT id, email FROM users
+            SELECT id, email, first_name FROM users
             WHERE email_verify_token = %s AND email_verify_expires > CURRENT_TIMESTAMP AND email_verified = FALSE
         """, (token,))
         
@@ -793,6 +793,8 @@ def verify_email(token):
             return {'success': False, 'error': 'Invalid or expired verification link.'}
         
         user_id = result[0]
+        user_email = result[1]
+        first_name = result[2]
         cursor.execute("""
             UPDATE users SET email_verified = TRUE, email_verify_token = NULL, email_verify_expires = NULL
             WHERE id = %s
@@ -800,6 +802,14 @@ def verify_email(token):
         
         conn.commit()
         logging.info(f"Email verified for user {user_id}")
+        
+        # Send welcome email
+        try:
+            from email_utils import send_welcome_email
+            send_welcome_email(user_email, first_name)
+        except Exception as email_err:
+            logging.error(f"Failed to send welcome email: {email_err}")
+        
         return {'success': True}
     except Exception as e:
         logging.error(f"Error verifying email: {e}")
