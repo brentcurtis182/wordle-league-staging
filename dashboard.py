@@ -4152,7 +4152,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const modal = document.getElementById('resetModal');
                 document.getElementById('resetModalTitle').textContent = 'Reset Season for Divisions?';
                 document.getElementById('resetModalText').textContent = 
-                    'This will wipe the current season\'s in-progress weekly wins and advance both divisions to a new season. ' +
+                    'This will wipe in-progress weekly wins for the current season and advance both divisions to a new season. ' +
                     'All completed season winners are preserved. ' +
                     'You will be able to rearrange players between divisions after this reset.';
                 pendingResetForm = null;
