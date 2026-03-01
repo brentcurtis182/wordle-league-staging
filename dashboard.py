@@ -4152,8 +4152,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const modal = document.getElementById('resetModal');
                 document.getElementById('resetModalTitle').textContent = 'Reset Season for Divisions?';
                 document.getElementById('resetModalText').textContent = 
-                    'This will reset any weekly wins this season, and players will start fresh at 0. ' +
-                    'Turning Division Mode off prior to a week completing will return the weekly wins back to the appropriate players in the main league. ' +
+                    'This will wipe the current season\'s in-progress weekly wins and advance both divisions to a new season. ' +
+                    'All completed season winners are preserved. ' +
                     'You will be able to rearrange players between divisions after this reset.';
                 pendingResetForm = null;
                 pendingResetAction = '/dashboard/league/{league['id']}/division-reset';

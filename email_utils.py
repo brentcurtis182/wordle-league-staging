@@ -448,7 +448,7 @@ def _get_division_mode_newsletter_body():
             <tr>
                 <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
                     <strong style="color: #e0e0e0;">Unlocking via Season Reset</strong><br>
-                    Need to rearrange after locking? Use <em>Reset Season</em> to unlock divisions. This wipes the current season's weekly wins and starts both divisions fresh at Season 1, allowing you to move players again.
+                    Need to rearrange after locking? Use <em>Reset Season</em> to unlock divisions. This wipes the current season's in-progress weekly wins and advances to a new season, allowing you to move players again. All completed season winners are preserved.
                 </td>
             </tr>
             <tr>

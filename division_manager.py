@@ -400,9 +400,9 @@ def confirm_division_mode(league_id):
 
 def reset_division_seasons(league_id):
     """
-    Reset seasons for divisions - wipes weekly winners under division mode,
-    resets both division season counters to 1, allows player rearrangement.
-    Uses similar logic to existing reset_current_season.
+    Reset seasons for divisions - wipes only in-progress weekly wins,
+    preserves completed season winners, advances both divisions to the next
+    season number, and unlocks divisions for player rearrangement.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -473,33 +473,52 @@ def reset_division_seasons(league_id):
             SET snapshot_data = EXCLUDED.snapshot_data, created_at = CURRENT_TIMESTAMP
         """, (league_id, json.dumps(snapshot)))
         
-        # Delete division weekly winners
-        cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s AND division IS NOT NULL", (league_id,))
+        # Get current season info for each division so we only wipe in-progress data
+        cursor.execute("""
+            SELECT division, current_season, season_start_week
+            FROM division_seasons WHERE league_id = %s
+        """, (league_id,))
+        current_seasons = {r[0]: {'season': r[1], 'start_week': r[2]} for r in cursor.fetchall()}
         
-        # Delete division season winners
-        cursor.execute("DELETE FROM season_winners WHERE league_id = %s AND division IS NOT NULL", (league_id,))
+        # Only delete weekly winners from the CURRENT in-progress season (not completed ones)
+        for div, info in current_seasons.items():
+            if info['start_week']:
+                cursor.execute("""
+                    DELETE FROM weekly_winners
+                    WHERE league_id = %s AND division = %s AND week_wordle_number >= %s
+                """, (league_id, div, info['start_week']))
         
-        # Reset division season boundaries
-        cursor.execute("DELETE FROM division_season_boundaries WHERE league_id = %s", (league_id,))
+        # DO NOT delete season_winners — completed season winners are preserved
         
-        # Get current week for fresh start
+        # Close any open season boundaries (set end_week so they show as closed)
         current_week = calculate_wordle_number(get_week_start_date())
+        for div, info in current_seasons.items():
+            cursor.execute("""
+                UPDATE division_season_boundaries
+                SET end_week = %s
+                WHERE league_id = %s AND division = %s AND season_number = %s AND end_week IS NULL
+            """, (current_week, league_id, div, info['season']))
         
-        # Reset both division seasons to Season 1
+        # Determine next season number: max current season across both divisions + 1
+        # (so both divisions start the same new season together)
+        max_season = max((info['season'] for info in current_seasons.values()), default=1)
+        new_season = max_season + 1
+        
+        # Set both divisions to the new season
         for div in (1, 2):
             cursor.execute("""
                 INSERT INTO division_seasons (league_id, division, current_season, season_start_week)
-                VALUES (%s, %s, 1, %s)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (league_id, division) DO UPDATE
-                SET current_season = 1, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
-            """, (league_id, div, current_week, current_week))
+                SET current_season = %s, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
+            """, (league_id, div, new_season, current_week, new_season, current_week))
             
             cursor.execute("""
                 INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
-                VALUES (%s, %s, 1, %s, NULL)
+                VALUES (%s, %s, %s, %s, NULL)
                 ON CONFLICT (league_id, division, season_number) DO UPDATE
                 SET start_week = EXCLUDED.start_week, end_week = NULL
-            """, (league_id, div, current_week))
+            """, (league_id, div, new_season, current_week))
         
         # Clear immunity and reset joined_week for all players
         cursor.execute("""

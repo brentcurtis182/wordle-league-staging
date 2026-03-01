@@ -6386,7 +6386,7 @@ def dashboard_division_reset(league_id):
         from division_manager import reset_division_seasons
         result = reset_division_seasons(league_id)
         if result['success']:
-            return redirect(f'/dashboard/league/{league_id}?message=Division seasons reset! Both divisions start fresh at Season 1. You can rearrange players now.')
+            return redirect(f'/dashboard/league/{league_id}?message=Division seasons reset! Both divisions advance to a new season. Past season winners preserved. You can rearrange players now.')
         else:
             return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(result["error"])}')
     except Exception as e:
