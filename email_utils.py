@@ -17,32 +17,44 @@ APP_URL = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'Wordplayleague@gmail.com')
 
 def _get_email_template(title, body_html):
-    """Wrap content in a branded HTML email template"""
+    """Wrap content in a branded HTML email template.
+    Uses bgcolor attributes + inline styles + Gmail div wrapper to force
+    dark backgrounds on mobile email clients that strip body/CSS styles."""
     return f"""
     <!DOCTYPE html>
-    <html>
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="dark">
+        <meta name="supported-color-schemes" content="dark">
+        <title>{title}</title>
+        <style>
+            :root {{ color-scheme: dark; supported-color-schemes: dark; }}
+            body, html {{ background-color: #1a1a2e !important; }}
+            u + .body {{ background-color: #1a1a2e !important; }}
+        </style>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a2e; padding: 40px 20px;">
+    <body bgcolor="#1a1a2e" style="margin: 0; padding: 0; background-color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <!--[if mso]><table width="100%" bgcolor="#1a1a2e"><tr><td>&nbsp;</td><td width="600"><![endif]-->
+    <div class="body" style="background-color: #1a1a2e; width: 100%; margin: 0; padding: 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; padding: 40px 20px; margin: 0;">
             <tr>
-                <td align="center">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #16213e; border-radius: 12px; border: 1px solid #333;">
+                <td align="center" bgcolor="#1a1a2e" style="background-color: #1a1a2e;">
+                    <table role="presentation" width="500" cellpadding="0" cellspacing="0" border="0" bgcolor="#16213e" style="max-width: 500px; width: 100%; background-color: #16213e; border-radius: 12px; border: 1px solid #333;">
                         <tr>
-                            <td style="padding: 30px 30px 20px; text-align: center; border-bottom: 1px solid #333;">
+                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 30px 30px 20px; text-align: center; border-bottom: 1px solid #333;">
                                 <span style="font-size: 1.5em; font-weight: bold; color: #00E8DA;">WordPlay<span style="color: #FFA64D;">League.com</span></span>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 30px;">
+                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 30px;">
                                 <h2 style="color: #00E8DA; margin: 0 0 20px; font-size: 1.3em;">{title}</h2>
                                 {body_html}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 20px 30px; text-align: center; border-top: 1px solid #333; color: #888; font-size: 0.8em;">
+                            <td bgcolor="#16213e" style="background-color: #16213e; padding: 20px 30px; text-align: center; border-top: 1px solid #333; color: #888; font-size: 0.8em;">
                                 &copy; WordPlayLeague.com
                             </td>
                         </tr>
@@ -50,6 +62,8 @@ def _get_email_template(title, body_html):
                 </td>
             </tr>
         </table>
+    </div>
+    <!--[if mso]></td><td>&nbsp;</td></tr></table><![endif]-->
     </body>
     </html>
     """
@@ -172,10 +186,10 @@ def send_welcome_email(to_email, first_name=None):
         <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
     </div>
     
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin-top: 20px; border-left: 3px solid #FFA64D;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
         <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Notice</p>
         <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is currently in beta and completely free to use while we fine-tune things. We'd love your feedback as we build — enjoy!</p>
-    </div>
+    </td></tr></table>
     """
     
     html = _get_email_template("Welcome to WordPlayLeague!", body)
@@ -219,7 +233,7 @@ def send_league_created_email(to_email, first_name=None, league_name=None, leagu
     <p style="color: #e0e0e0; line-height: 1.6;">{greeting}</p>
     <p style="color: #e0e0e0; line-height: 1.6;">Your new league {league_display} has been created! 🎉</p>
     
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 20px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin: 20px 0;"><tr><td style="padding: 16px;">
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="color: #888; padding: 4px 0; width: 100px;">League</td>
@@ -238,7 +252,7 @@ def send_league_created_email(to_email, first_name=None, league_name=None, leagu
                 <td style="padding: 4px 0;"><a href="{league_url}" style="color: #00E8DA; text-decoration: none;">{league_url}</a></td>
             </tr>
         </table>
-    </div>
+    </td></tr></table>
     
     <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin-top: 24px;">📋 How to Activate</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
@@ -271,7 +285,7 @@ def send_admin_league_created_email(league_name, league_slug, channel_type, leag
     body = f"""
     <p style="color: #e0e0e0; line-height: 1.6;">A new league has been created on WordPlayLeague.</p>
     
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 20px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin: 20px 0;"><tr><td style="padding: 16px;">
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="color: #888; padding: 6px 0; width: 120px;">League Name</td>
@@ -298,10 +312,10 @@ def send_admin_league_created_email(league_name, league_slug, channel_type, leag
                 <td style="padding: 6px 0;"><a href="{league_url}" style="color: #00E8DA; text-decoration: none;">{league_url}</a></td>
             </tr>
         </table>
-    </div>
+    </td></tr></table>
     
     <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin-top: 24px;">Created By</p>
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 10px 0 20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin: 10px 0 20px;"><tr><td style="padding: 16px;">
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="color: #888; padding: 4px 0; width: 120px;">Name</td>
@@ -316,7 +330,7 @@ def send_admin_league_created_email(league_name, league_slug, channel_type, leag
                 <td style="color: #e0e0e0; padding: 4px 0;">{created_at}</td>
             </tr>
         </table>
-    </div>
+    </td></tr></table>
     
     <div style="text-align: center; margin: 30px 0;">
         <a href="{admin_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">View in Admin Panel</a>
@@ -415,10 +429,10 @@ def _get_division_mode_newsletter_body():
     <p style="color: #e0e0e0; line-height: 1.6;">Here's everything you need to know:</p>
     
     <!-- What is Division Mode -->
-    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #00E8DA;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
         <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin: 0 0 10px;">What is Division Mode?</p>
         <p style="color: #bbb; margin: 0; line-height: 1.6;">Division Mode splits your league into <strong style="color: #e0e0e0;">Division I</strong> and <strong style="color: #e0e0e0;">Division II</strong>. Each division runs its own weekly races and season standings independently. Win 3 weekly wins in your division to clinch the season — then promotion and relegation kick in.</p>
-    </div>
+    </td></tr></table>
     
     <!-- How to Enable -->
     <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">📋 How to Enable</p>
@@ -430,7 +444,7 @@ def _get_division_mode_newsletter_body():
     </table>
     
     <!-- Player Management -->
-    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFA64D;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FFA64D;"><tr><td style="padding: 20px;">
         <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">👥 Managing Players</p>
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -458,10 +472,10 @@ def _get_division_mode_newsletter_body():
                 </td>
             </tr>
         </table>
-    </div>
+    </td></tr></table>
     
     <!-- Seasons & Promotion/Relegation -->
-    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #00E8DA;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
         <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">🏅 Seasons, Promotion & Relegation</p>
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -489,20 +503,20 @@ def _get_division_mode_newsletter_body():
                 </td>
             </tr>
         </table>
-    </div>
+    </td></tr></table>
     
     <!-- Leaderboard -->
-    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFA64D;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FFA64D;"><tr><td style="padding: 20px;">
         <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 8px;">📊 What Changes on Your League Page</p>
         <p style="color: #bbb; margin: 0; line-height: 1.6;">Your public league page will show separate tables for each division — weekly standings, season races, and promotion/relegation badges. AI-powered Sunday race updates and Monday recaps are also division-aware.</p>
-    </div>
+    </td></tr></table>
     
     <div style="text-align: center; margin: 30px 0;">
         <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
     </div>
     
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin-top: 20px; border-left: 3px solid #FFA64D;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
         <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
         <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. We'd love to hear what you think of Division Mode — just reply to this email with any feedback!</p>
-    </div>
+    </td></tr></table>
     """
