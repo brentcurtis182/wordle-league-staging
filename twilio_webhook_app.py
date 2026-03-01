@@ -2821,51 +2821,6 @@ def admin_dashboard():
         cursor.close()
         conn.close()
         
-        # Fetch Twilio message counts for SMS leagues (current month)
-        try:
-            from twilio.rest import Client as TwilioClient
-            import pytz
-            twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
-            
-            pacific = pytz.timezone('America/Los_Angeles')
-            now = datetime.now(pacific)
-            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            logging.info(f"[Admin Twilio] Fetching messages since {month_start}, phone={twilio_phone}")
-            logging.info(f"[Admin Twilio] SID={TWILIO_ACCOUNT_SID is not None}, TOKEN={TWILIO_AUTH_TOKEN is not None}")
-            
-            sms_leagues = [lg for lg in leagues if lg.get('conversation_sid')]
-            logging.info(f"[Admin Twilio] Found {len(sms_leagues)} leagues with conversation SIDs")
-            
-            for lg in sms_leagues:
-                conv_sid = lg['conversation_sid']
-                logging.info(f"[Admin Twilio] League {lg['id']} ({lg['display_name']}): SID={conv_sid}")
-                
-                try:
-                    # Conversations API doesn't support date filtering - fetch all and filter
-                    messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(limit=1000)
-                    
-                    inbound = 0
-                    outbound = 0
-                    for msg in messages:
-                        # Filter to current month only
-                        if msg.date_created and msg.date_created >= month_start:
-                            if msg.author == twilio_phone:
-                                outbound += 1
-                            else:
-                                inbound += 1
-                    
-                    logging.info(f"[Admin Twilio] League {lg['id']}: {len(messages)} total msgs, {inbound} inbound this month, {outbound} outbound this month")
-                    lg['twilio_inbound'] = inbound
-                    lg['twilio_outbound'] = outbound
-                except Exception as twilio_err:
-                    logging.warning(f"[Admin Twilio] Could not fetch for league {lg['id']}: {twilio_err}")
-        except Exception as twilio_init_err:
-            logging.warning(f"[Admin Twilio] Init failed: {twilio_init_err}")
-            import traceback
-            logging.warning(traceback.format_exc())
-        
         return render_admin_dashboard(user, leagues)
         
     except Exception as e:
