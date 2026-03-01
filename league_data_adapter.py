@@ -371,6 +371,61 @@ def get_complete_league_data(league_id):
         division_data = None
         if is_division_mode or has_division_history:
             division_data = get_division_season_data(league_id, weekly_stats=weekly_stats, conn=conn)
+        
+        # Calculate missed weeks for all players (standard league display)
+        # A missed week = past completed week in current season with < 5 valid scores
+        missed_weeks = {}
+        season_start_for_missed = season_data.get('season_start_week') if season_data else None
+        if not season_start_for_missed:
+            # Fallback: try to get from seasons table via season_data
+            sd_cursor = conn.cursor()
+            sd_cursor.execute("""
+                SELECT start_week FROM seasons
+                WHERE league_id = %s AND season_number = %s
+            """, (league_id, season_data.get('current_season', 1)))
+            sr = sd_cursor.fetchone()
+            if sr:
+                season_start_for_missed = sr[0]
+            sd_cursor.close()
+        
+        current_week_start = week_wordles[0] if week_wordles else None
+        
+        if season_start_for_missed and current_week_start:
+            mw_cursor = conn.cursor()
+            for player_name, pstats in weekly_stats.items():
+                player_id = pstats.get('player_id')
+                if not player_id:
+                    missed_weeks[player_name] = 0
+                    continue
+                
+                mw_cursor.execute("""
+                    SELECT s.wordle_number, s.score
+                    FROM scores s
+                    WHERE s.player_id = %s
+                      AND s.wordle_number >= %s
+                      AND s.wordle_number < %s
+                    ORDER BY s.wordle_number
+                """, (player_id, season_start_for_missed, current_week_start))
+                
+                # Group by week
+                week_scores = {}
+                for wn, sc in mw_cursor.fetchall():
+                    ws = wn - ((wn - season_start_for_missed) % 7)
+                    if ws not in week_scores:
+                        week_scores[ws] = []
+                    week_scores[ws].append(sc)
+                
+                player_missed = 0
+                w = season_start_for_missed
+                while w < current_week_start:
+                    scores_in_week = week_scores.get(w, [])
+                    valid_count = len([s for s in scores_in_week if s < 7])
+                    if valid_count < 5:
+                        player_missed += 1
+                    w += 7
+                
+                missed_weeks[player_name] = player_missed
+            mw_cursor.close()
     finally:
         conn.close()
     
@@ -388,6 +443,7 @@ def get_complete_league_data(league_id):
         'division_data': division_data,
         'player_divisions': player_divisions,
         'regular_season_count': regular_season_count,
+        'missed_weeks': missed_weeks,
         'timestamp': datetime.now()
     }
 
@@ -546,6 +602,7 @@ def get_season_data(league_id, conn=None):
     
     return {
         'current_season': current_season,
+        'season_start_week': season_start,
         'season_standings': season_standings,
         'season_winners': season_winners,
         'past_season_breakdowns': past_season_breakdowns

@@ -186,6 +186,7 @@ def generate_weekly_totals_html(league_data):
     """Generate Weekly Totals tab HTML"""
     week_wordles = league_data['week_wordles']
     weekly_stats = league_data['weekly_stats']
+    missed_weeks_data = league_data.get('missed_weeks', {})
     
     html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
 <p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
@@ -198,6 +199,7 @@ def generate_weekly_totals_html(league_data):
     <th>Used Scores</th>
     <th>Failed</th>
     <th>Thrown Out</th>
+    <th>Wks Missed</th>
 '''
     
     # Add column headers for each day of the week (Monday-Sunday) - NO Wordle numbers
@@ -248,6 +250,13 @@ def generate_weekly_totals_html(league_data):
         if stats["thrown_out"] and len(stats["thrown_out"]) > 0:
             thrown_out_display = ', '.join(str(s) for s in stats["thrown_out"])
             html += f'    <td>{thrown_out_display}</td>\n'
+        else:
+            html += f'    <td>-</td>\n'
+        
+        # Weeks Missed column
+        pw_missed = missed_weeks_data.get(player_name, 0)
+        if pw_missed > 0:
+            html += f'    <td style="color: #ff5c5c; font-weight: bold;">{pw_missed}</td>\n'
         else:
             html += f'    <td>-</td>\n'
         
