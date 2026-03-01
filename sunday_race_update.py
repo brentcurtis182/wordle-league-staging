@@ -366,32 +366,60 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     potential_clinchers = [name for name, wins in div_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
     leaders_who_could_clinch = [name for name in leader_names if name in potential_clinchers]
     
-    if leaders_who_could_clinch:
-        if len(leaders_who_could_clinch) == 1:
-            clincher = leaders_who_could_clinch[0]
-            if div_num == 2:
-                season_clinch_text = f" SEASON STAKES: If {clincher} wins this week, they clinch {div_label} Season {div_current_season} and earn a PROMOTION to Division I!"
+    if race_is_decided or all_posted:
+        # Race is over — only mention clinch if the potential clincher actually WON (or tied for the win)
+        actual_clinchers = [name for name in leaders_who_could_clinch]
+        if actual_clinchers:
+            if len(actual_clinchers) == 1:
+                clincher = actual_clinchers[0]
+                if div_num == 2:
+                    season_clinch_text = f" SEASON CLINCH: {clincher} clinches {div_label} Season {div_current_season} and earns a PROMOTION to Division I!"
+                else:
+                    season_clinch_text = f" SEASON CLINCH: {clincher} clinches {div_label} Season {div_current_season}!"
             else:
-                season_clinch_text = f" SEASON STAKES: If {clincher} wins this week, they clinch {div_label} Season {div_current_season}!"
-        else:
-            clinchers_list = " or ".join(leaders_who_could_clinch)
-            if div_num == 2:
-                season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch {div_label} Season {div_current_season} and earn a PROMOTION to Division I!"
-            else:
-                season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch {div_label} Season {div_current_season}!"
+                clinchers_list = " and ".join(actual_clinchers)
+                if div_num == 2:
+                    season_clinch_text = f" SEASON CLINCH: {clinchers_list} clinch {div_label} Season {div_current_season} and earn a PROMOTION to Division I!"
+                else:
+                    season_clinch_text = f" SEASON CLINCH: {clinchers_list} clinch {div_label} Season {div_current_season}!"
+        # If potential clinchers exist but didn't win, no clinch text — they didn't clinch
     else:
-        # Check contenders not currently leading
-        contenders = [name for name in potential_clinchers if name not in leader_names]
-        contenders_in_hunt = []
-        for p in div_standings:
-            if p['name'] in contenders and (p['eligible'] or p['days_posted'] >= 4):
-                contenders_in_hunt.append(p['name'])
-        if contenders_in_hunt:
-            clinchers_list = " or ".join(contenders_in_hunt[:2])
-            if div_num == 2:
-                season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch {div_label} Season {div_current_season} with a win — earning a PROMOTION to Division I!"
-            else:
-                season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch {div_label} Season {div_current_season} with a win!"
+        # Race is still live — only mention clinch for players who haven't posted today
+        not_posted_names = {p['name'] for p in div_standings if not p['posted_today']}
+        
+        if leaders_who_could_clinch:
+            # Leaders who haven't posted yet could still clinch
+            leaders_still_live = [name for name in leaders_who_could_clinch if name in not_posted_names]
+            # Leaders who already posted and are leading — they're on track
+            leaders_already_posted = [name for name in leaders_who_could_clinch if name not in not_posted_names]
+            
+            clinch_names = leaders_already_posted + leaders_still_live  # posted leaders are ahead, still valid
+            if clinch_names:
+                if len(clinch_names) == 1:
+                    clincher = clinch_names[0]
+                    if div_num == 2:
+                        season_clinch_text = f" SEASON STAKES: If {clincher} wins this week, they clinch {div_label} Season {div_current_season} and earn a PROMOTION to Division I!"
+                    else:
+                        season_clinch_text = f" SEASON STAKES: If {clincher} wins this week, they clinch {div_label} Season {div_current_season}!"
+                else:
+                    clinchers_list = " or ".join(clinch_names)
+                    if div_num == 2:
+                        season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch {div_label} Season {div_current_season} and earn a PROMOTION to Division I!"
+                    else:
+                        season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch {div_label} Season {div_current_season}!"
+        else:
+            # Check contenders not currently leading who haven't posted yet
+            contenders = [name for name in potential_clinchers if name not in leader_names and name in not_posted_names]
+            contenders_in_hunt = []
+            for p in div_standings:
+                if p['name'] in contenders and (p['eligible'] or p['days_posted'] >= 4):
+                    contenders_in_hunt.append(p['name'])
+            if contenders_in_hunt:
+                clinchers_list = " or ".join(contenders_in_hunt[:2])
+                if div_num == 2:
+                    season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch {div_label} Season {div_current_season} with a win — earning a PROMOTION to Division I!"
+                else:
+                    season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch {div_label} Season {div_current_season} with a win!"
     
     scenario_text = f"{div_label}: " + " ".join(scenarios) + season_clinch_text
     return scenario_text
@@ -835,33 +863,9 @@ IMPORTANT RULES:
             logging.error(traceback.format_exc())
         
         # Generate season image ONLY if there are potential season clinchers (or force_season_image for testing)
+        # Division mode: no separate season images — the summary text mentions season stakes when relevant
         if is_division_mode:
-            # For division mode, check per-division season stakes
-            div1_potential = [name for name, wins in div1_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
-            div2_potential = [name for name, wins in div2_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
-            has_potential_clinchers = bool(div1_potential or div2_potential)
-            
-            if has_potential_clinchers or force_season_image:
-                # Generate season images for each division that has stakes
-                for div_num, div_wins, div_season in [(1, div1_weekly_wins, div1_season_info), (2, div2_weekly_wins, div2_season_info)]:
-                    div_potential = [name for name, wins in div_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
-                    if div_potential or force_season_image:
-                        try:
-                            season_image_data = [
-                                {'name': name, 'wins': wins}
-                                for name, wins in sorted(div_wins.items(), key=lambda x: x[1], reverse=True)
-                            ]
-                            div_label = "DIV I" if div_num == 1 else "DIV II"
-                            season_img = generate_season_image(f"{league_name} {div_label}", div_season['current_season'], season_image_data)
-                            if season_img:
-                                season_bytes = image_to_bytes(season_img)
-                                image_bytes_list.append(season_bytes)
-                                if channel_type == 'sms':
-                                    season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)
-                                    if season_media_sid:
-                                        media_sids.append(season_media_sid)
-                        except Exception as img_error:
-                            logging.error(f"Failed to generate division {div_num} season image: {img_error}")
+            pass  # Division mode only sends the weekly table image
         else:
             # Standard mode season image
             logging.info(f"Season image check: potential_clinchers={potential_season_clinchers}, force={force_season_image}, weekly_wins={weekly_wins}")
