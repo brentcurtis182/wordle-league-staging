@@ -2832,10 +2832,15 @@ def admin_dashboard():
             now = datetime.now(pacific)
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            for lg in leagues:
-                conv_sid = lg.get('conversation_sid')
-                if not conv_sid or (lg.get('channel_type') or 'sms') != 'sms':
-                    continue
+            logging.info(f"[Admin Twilio] Fetching messages since {month_start}, phone={twilio_phone}")
+            logging.info(f"[Admin Twilio] SID={TWILIO_ACCOUNT_SID is not None}, TOKEN={TWILIO_AUTH_TOKEN is not None}")
+            
+            sms_leagues = [lg for lg in leagues if lg.get('conversation_sid')]
+            logging.info(f"[Admin Twilio] Found {len(sms_leagues)} leagues with conversation SIDs")
+            
+            for lg in sms_leagues:
+                conv_sid = lg['conversation_sid']
+                logging.info(f"[Admin Twilio] League {lg['id']} ({lg['display_name']}): SID={conv_sid}, channel_type={lg.get('channel_type')}")
                 
                 try:
                     messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(
@@ -2850,12 +2855,15 @@ def admin_dashboard():
                         else:
                             inbound += 1
                     
+                    logging.info(f"[Admin Twilio] League {lg['id']}: {len(messages)} total, {inbound} inbound, {outbound} outbound")
                     lg['twilio_inbound'] = inbound
                     lg['twilio_outbound'] = outbound
                 except Exception as twilio_err:
-                    logging.warning(f"Could not fetch Twilio messages for league {lg['id']}: {twilio_err}")
+                    logging.warning(f"[Admin Twilio] Could not fetch for league {lg['id']}: {twilio_err}")
         except Exception as twilio_init_err:
-            logging.warning(f"Could not initialize Twilio client for admin dashboard: {twilio_init_err}")
+            logging.warning(f"[Admin Twilio] Init failed: {twilio_init_err}")
+            import traceback
+            logging.warning(traceback.format_exc())
         
         return render_admin_dashboard(user, leagues)
         
