@@ -6417,7 +6417,6 @@ def admin_twilio_usage():
         import requests as http_requests
         import pytz
         from datetime import timezone as dt_timezone
-        from dateutil import parser as dateutil_parser
         
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
         
@@ -6461,7 +6460,7 @@ def admin_twilio_usage():
                     for msg in messages:
                         date_str = msg.get('date_created', '')
                         if date_str:
-                            msg_date = dateutil_parser.isoparse(date_str)
+                            msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
                             if msg_date < month_start_utc:
                                 done = True
                                 break
