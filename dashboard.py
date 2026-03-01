@@ -4501,6 +4501,14 @@ def render_admin_dashboard(user, leagues):
                         <tbody>
                             {league_rows if league_rows else f'<tr><td colspan="10" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
+                        <tfoot>
+                            <tr id="totalsRow" style="background-color: {COLORS['card_bg']}; border-top: 2px solid {COLORS['border']};">
+                                <td colspan="7" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Totals</td>
+                                <td class="total-inbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
+                                <td class="total-outbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
+                                <td class="total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center;">...</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -4615,11 +4623,31 @@ def render_admin_dashboard(user, leagues):
                                 if (costCell) costCell.textContent = '-';
                             }}
                         }});
+                        // Compute totals
+                        var totalIn = 0, totalOut = 0, totalCost = 0;
+                        Object.keys(data.usage).forEach(function(lid) {{
+                            var u = data.usage[lid];
+                            if (typeof u.inbound === 'number') totalIn += u.inbound;
+                            if (typeof u.outbound === 'number') totalOut += u.outbound;
+                            if (typeof u.cost === 'number') totalCost += u.cost;
+                        }});
+                        var ti = document.querySelector('.total-inbound');
+                        var to = document.querySelector('.total-outbound');
+                        var tc = document.querySelector('.total-cost');
+                        if (ti) ti.textContent = totalIn;
+                        if (to) to.textContent = totalOut;
+                        if (tc) tc.textContent = '$' + totalCost.toFixed(2);
                     }})
                     .catch(function() {{
                         inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                         outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                         costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        var ti = document.querySelector('.total-inbound');
+                        var to = document.querySelector('.total-outbound');
+                        var tc = document.querySelector('.total-cost');
+                        if (ti) ti.textContent = '-';
+                        if (to) to.textContent = '-';
+                        if (tc) tc.textContent = '-';
                     }});
             }})();
         </script>
