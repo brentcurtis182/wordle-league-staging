@@ -2840,22 +2840,23 @@ def admin_dashboard():
             
             for lg in sms_leagues:
                 conv_sid = lg['conversation_sid']
-                logging.info(f"[Admin Twilio] League {lg['id']} ({lg['display_name']}): SID={conv_sid}, channel_type={lg.get('channel_type')}")
+                logging.info(f"[Admin Twilio] League {lg['id']} ({lg['display_name']}): SID={conv_sid}")
                 
                 try:
-                    messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(
-                        date_created_after=month_start
-                    )
+                    # Conversations API doesn't support date filtering - fetch all and filter
+                    messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(limit=1000)
                     
                     inbound = 0
                     outbound = 0
                     for msg in messages:
-                        if msg.author == twilio_phone:
-                            outbound += 1
-                        else:
-                            inbound += 1
+                        # Filter to current month only
+                        if msg.date_created and msg.date_created >= month_start:
+                            if msg.author == twilio_phone:
+                                outbound += 1
+                            else:
+                                inbound += 1
                     
-                    logging.info(f"[Admin Twilio] League {lg['id']}: {len(messages)} total, {inbound} inbound, {outbound} outbound")
+                    logging.info(f"[Admin Twilio] League {lg['id']}: {len(messages)} total msgs, {inbound} inbound this month, {outbound} outbound this month")
                     lg['twilio_inbound'] = inbound
                     lg['twilio_outbound'] = outbound
                 except Exception as twilio_err:
