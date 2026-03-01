@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 FROM_EMAIL = os.environ.get('FROM_EMAIL', 'WordPlayLeague <noreply@wordplayleague.com>')
 APP_URL = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'Wordplayleague@gmail.com')
 
 def _get_email_template(title, body_html):
     """Wrap content in a branded HTML email template"""
@@ -254,3 +255,74 @@ def send_league_created_email(to_email, first_name=None, league_name=None, leagu
     subject = f"Your league \"{league_name}\" is ready!" if league_name else "Your new league is ready!"
     html = _get_email_template("League Created!", body)
     return _send_email(to_email, subject, html)
+
+
+def send_admin_league_created_email(league_name, league_slug, channel_type, league_id, owner_name, owner_email):
+    """Send admin notification when a new league is created"""
+    from datetime import datetime
+    
+    league_url = f"{APP_URL}/leagues/{league_slug}" if league_slug else ""
+    admin_url = f"{APP_URL}/admin"
+    created_at = datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')
+    
+    platform_map = {'sms': 'SMS', 'slack': 'Slack', 'discord': 'Discord'}
+    platform_name = platform_map.get(channel_type, channel_type)
+    
+    body = f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">A new league has been created on WordPlayLeague.</p>
+    
+    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="color: #888; padding: 6px 0; width: 120px;">League Name</td>
+                <td style="color: #00E8DA; padding: 6px 0; font-weight: bold; font-size: 1.05em;">{league_name or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 6px 0;">League ID</td>
+                <td style="color: #e0e0e0; padding: 6px 0;">{league_id}</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 6px 0;">Slug</td>
+                <td style="color: #e0e0e0; padding: 6px 0; font-family: monospace;">{league_slug or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 6px 0;">Platform</td>
+                <td style="color: #e0e0e0; padding: 6px 0;">{platform_name}</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 6px 0;">Status</td>
+                <td style="color: #FFA64D; padding: 6px 0; font-weight: bold;">Not Yet Activated</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 6px 0;">League Page</td>
+                <td style="padding: 6px 0;"><a href="{league_url}" style="color: #00E8DA; text-decoration: none;">{league_url}</a></td>
+            </tr>
+        </table>
+    </div>
+    
+    <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin-top: 24px;">Created By</p>
+    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 10px 0 20px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="color: #888; padding: 4px 0; width: 120px;">Name</td>
+                <td style="color: #e0e0e0; padding: 4px 0; font-weight: bold;">{owner_name or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 4px 0;">Email</td>
+                <td style="padding: 4px 0;"><a href="mailto:{owner_email}" style="color: #00E8DA; text-decoration: none;">{owner_email or 'N/A'}</a></td>
+            </tr>
+            <tr>
+                <td style="color: #888; padding: 4px 0;">Created</td>
+                <td style="color: #e0e0e0; padding: 4px 0;">{created_at}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{admin_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">View in Admin Panel</a>
+    </div>
+    """
+    
+    subject = f"New League Created: {league_name}" if league_name else "New League Created"
+    html = _get_email_template("New League Created", body)
+    return _send_email(ADMIN_EMAIL, subject, html)

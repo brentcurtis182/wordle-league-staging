@@ -2083,12 +2083,20 @@ def dashboard_create_league():
         
         logging.info(f"Created new league: {league_name} (id={league_id}, slug={slug}, channel={channel_type}) by user {user['id']}")
         
-        # Send league creation email
+        # Send league creation email to user
         try:
             from email_utils import send_league_created_email
             send_league_created_email(user['email'], user.get('first_name'), league_name, slug, channel_type)
         except Exception as email_err:
             logging.error(f"Failed to send league creation email: {email_err}")
+        
+        # Notify admin of new league creation
+        try:
+            from email_utils import send_admin_league_created_email
+            owner_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('name', '')
+            send_admin_league_created_email(league_name, slug, channel_type, league_id, owner_name, user['email'])
+        except Exception as email_err:
+            logging.error(f"Failed to send admin league notification: {email_err}")
         
         # Redirect message varies by platform
         if channel_type == 'slack':
