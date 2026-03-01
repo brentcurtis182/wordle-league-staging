@@ -4502,7 +4502,7 @@ def render_admin_dashboard(user, leagues):
                             {league_rows if league_rows else f'<tr><td colspan="10" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
                         <tfoot>
-                            <tr id="totalsRow" style="background-color: {COLORS['card_bg']}; border-top: 2px solid {COLORS['border']};">
+                            <tr id="totalsRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['border']};">
                                 <td colspan="7" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Totals</td>
                                 <td class="total-inbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-outbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
