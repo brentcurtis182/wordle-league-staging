@@ -6403,7 +6403,8 @@ def dashboard_division_reset(league_id):
 @app.route('/admin/api/twilio-usage')
 def admin_twilio_usage():
     """Fetch Twilio inbound/outbound message counts per league for current month.
-    Called via AJAX so it doesn't block admin dashboard loading."""
+    Called via AJAX so it doesn't block admin dashboard loading.
+    Uses direct REST API with desc order to stop early once we pass month boundary."""
     from auth import validate_session
     
     session_token = request.cookies.get('session_token')
@@ -6413,15 +6414,18 @@ def admin_twilio_usage():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        from twilio.rest import Client as TwilioClient
+        import requests as http_requests
         import pytz
+        from datetime import timezone as dt_timezone
+        from dateutil import parser as dateutil_parser
         
-        twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
         
         pacific = pytz.timezone('America/Los_Angeles')
         now = datetime.now(pacific)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Convert to UTC for comparison with Twilio timestamps
+        month_start_utc = month_start.astimezone(dt_timezone.utc)
         
         # Get all SMS leagues with conversation SIDs
         conn = get_db_connection()
@@ -6431,20 +6435,47 @@ def admin_twilio_usage():
         cursor.close()
         conn.close()
         
+        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         results = {}
+        
         for league_id, conv_sid in sms_leagues:
             try:
-                # Fetch recent messages (limit pages to avoid long waits)
-                messages = twilio_client.conversations.v1.conversations(conv_sid).messages.list(limit=500)
-                
                 inbound = 0
                 outbound = 0
-                for msg in messages:
-                    if msg.date_created and msg.date_created >= month_start:
-                        if msg.author == twilio_phone:
-                            outbound += 1
-                        else:
-                            inbound += 1
+                # Fetch newest messages first, stop when we hit messages before month start
+                url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
+                done = False
+                
+                while url and not done:
+                    resp = http_requests.get(url, auth=auth, timeout=5)
+                    if resp.status_code != 200:
+                        logging.warning(f"Twilio API returned {resp.status_code} for league {league_id}")
+                        break
+                    
+                    data = resp.json()
+                    messages = data.get('messages', [])
+                    
+                    if not messages:
+                        break
+                    
+                    for msg in messages:
+                        date_str = msg.get('date_created', '')
+                        if date_str:
+                            msg_date = dateutil_parser.isoparse(date_str)
+                            if msg_date < month_start_utc:
+                                done = True
+                                break
+                            
+                            author = msg.get('author', '')
+                            if author == twilio_phone:
+                                outbound += 1
+                            else:
+                                inbound += 1
+                    
+                    # Get next page URL
+                    meta = data.get('meta', {})
+                    next_url = meta.get('next_page_url')
+                    url = next_url if next_url and not done else None
                 
                 results[str(league_id)] = {'inbound': inbound, 'outbound': outbound}
             except Exception as e:
