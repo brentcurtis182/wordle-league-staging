@@ -779,8 +779,17 @@ def check_division_season_transition(league_id, division):
 
 def check_division1_relegation(league_id):
     """
-    When Division I season ends, relegate the player with worst Season Total.
+    When Division I season ends, relegate the player with worst performance.
     Called after check_division_season_transition for division 1.
+    
+    Relegation priority:
+    1. Season winner is EXEMPT from relegation regardless of missed weeks.
+    2. Players with missed weeks (< 5 valid scores in a week) are relegated
+       before players with no missed weeks.
+    3. Among players with missed weeks, the one with MORE missed weeks is relegated.
+    4. If tied on missed weeks, the player with the worst (highest) Season Total
+       is relegated.
+    5. If no one has missed weeks, worst Season Total is relegated (original logic).
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -812,6 +821,16 @@ def check_division1_relegation(league_id):
             return False  # Season hasn't ended
         
         season_start = bounds[0]
+        season_end = bounds[1]
+        
+        # Identify the season winner(s) so they are exempt from relegation
+        cursor.execute("""
+            SELECT p.name
+            FROM season_winners sw
+            JOIN players p ON sw.player_id = p.id
+            WHERE sw.league_id = %s AND sw.division = 1 AND sw.season_number = %s
+        """, (league_id, ended_season))
+        season_winner_names = {r[0] for r in cursor.fetchall()}
         
         # Get Division I players (non-immune)
         cursor.execute("""
@@ -821,18 +840,49 @@ def check_division1_relegation(league_id):
         """, (league_id,))
         div1_players = cursor.fetchall()
         
-        # Calculate Season Total for each non-immune player
-        player_totals = []
+        # Calculate stats for each eligible-for-relegation player
+        player_stats = []
         for player_id, player_name, is_immune in div1_players:
             if is_immune:
                 continue  # Immune players can't be relegated
+            if player_name in season_winner_names:
+                continue  # Season winner is exempt from relegation
             
+            # Get all scores in the ended season to calculate missed weeks
+            cursor.execute("""
+                SELECT s.wordle_number, s.score
+                FROM scores s
+                WHERE s.player_id = %s
+                  AND s.wordle_number >= %s AND s.wordle_number <= %s
+                ORDER BY s.wordle_number
+            """, (player_id, season_start, season_end))
+            
+            # Group scores by week
+            week_scores = {}
+            for wn, sc in cursor.fetchall():
+                ws = wn - ((wn - season_start) % 7)
+                if ws not in week_scores:
+                    week_scores[ws] = []
+                week_scores[ws].append(sc)
+            
+            # Count missed weeks (weeks with < 5 valid non-fail scores)
+            missed = 0
+            w = season_start
+            while w <= season_end:
+                scores_in_week = week_scores.get(w, [])
+                valid_count = len([s for s in scores_in_week if s < 7])
+                if valid_count < 5:
+                    missed += 1
+                w += 7
+            
+            # Season Total from weekly_winners (sum of best-5 totals for won weeks)
             cursor.execute("""
                 SELECT COALESCE(SUM(score), 0)
                 FROM weekly_winners
                 WHERE league_id = %s AND division = 1 
                   AND player_name = %s AND week_wordle_number >= %s
-            """, (league_id, player_name, season_start))
+                  AND week_wordle_number <= %s
+            """, (league_id, player_name, season_start, season_end))
             total = cursor.fetchone()[0]
             
             # Count weekly wins for tiebreaker
@@ -841,26 +891,30 @@ def check_division1_relegation(league_id):
                 FROM weekly_winners
                 WHERE league_id = %s AND division = 1 
                   AND player_name = %s AND week_wordle_number >= %s
-            """, (league_id, player_name, season_start))
+                  AND week_wordle_number <= %s
+            """, (league_id, player_name, season_start, season_end))
             win_count = cursor.fetchone()[0]
             
-            player_totals.append((player_id, player_name, total, win_count))
+            player_stats.append((player_id, player_name, total, win_count, missed))
+            logging.info(f"  Relegation candidate: {player_name} - missed_weeks={missed}, season_total={total}, wins={win_count}")
         
-        if not player_totals:
+        if not player_stats:
+            logging.info(f"No eligible players for relegation in league {league_id} (all immune or season winners)")
             return False
         
-        # Sort by worst Season Total (highest = worst in Wordle), then fewest wins as tiebreaker
-        player_totals.sort(key=lambda x: (-x[2], x[3]))
+        # Sort: most missed weeks first, then worst (highest) season total, then fewest wins
+        player_stats.sort(key=lambda x: (-x[4], -x[2], x[3]))
         
         # Relegate the worst player
-        worst_player_id, worst_player_name, _, _ = player_totals[0]
+        worst_player_id, worst_player_name, _, _, worst_missed = player_stats[0]
         
         current_week = calculate_wordle_number(get_week_start_date())
         _relegate_player(cursor, league_id, worst_player_name, current_week)
         
         conn.commit()
         
-        logging.info(f"Relegated {worst_player_name} from Division I to Division II in league {league_id}")
+        reason = f"missed_weeks={worst_missed}" if worst_missed > 0 else "worst season total"
+        logging.info(f"Relegated {worst_player_name} from Division I to Division II in league {league_id} ({reason})")
         return True
     
     except Exception as e:

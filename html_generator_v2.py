@@ -760,6 +760,7 @@ def generate_division_weekly_totals_html(league_data):
         div_label = "DIVISION I" if div_num == 1 else "DIVISION II"
         div_color = "#00E8DA" if div_num == 1 else "#FFA64D"
         season_totals = div_info.get('season_totals', {})
+        missed_weeks_data = div_info.get('missed_weeks', {})
         div_players_list = div_info.get('players', [])
         div_player_names = {p['name'] for p in div_players_list}
         immune_players = {p['name'] for p in div_players_list if p.get('immunity')}
@@ -792,6 +793,7 @@ def generate_division_weekly_totals_html(league_data):
     <th>Used Scores</th>
     <th>Failed</th>
     <th>Thrown Out</th>
+    <th>Wks Missed</th>
 '''
         for wordle_num in week_wordles:
             day_name = get_day_name(wordle_num)
@@ -844,6 +846,9 @@ def generate_division_weekly_totals_html(league_data):
             else:
                 html += f'    <td>-</td>\n'
             
+            pw_missed = missed_weeks_data.get(player_name, 0)
+            html += f'    <td>{pw_missed if pw_missed > 0 else "-"}</td>\n'
+            
             for wordle_num in week_wordles:
                 if wordle_num in stats['daily_scores']:
                     score = stats['daily_scores'][wordle_num]['score']
@@ -867,7 +872,9 @@ def generate_division_weekly_totals_html(league_data):
                 html += f'    <td class="sticky-column"><strong{name_style}>{p["name"]}</strong></td>\n'
                 html += f'    <td class="score-col-weekly-{div_num}">-</td>\n'
                 html += f'    <td class="score-col-season-{div_num}" style="display:none;">{season_total_display}</td>\n'
-                html += f'    <td>0</td><td>-</td><td>-</td>\n'
+                pw_missed = missed_weeks_data.get(p['name'], 0)
+                missed_display = str(pw_missed) if pw_missed > 0 else '-'
+                html += f'    <td>0</td><td>-</td><td>-</td><td>{missed_display}</td>\n'
                 for _ in week_wordles:
                     html += '<td>-</td>\n'
                 html += '</tr>\n'

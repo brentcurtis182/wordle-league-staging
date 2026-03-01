@@ -700,6 +700,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None):
         # Calculated from the scores table, not just weekly_winners
         # This is used for relegation (worst/highest total in Div I gets relegated)
         season_totals = {}
+        missed_weeks = {}
         
         # Determine current week start wordle from weekly_stats
         current_week_start = None
@@ -712,6 +713,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None):
         for p in div_players:
             if p['immunity']:
                 season_totals[p['name']] = None  # Will display as "Immune"
+                missed_weeks[p['name']] = 0
             elif season_start:
                 # Get all scores for this player from the season start onwards
                 cursor.execute("""
@@ -731,13 +733,26 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None):
                     week_scores[week_start].append(sc)
                 
                 # Sum best-5 from each past week (exclude current week)
+                # Also count missed weeks (past weeks with fewer than 5 valid scores)
                 past_total = 0
+                player_missed = 0
                 for ws_start, scores in week_scores.items():
                     if current_week_start and ws_start >= current_week_start:
                         continue  # Skip current week, handled via weekly_stats
                     valid = sorted([s for s in scores if s < 7])
                     best5 = sum(valid[:5]) if len(valid) >= 5 else sum(valid)
                     past_total += best5
+                    if len(valid) < 5:
+                        player_missed += 1
+                
+                # Also check past weeks where the player had zero scores
+                # (they won't appear in week_scores at all)
+                if current_week_start and season_start < current_week_start:
+                    w = season_start
+                    while w < current_week_start:
+                        if w not in week_scores:
+                            player_missed += 1
+                        w += 7
                 
                 # Add current week's live best-5 total from weekly_stats
                 current_week_score = 0
@@ -747,8 +762,10 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None):
                         current_week_score = ws.get('best_5_total', 0)
                 
                 season_totals[p['name']] = past_total + current_week_score
+                missed_weeks[p['name']] = player_missed
             else:
                 season_totals[p['name']] = 0
+                missed_weeks[p['name']] = 0
         
         division_data[div_num] = {
             'current_season': current_season,
@@ -758,6 +775,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None):
             'past_season_breakdowns': past_season_breakdowns,
             'players': div_players,
             'season_totals': season_totals,
+            'missed_weeks': missed_weeks,
             'wins_needed': DIVISION_WINS
         }
     
