@@ -326,3 +326,183 @@ def send_admin_league_created_email(league_name, league_slug, channel_type, leag
     subject = f"New League Created: {league_name}" if league_name else "New League Created"
     html = _get_email_template("New League Created", body)
     return _send_email(ADMIN_EMAIL, subject, html)
+
+
+# ============================================================
+# Newsletter / Feature Update Emails
+# ============================================================
+
+def get_all_newsletter_recipients():
+    """Get all verified, active users who can receive newsletters"""
+    try:
+        from league_data_adapter import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT email, first_name FROM users
+            WHERE is_active = TRUE AND (email_verified = TRUE OR email_verified IS NULL)
+            ORDER BY email
+        """)
+        
+        recipients = [{'email': row[0], 'first_name': row[1]} for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return recipients
+    except Exception as e:
+        logging.error(f"Error getting newsletter recipients: {e}")
+        return []
+
+
+def send_newsletter_single(to_email, first_name, subject, body_html):
+    """Send a newsletter email to a single recipient (personalized greeting)"""
+    greeting = f"Hey {first_name}!" if first_name else "Hey there!"
+    
+    personalized_body = f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">{greeting}</p>
+    {body_html}
+    
+    <div style="border-top: 1px solid #333; margin-top: 30px; padding-top: 16px;">
+        <p style="color: #666; font-size: 0.8em; margin: 0; line-height: 1.5;">
+            You're receiving this because you have a WordPlayLeague account. 
+            Questions or feedback? Reply to this email or reach us at {ADMIN_EMAIL}.
+        </p>
+    </div>
+    """
+    
+    html = _get_email_template(subject, personalized_body)
+    return _send_email_sync(to_email, subject, html)
+
+
+def send_newsletter_to_all(subject, body_html):
+    """Send a newsletter to all verified users. Returns count of emails sent."""
+    recipients = get_all_newsletter_recipients()
+    
+    if not recipients:
+        logging.warning("No newsletter recipients found")
+        return 0
+    
+    sent_count = 0
+    for recipient in recipients:
+        try:
+            send_newsletter_single(recipient['email'], recipient['first_name'], subject, body_html)
+            sent_count += 1
+        except Exception as e:
+            logging.error(f"Failed to send newsletter to {recipient['email']}: {e}")
+    
+    logging.info(f"Newsletter sent to {sent_count}/{len(recipients)} recipients")
+    return sent_count
+
+
+def get_newsletter_templates():
+    """Return available pre-built newsletter templates"""
+    return {
+        'division_mode': {
+            'name': 'Division Mode Launch',
+            'subject': 'New Feature: Division Mode is Here! 🏆',
+            'body_html': _get_division_mode_newsletter_body()
+        }
+    }
+
+
+def _get_division_mode_newsletter_body():
+    """Pre-built Division Mode feature announcement email body"""
+    dashboard_url = f"{APP_URL}/dashboard"
+    
+    return f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">We've just shipped a major new feature — <strong style="color: #00E8DA;">Division Mode</strong>. If your league has 4+ players, you can now split into two competitive divisions with promotion, relegation, and independent season races.</p>
+    
+    <p style="color: #e0e0e0; line-height: 1.6;">Here's everything you need to know:</p>
+    
+    <!-- What is Division Mode -->
+    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #00E8DA;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin: 0 0 10px;">What is Division Mode?</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Division Mode splits your league into <strong style="color: #e0e0e0;">Division I</strong> and <strong style="color: #e0e0e0;">Division II</strong>. Each division runs its own weekly races and season standings independently. Win 3 weekly wins in your division to clinch the season — then promotion and relegation kick in.</p>
+    </div>
+    
+    <!-- How to Enable -->
+    <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">📋 How to Enable</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">1. Go to your <strong style="color: #e0e0e0;">League Dashboard</strong> and find the <strong style="color: #e0e0e0;">Division Mode</strong> toggle in the Players section</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">2. Players are auto-split into two divisions — drag and drop to rearrange them however you'd like</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">3. Click <strong style="color: #e0e0e0;">Confirm Division Mode</strong> to publish the divisions to your league page</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">4. That's it — scores are automatically tracked per-division from that point on</td></tr>
+    </table>
+    
+    <!-- Player Management -->
+    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFA64D;">
+        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">👥 Managing Players</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Moving Players Between Divisions</strong><br>
+                    Before the first weekly race completes, you can freely drag players between Division I and Division II. Use the <em>Edit Divisions</em> button to enter rearrange mode.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Locking After a Week Completes</strong><br>
+                    Once the first week finishes with weekly winners recorded in both divisions, player positions are <strong style="color: #ff5c5c;">locked</strong>. This prevents mid-season disruptions to standings.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Unlocking via Season Reset</strong><br>
+                    Need to rearrange after locking? Use <em>Reset Season</em> to unlock divisions. This wipes the current season's weekly wins and starts both divisions fresh at Season 1, allowing you to move players again.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Adding New Players Mid-Season</strong><br>
+                    New players can be added to either division at any time. They'll join mid-season and start accumulating scores immediately.
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- Seasons & Promotion/Relegation -->
+    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #00E8DA;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">🏅 Seasons, Promotion & Relegation</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Winning a Season</strong><br>
+                    The first player to reach <strong style="color: #00E8DA;">3 weekly wins</strong> in their division clinches the season. Each division tracks its own season race independently.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Promotion (Division II → Division I)</strong><br>
+                    The Division II season winner gets <strong style="color: #2ECC71;">promoted</strong> to Division I for the next season. They also receive immunity from relegation for that first season.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Relegation (Division I → Division II)</strong><br>
+                    When someone gets promoted to Division I, the worst-performing Division I player gets <strong style="color: #ff5c5c;">relegated</strong> to Division II. Relegation considers missed weeks first (players who miss weeks are relegated before those who don't), then worst season total as a tiebreaker.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Immunity for Promoted Players</strong><br>
+                    Newly promoted players are protected from immediate relegation during their first season in Division I. The season winner is also exempt from relegation.
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- Leaderboard -->
+    <div style="background: #1a1a2e; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFA64D;">
+        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 8px;">📊 What Changes on Your League Page</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Your public league page will show separate tables for each division — weekly standings, season races, and promotion/relegation badges. AI-powered Sunday race updates and Monday recaps are also division-aware.</p>
+    </div>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
+    </div>
+    
+    <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; margin-top: 20px; border-left: 3px solid #FFA64D;">
+        <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
+        <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. We'd love to hear what you think of Division Mode — just reply to this email with any feedback!</p>
+    </div>
+    """

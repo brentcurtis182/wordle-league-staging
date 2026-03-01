@@ -6394,6 +6394,138 @@ def dashboard_division_reset(league_id):
         return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(e)}')
 
 
+# ============================================================
+# Newsletter Routes (Admin Only)
+# ============================================================
+
+@app.route('/admin/newsletter')
+def admin_newsletter():
+    """Newsletter management page - preview and send feature update emails"""
+    from auth import validate_session
+    from dashboard import render_admin_newsletter
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user:
+        return redirect('/auth/login')
+    
+    if user.get('role') != 'admin':
+        return redirect('/dashboard')
+    
+    try:
+        from email_utils import get_newsletter_templates, get_all_newsletter_recipients
+        templates = get_newsletter_templates()
+        recipients = get_all_newsletter_recipients()
+        
+        selected = request.args.get('template', '')
+        sent_count = request.args.get('sent')
+        error = request.args.get('error')
+        
+        return render_admin_newsletter(user, templates, recipients, selected_template=selected, sent_count=sent_count, error=error)
+    except Exception as e:
+        logging.error(f"Error loading newsletter page: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return "Error loading newsletter page", 500
+
+
+@app.route('/admin/newsletter/preview/<template_key>')
+def admin_newsletter_preview(template_key):
+    """Preview a newsletter template as rendered HTML"""
+    from auth import validate_session
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user or user.get('role') != 'admin':
+        return "Unauthorized", 401
+    
+    try:
+        from email_utils import get_newsletter_templates, _get_email_template
+        templates = get_newsletter_templates()
+        
+        if template_key not in templates:
+            return "Template not found", 404
+        
+        template = templates[template_key]
+        # Render with a sample greeting
+        preview_body = f"""
+        <p style="color: #e0e0e0; line-height: 1.6;">Hey [First Name]!</p>
+        {template['body_html']}
+        <div style="border-top: 1px solid #333; margin-top: 30px; padding-top: 16px;">
+            <p style="color: #666; font-size: 0.8em; margin: 0; line-height: 1.5;">
+                You're receiving this because you have a WordPlayLeague account.
+            </p>
+        </div>
+        """
+        html = _get_email_template(template['subject'], preview_body)
+        return html
+    except Exception as e:
+        logging.error(f"Error previewing newsletter: {e}")
+        return "Error generating preview", 500
+
+
+@app.route('/admin/newsletter/send', methods=['POST'])
+def admin_newsletter_send():
+    """Send a newsletter to all verified users"""
+    from auth import validate_session
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user or user.get('role') != 'admin':
+        return redirect('/auth/login')
+    
+    template_key = request.form.get('template_key', '')
+    
+    try:
+        from email_utils import get_newsletter_templates, send_newsletter_to_all
+        templates = get_newsletter_templates()
+        
+        if template_key not in templates:
+            return redirect(f'/admin/newsletter?error=Template not found')
+        
+        template = templates[template_key]
+        sent_count = send_newsletter_to_all(template['subject'], template['body_html'])
+        
+        logging.info(f"Newsletter '{template['name']}' sent by admin {user['email']} to {sent_count} recipients")
+        return redirect(f'/admin/newsletter?sent={sent_count}&template={template_key}')
+    except Exception as e:
+        logging.error(f"Error sending newsletter: {e}")
+        return redirect(f'/admin/newsletter?error={_safe_redirect_msg(e)}')
+
+
+@app.route('/admin/newsletter/send-test', methods=['POST'])
+def admin_newsletter_send_test():
+    """Send a test newsletter to admin only"""
+    from auth import validate_session
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user or user.get('role') != 'admin':
+        return redirect('/auth/login')
+    
+    template_key = request.form.get('template_key', '')
+    
+    try:
+        from email_utils import get_newsletter_templates, send_newsletter_single
+        templates = get_newsletter_templates()
+        
+        if template_key not in templates:
+            return redirect(f'/admin/newsletter?error=Template not found')
+        
+        template = templates[template_key]
+        send_newsletter_single(user['email'], user.get('first_name'), template['subject'], template['body_html'])
+        
+        logging.info(f"Test newsletter '{template['name']}' sent to {user['email']}")
+        return redirect(f'/admin/newsletter?sent=1&template={template_key}&error=Test email sent to {user["email"]}')
+    except Exception as e:
+        logging.error(f"Error sending test newsletter: {e}")
+        return redirect(f'/admin/newsletter?error={_safe_redirect_msg(e)}')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

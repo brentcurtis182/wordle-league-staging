@@ -4443,8 +4443,13 @@ def render_admin_dashboard(user, leagues):
             <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
             
             <div class="card">
-                <h2 style="color: {COLORS['accent_orange']};">&#9881; Admin Dashboard</h2>
-                <p style="color: {COLORS['text_muted']};">Monitor all leagues across every account.</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="color: {COLORS['accent_orange']}; margin-bottom: 4px;">&#9881; Admin Dashboard</h2>
+                        <p style="color: {COLORS['text_muted']}; margin: 0;">Monitor all leagues across every account.</p>
+                    </div>
+                    <a href="/admin/newsletter" style="background: {COLORS['accent_orange']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
+                </div>
             </div>
             
             <!-- Stats Row -->
@@ -4784,6 +4789,135 @@ def render_admin_league_detail(user, league):
                     </tbody>
                 </table>
             </div>
+        </div>
+        
+        <script>
+            {get_user_menu_script()}
+        </script>
+    </body>
+    </html>
+    """
+
+
+def render_admin_newsletter(user, templates, recipients, selected_template='', sent_count=None, error=None):
+    """Render the admin newsletter management page"""
+    
+    recipient_count = len(recipients)
+    
+    # Build template cards
+    template_cards = ''
+    for key, tmpl in templates.items():
+        is_selected = key == selected_template
+        border_color = COLORS['accent'] if is_selected else COLORS['border']
+        bg = f"rgba(0, 232, 218, 0.05)" if is_selected else COLORS['bg_card']
+        
+        template_cards += f'''
+        <div class="template-card" style="background: {bg}; border: 2px solid {border_color}; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <h3 style="color: {COLORS['accent']}; margin: 0 0 6px;">{tmpl['name']}</h3>
+                    <p style="color: {COLORS['text_muted']}; margin: 0 0 4px; font-size: 0.9em;">Subject: <strong style="color: {COLORS['text']};">{tmpl['subject']}</strong></p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="/admin/newsletter/preview/{key}" target="_blank" 
+                       style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85em; font-weight: 600; border: 1px solid {COLORS['border']};">
+                        👁 Preview
+                    </a>
+                    <form method="POST" action="/admin/newsletter/send-test" style="display: inline;">
+                        <input type="hidden" name="template_key" value="{key}">
+                        <button type="submit" style="background: {COLORS['accent_orange']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
+                            📧 Send Test to Me
+                        </button>
+                    </form>
+                    <form method="POST" action="/admin/newsletter/send" style="display: inline;" 
+                          onsubmit="return confirm('Send this newsletter to ALL {recipient_count} recipients? This cannot be undone.');">
+                        <input type="hidden" name="template_key" value="{key}">
+                        <button type="submit" style="background: {COLORS['accent']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
+                            🚀 Send to All ({recipient_count})
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        '''
+    
+    # Success / error banners
+    banner = ''
+    if sent_count is not None and not error:
+        banner = f'<div style="background: rgba(46, 204, 113, 0.15); border: 1px solid #2ECC71; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; color: #2ECC71; font-weight: 500;">✅ Newsletter sent to {sent_count} recipient(s)!</div>'
+    if error:
+        banner = f'<div style="background: rgba(255, 92, 92, 0.15); border: 1px solid #ff5c5c; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; color: #ff5c5c; font-weight: 500;">{error}</div>'
+    
+    # Recipient list (collapsed)
+    recipient_rows = ''
+    for r in recipients[:50]:
+        recipient_rows += f'''<tr>
+            <td style="padding: 6px 14px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text']};">{r['email']}</td>
+            <td style="padding: 6px 14px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']};">{r.get('first_name') or '-'}</td>
+        </tr>'''
+    
+    more_text = f'<p style="color: {COLORS["text_muted"]}; font-size: 0.85em; padding: 10px 14px;">...and {recipient_count - 50} more</p>' if recipient_count > 50 else ''
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Newsletter - Admin - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .template-card:hover {{
+                border-color: {COLORS['accent']} !important;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-logo-row">
+                    <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                </div>
+                <div class="header-nav-row">
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
+                </div>
+            </div>
+            
+            <a href="/admin/dashboard" class="back-link">&larr; Back to Admin Dashboard</a>
+            
+            {banner}
+            
+            <div class="card">
+                <h2 style="color: {COLORS['accent_orange']};">📰 Newsletter</h2>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 4px;">Send feature update emails to all registered users.</p>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.9em;">
+                    <strong style="color: {COLORS['text']};">{recipient_count}</strong> verified users will receive the email.
+                </p>
+            </div>
+            
+            <!-- Templates -->
+            <div class="card">
+                <h3 style="color: {COLORS['accent']}; margin-bottom: 16px;">Available Templates</h3>
+                {template_cards if template_cards else f'<p style="color: {COLORS["text_muted"]};">No templates available. Add templates in email_utils.py → get_newsletter_templates()</p>'}
+            </div>
+            
+            <!-- Recipients -->
+            <details style="margin-bottom: 24px;">
+                <summary style="cursor: pointer; color: {COLORS['accent']}; font-weight: 600; padding: 12px 0;">View Recipients ({recipient_count})</summary>
+                <div class="card" style="padding: 0; margin-top: 8px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding: 10px 14px; color: {COLORS['text_muted']}; font-size: 0.85em; border-bottom: 2px solid {COLORS['border']};">Email</th>
+                                <th style="text-align: left; padding: 10px 14px; color: {COLORS['text_muted']}; font-size: 0.85em; border-bottom: 2px solid {COLORS['border']};">First Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recipient_rows}
+                        </tbody>
+                    </table>
+                    {more_text}
+                </div>
+            </details>
         </div>
         
         <script>
