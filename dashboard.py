@@ -4338,7 +4338,7 @@ def render_admin_dashboard(user, leagues):
                 data-id="{lg['id']}" data-name="{lg['display_name']}" data-status="{'1' if is_active else '0'}"
                 data-type="{channel_type}" data-created="{created_sort}" data-owner="{lg.get('owner_email', 'Unknown')}"
                 data-players="{lg.get('player_count', 0)}"
-                data-inbound="{lg.get('twilio_inbound', '-')}" data-outbound="{lg.get('twilio_outbound', '-')}">
+                data-inbound="{lg.get('twilio_inbound', '-')}" data-outbound="{lg.get('twilio_outbound', '-')}" data-cost="0">
                 <td class="col-id" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
                 <td class="col-name frozen-col" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
                 <td class="col-status" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
@@ -4348,6 +4348,7 @@ def render_admin_dashboard(user, leagues):
                 <td class="col-players" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
                 <td class="col-inbound" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em; text-align: center;">{lg.get('twilio_inbound', '-')}</td>
                 <td class="col-outbound" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em; text-align: center;">{lg.get('twilio_outbound', '-')}</td>
+                <td class="col-cost" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em; text-align: center;">-</td>
             </tr>
         '''
     
@@ -4494,10 +4495,11 @@ def render_admin_dashboard(user, leagues):
                                 <th data-sort="players" onclick="sortTable('players')">Players <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="inbound" onclick="sortTable('inbound')" style="text-align: center;">Inbound <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="outbound" onclick="sortTable('outbound')" style="text-align: center;">Outbound <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="cost" onclick="sortTable('cost')" style="text-align: center;">Cost <span class="sort-arrow">&#9650;</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {league_rows if league_rows else f'<tr><td colspan="9" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                            {league_rows if league_rows else f'<tr><td colspan="10" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -4544,10 +4546,10 @@ def render_admin_dashboard(user, leagues):
                     var aVal = a.getAttribute('data-' + key) || '';
                     var bVal = b.getAttribute('data-' + key) || '';
                     
-                    // Numeric sort for id, players, status, created, inbound, outbound
-                    if (key === 'id' || key === 'players' || key === 'inbound' || key === 'outbound') {{
-                        aVal = parseInt(aVal) || 0;
-                        bVal = parseInt(bVal) || 0;
+                    // Numeric sort for id, players, inbound, outbound, cost
+                    if (key === 'id' || key === 'players' || key === 'inbound' || key === 'outbound' || key === 'cost') {{
+                        aVal = parseFloat(aVal) || 0;
+                        bVal = parseFloat(bVal) || 0;
                         return sortAsc ? aVal - bVal : bVal - aVal;
                     }}
                     if (key === 'status' || key === 'created') {{
@@ -4576,9 +4578,11 @@ def render_admin_dashboard(user, leagues):
             (function() {{
                 var inboundCells = document.querySelectorAll('.col-inbound');
                 var outboundCells = document.querySelectorAll('.col-outbound');
+                var costCells = document.querySelectorAll('.col-cost');
                 // Show loading dots
                 inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
                 outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
+                costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
                 
                 fetch('/admin/api/twilio-usage')
                     .then(function(r) {{ return r.json(); }})
@@ -4586,6 +4590,7 @@ def render_admin_dashboard(user, leagues):
                         if (data.error) {{
                             inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                             outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                            costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                             return;
                         }}
                         var rows = document.querySelectorAll('#leaguesTable tbody tr');
@@ -4594,20 +4599,27 @@ def render_admin_dashboard(user, leagues):
                             var usage = data.usage[lid];
                             var inCell = row.querySelector('.col-inbound');
                             var outCell = row.querySelector('.col-outbound');
+                            var costCell = row.querySelector('.col-cost');
                             if (usage && inCell && outCell) {{
                                 inCell.textContent = usage.inbound;
                                 outCell.textContent = usage.outbound;
                                 row.setAttribute('data-inbound', usage.inbound);
                                 row.setAttribute('data-outbound', usage.outbound);
+                                if (costCell && usage.cost !== undefined) {{
+                                    costCell.textContent = '$' + parseFloat(usage.cost).toFixed(2);
+                                    row.setAttribute('data-cost', usage.cost);
+                                }}
                             }} else if (inCell && outCell) {{
                                 inCell.textContent = '-';
                                 outCell.textContent = '-';
+                                if (costCell) costCell.textContent = '-';
                             }}
                         }});
                     }})
                     .catch(function() {{
                         inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                         outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                     }});
             }})();
         </script>

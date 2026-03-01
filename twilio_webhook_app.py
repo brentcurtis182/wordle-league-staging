@@ -6437,10 +6437,38 @@ def admin_twilio_usage():
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         results = {}
         
+        # Twilio US pricing (per message/segment)
+        OUTBOUND_SMS_PER_SEGMENT = 0.0079
+        OUTBOUND_MMS = 0.0200
+        INBOUND_SMS_PER_SEGMENT = 0.0075
+        INBOUND_MMS = 0.0100
+        
+        def estimate_sms_segments(body):
+            """Estimate SMS segment count from message body length."""
+            if not body:
+                return 1
+            length = len(body)
+            # Check if all chars are GSM-7 (basic ASCII + common symbols)
+            try:
+                body.encode('ascii')
+                is_gsm7 = True
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                is_gsm7 = False
+            
+            if is_gsm7:
+                if length <= 160:
+                    return 1
+                return (length + 152) // 153  # 153 chars per segment when concatenated
+            else:
+                if length <= 70:
+                    return 1
+                return (length + 66) // 67  # 67 chars per segment when concatenated
+        
         for league_id, conv_sid in sms_leagues:
             try:
                 inbound = 0
                 outbound = 0
+                cost = 0.0
                 # Fetch newest messages first, stop when we hit messages before month start
                 url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
                 done = False
@@ -6466,20 +6494,36 @@ def admin_twilio_usage():
                                 break
                             
                             author = msg.get('author', '')
-                            if author == twilio_phone:
+                            has_media = msg.get('media') is not None and len(msg.get('media', [])) > 0
+                            body = msg.get('body', '') or ''
+                            is_outbound = (author == twilio_phone)
+                            
+                            if is_outbound:
                                 outbound += 1
+                                if has_media:
+                                    cost += OUTBOUND_MMS
+                                else:
+                                    cost += OUTBOUND_SMS_PER_SEGMENT * estimate_sms_segments(body)
                             else:
                                 inbound += 1
+                                if has_media:
+                                    cost += INBOUND_MMS
+                                else:
+                                    cost += INBOUND_SMS_PER_SEGMENT * estimate_sms_segments(body)
                     
                     # Get next page URL
                     meta = data.get('meta', {})
                     next_url = meta.get('next_page_url')
                     url = next_url if next_url and not done else None
                 
-                results[str(league_id)] = {'inbound': inbound, 'outbound': outbound}
+                results[str(league_id)] = {
+                    'inbound': inbound,
+                    'outbound': outbound,
+                    'cost': round(cost, 2)
+                }
             except Exception as e:
                 logging.warning(f"Twilio usage fetch failed for league {league_id}: {e}")
-                results[str(league_id)] = {'inbound': '?', 'outbound': '?'}
+                results[str(league_id)] = {'inbound': '?', 'outbound': '?', 'cost': '?'}
         
         return jsonify({'month': now.strftime('%B %Y'), 'usage': results})
     
