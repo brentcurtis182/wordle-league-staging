@@ -6426,10 +6426,15 @@ def admin_twilio_usage():
         # Convert to UTC for comparison with Twilio timestamps
         month_start_utc = month_start.astimezone(dt_timezone.utc)
         
-        # Get all SMS leagues with conversation SIDs
+        # Get all SMS leagues with conversation SIDs and active player counts
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, twilio_conversation_sid FROM leagues WHERE twilio_conversation_sid IS NOT NULL")
+        cursor.execute("""
+            SELECT l.id, l.twilio_conversation_sid,
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
+            FROM leagues l
+            WHERE l.twilio_conversation_sid IS NOT NULL
+        """)
         sms_leagues = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -6437,38 +6442,19 @@ def admin_twilio_usage():
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         results = {}
         
-        # Twilio US pricing (per message/segment)
-        OUTBOUND_SMS_PER_SEGMENT = 0.0079
-        OUTBOUND_MMS = 0.0200
-        INBOUND_SMS_PER_SEGMENT = 0.0075
-        INBOUND_MMS = 0.0100
+        # Twilio US pricing - Conversations uses MMS for group delivery
+        # Each outbound conv message is delivered as individual MMS to each participant
+        # Each inbound user message = 1 MMS inbound + (N-1) MMS outbound fan-out to other participants
+        OUTBOUND_MMS_PER_MSG = 0.0200  # per delivery to each recipient
+        INBOUND_MMS_PER_MSG = 0.0100   # per inbound from user to Twilio
         
-        def estimate_sms_segments(body):
-            """Estimate SMS segment count from message body length."""
-            if not body:
-                return 1
-            length = len(body)
-            # Check if all chars are GSM-7 (basic ASCII + common symbols)
-            try:
-                body.encode('ascii')
-                is_gsm7 = True
-            except (UnicodeEncodeError, UnicodeDecodeError):
-                is_gsm7 = False
-            
-            if is_gsm7:
-                if length <= 160:
-                    return 1
-                return (length + 152) // 153  # 153 chars per segment when concatenated
-            else:
-                if length <= 70:
-                    return 1
-                return (length + 66) // 67  # 67 chars per segment when concatenated
-        
-        for league_id, conv_sid in sms_leagues:
+        for league_id, conv_sid, player_count in sms_leagues:
             try:
                 inbound = 0
                 outbound = 0
                 cost = 0.0
+                num_participants = max(player_count or 1, 1)
+                
                 # Fetch newest messages first, stop when we hit messages before month start
                 url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
                 done = False
@@ -6494,22 +6480,16 @@ def admin_twilio_usage():
                                 break
                             
                             author = msg.get('author', '')
-                            has_media = msg.get('media') is not None and len(msg.get('media', [])) > 0
-                            body = msg.get('body', '') or ''
                             is_outbound = (author == twilio_phone)
                             
                             if is_outbound:
                                 outbound += 1
-                                if has_media:
-                                    cost += OUTBOUND_MMS
-                                else:
-                                    cost += OUTBOUND_SMS_PER_SEGMENT * estimate_sms_segments(body)
+                                # AI message delivered as MMS to each participant
+                                cost += OUTBOUND_MMS_PER_MSG * num_participants
                             else:
                                 inbound += 1
-                                if has_media:
-                                    cost += INBOUND_MMS
-                                else:
-                                    cost += INBOUND_SMS_PER_SEGMENT * estimate_sms_segments(body)
+                                # 1 inbound MMS from user + fan-out as MMS to (N-1) other participants
+                                cost += INBOUND_MMS_PER_MSG + (OUTBOUND_MMS_PER_MSG * (num_participants - 1))
                     
                     # Get next page URL
                     meta = data.get('meta', {})
