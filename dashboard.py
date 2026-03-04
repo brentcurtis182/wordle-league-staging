@@ -4611,9 +4611,10 @@ def render_admin_dashboard(user, leagues):
                             var costCell = row.querySelector('.col-cost');
                             if (usage && inCell && outCell) {{
                                 inCell.textContent = usage.inbound;
-                                outCell.textContent = usage.outbound;
+                                var billed = (typeof usage.outbound_billed === 'number') ? usage.outbound_billed : usage.outbound;
+                                outCell.textContent = billed;
                                 row.setAttribute('data-inbound', usage.inbound);
-                                row.setAttribute('data-outbound', usage.outbound);
+                                row.setAttribute('data-outbound', billed);
                             }} else if (inCell && outCell) {{
                                 inCell.textContent = '-';
                                 outCell.textContent = '-';

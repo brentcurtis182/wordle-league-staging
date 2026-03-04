@@ -6430,13 +6430,18 @@ def admin_twilio_usage():
         # --- 1) Per-league counts via Conversations API (logical messages) ---
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, twilio_conversation_sid FROM leagues WHERE twilio_conversation_sid IS NOT NULL")
+        cursor.execute("""
+            SELECT l.id, l.twilio_conversation_sid,
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
+            FROM leagues l
+            WHERE l.twilio_conversation_sid IS NOT NULL
+        """)
         sms_leagues = cursor.fetchall()
         cursor.close()
         conn.close()
         
         league_results = {}
-        for league_id, conv_sid in sms_leagues:
+        for league_id, conv_sid, player_count in sms_leagues:
             try:
                 inbound = 0
                 outbound = 0
@@ -6465,10 +6470,11 @@ def admin_twilio_usage():
                     meta = data.get('meta', {})
                     next_url = meta.get('next_page_url')
                     url = next_url if next_url and not done else None
-                league_results[str(league_id)] = {'inbound': inbound, 'outbound': outbound}
+                num_players = max(player_count or 1, 1)
+                league_results[str(league_id)] = {'inbound': inbound, 'outbound': outbound, 'outbound_billed': outbound * num_players, 'players': num_players}
             except Exception as e:
                 logging.warning(f"Twilio conv fetch failed for league {league_id}: {e}")
-                league_results[str(league_id)] = {'inbound': '?', 'outbound': '?'}
+                league_results[str(league_id)] = {'inbound': '?', 'outbound': '?', 'outbound_billed': '?', 'players': 0}
         
         # --- 2) Account-wide totals via Twilio Usage API (actual billed MMS) ---
         inbound_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json?Category=mms-inbound&StartDate={start_date}"
