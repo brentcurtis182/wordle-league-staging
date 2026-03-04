@@ -4615,12 +4615,17 @@ def render_admin_dashboard(user, leagues):
                                 outCell.textContent = billed;
                                 row.setAttribute('data-inbound', usage.inbound);
                                 row.setAttribute('data-outbound', billed);
+                                // Estimate per-league cost (MMS rates, no static fees)
+                                if (costCell && typeof usage.inbound === 'number') {{
+                                    var leagueCost = (usage.inbound * 0.0165) + (billed * 0.022);
+                                    costCell.textContent = '$' + leagueCost.toFixed(2);
+                                    row.setAttribute('data-cost', leagueCost.toFixed(2));
+                                }}
                             }} else if (inCell && outCell) {{
                                 inCell.textContent = '-';
                                 outCell.textContent = '-';
+                                if (costCell) costCell.textContent = '-';
                             }}
-                            // Per-league cost not available; clear it
-                            if (costCell) costCell.textContent = '-';
                         }});
                         // Account-wide totals from Twilio Usage API (actual billed amounts)
                         var totals = data.account_total;
