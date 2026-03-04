@@ -6402,9 +6402,8 @@ def dashboard_division_reset(league_id):
 
 @app.route('/admin/api/twilio-usage')
 def admin_twilio_usage():
-    """Fetch Twilio inbound/outbound message counts per league for current month.
-    Called via AJAX so it doesn't block admin dashboard loading.
-    Uses direct REST API with desc order to stop early once we pass month boundary."""
+    """Fetch actual Twilio billed usage from Usage API for current month.
+    Returns MMS inbound/outbound counts and cost directly from Twilio's billing records."""
     from auth import validate_session
     
     session_token = request.cookies.get('session_token')
@@ -6416,99 +6415,57 @@ def admin_twilio_usage():
     try:
         import requests as http_requests
         import pytz
-        from datetime import timezone as dt_timezone
-        
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
         
         pacific = pytz.timezone('America/Los_Angeles')
         now = datetime.now(pacific)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # Convert to UTC for comparison with Twilio timestamps
-        month_start_utc = month_start.astimezone(dt_timezone.utc)
         
-        # Get all SMS leagues with conversation SIDs and active player counts
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT l.id, l.twilio_conversation_sid,
-                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
-            FROM leagues l
-            WHERE l.twilio_conversation_sid IS NOT NULL
-        """)
-        sms_leagues = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        # Format dates for Twilio Usage API (YYYY-MM-DD in GMT)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_date = month_start.strftime('%Y-%m-%d')
         
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        results = {}
         
-        # Twilio US pricing - Conversations uses MMS for group delivery
-        # Each outbound conv message is delivered as individual MMS to each participant
-        # Each inbound user message = 1 MMS inbound + (N-1) MMS outbound fan-out to other participants
-        OUTBOUND_MMS_PER_MSG = 0.0200  # per delivery to each recipient
-        INBOUND_MMS_PER_MSG = 0.0100   # per inbound from user to Twilio
+        # Fetch MMS inbound usage for current month
+        inbound_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json?Category=mms-inbound&StartDate={start_date}"
+        inbound_resp = http_requests.get(inbound_url, auth=auth, timeout=10)
         
-        for league_id, conv_sid, player_count in sms_leagues:
-            try:
-                inbound = 0
-                outbound = 0
-                cost = 0.0
-                num_participants = max(player_count or 1, 1)
-                
-                # Fetch newest messages first, stop when we hit messages before month start
-                url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
-                done = False
-                
-                while url and not done:
-                    resp = http_requests.get(url, auth=auth, timeout=5)
-                    if resp.status_code != 200:
-                        logging.warning(f"Twilio API returned {resp.status_code} for league {league_id}")
-                        break
-                    
-                    data = resp.json()
-                    messages = data.get('messages', [])
-                    
-                    if not messages:
-                        break
-                    
-                    for msg in messages:
-                        date_str = msg.get('date_created', '')
-                        if date_str:
-                            msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                            if msg_date < month_start_utc:
-                                done = True
-                                break
-                            
-                            author = msg.get('author', '')
-                            is_outbound = (author == twilio_phone)
-                            
-                            if is_outbound:
-                                outbound += 1
-                                # AI message delivered as MMS to each participant
-                                cost += OUTBOUND_MMS_PER_MSG * num_participants
-                            else:
-                                inbound += 1
-                                # 1 inbound MMS from user + fan-out as MMS to (N-1) other participants
-                                cost += INBOUND_MMS_PER_MSG + (OUTBOUND_MMS_PER_MSG * (num_participants - 1))
-                    
-                    # Get next page URL
-                    meta = data.get('meta', {})
-                    next_url = meta.get('next_page_url')
-                    url = next_url if next_url and not done else None
-                
-                results[str(league_id)] = {
-                    'inbound': inbound,
-                    'outbound': outbound,
-                    'cost': round(cost, 2)
-                }
-            except Exception as e:
-                logging.warning(f"Twilio usage fetch failed for league {league_id}: {e}")
-                results[str(league_id)] = {'inbound': '?', 'outbound': '?', 'cost': '?'}
+        # Fetch MMS outbound usage for current month
+        outbound_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json?Category=mms-outbound&StartDate={start_date}"
+        outbound_resp = http_requests.get(outbound_url, auth=auth, timeout=10)
+        
+        if inbound_resp.status_code != 200 or outbound_resp.status_code != 200:
+            return jsonify({'error': 'Twilio Usage API error'}), 500
+        
+        inbound_data = inbound_resp.json()
+        outbound_data = outbound_resp.json()
+        
+        # Sum up all usage records for the month
+        total_inbound_count = sum(int(record.get('count', 0)) for record in inbound_data.get('usage_records', []))
+        total_outbound_count = sum(int(record.get('count', 0)) for record in outbound_data.get('usage_records', []))
+        
+        # Twilio MMS pricing (US)
+        MMS_INBOUND_RATE = 0.0165
+        MMS_OUTBOUND_RATE = 0.022
+        MONTHLY_FEES = 4.10  # A2P registration ($2) + carrier fees (~$2.10)
+        
+        message_cost = (total_inbound_count * MMS_INBOUND_RATE) + (total_outbound_count * MMS_OUTBOUND_RATE)
+        total_cost = message_cost + MONTHLY_FEES
+        
+        # Return account-wide totals (not per-league since Usage API doesn't break down by conversation)
+        results = {
+            'account_total': {
+                'inbound': total_inbound_count,
+                'outbound': total_outbound_count,
+                'cost': round(total_cost, 2)
+            }
+        }
         
         return jsonify({'month': now.strftime('%B %Y'), 'usage': results})
     
     except Exception as e:
         logging.error(f"Twilio usage API error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 

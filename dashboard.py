@@ -4582,61 +4582,35 @@ def render_admin_dashboard(user, leagues):
                 }});
             }}
             
-            // Async Twilio usage loading
+            // Async Twilio usage loading - account-wide totals only
             (function() {{
                 var inboundCells = document.querySelectorAll('.col-inbound');
                 var outboundCells = document.querySelectorAll('.col-outbound');
                 var costCells = document.querySelectorAll('.col-cost');
-                // Show loading dots
-                inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
-                outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
-                costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.innerHTML = '<span style="color:#555;">...</span>'; }});
                 
                 fetch('/admin/api/twilio-usage')
                     .then(function(r) {{ return r.json(); }})
                     .then(function(data) {{
-                        if (data.error) {{
+                        if (data.error || !data.usage || !data.usage.account_total) {{
                             inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                             outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                             costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
                             return;
                         }}
-                        var rows = document.querySelectorAll('#leaguesTable tbody tr');
-                        rows.forEach(function(row) {{
-                            var lid = row.getAttribute('data-id');
-                            var usage = data.usage[lid];
-                            var inCell = row.querySelector('.col-inbound');
-                            var outCell = row.querySelector('.col-outbound');
-                            var costCell = row.querySelector('.col-cost');
-                            if (usage && inCell && outCell) {{
-                                inCell.textContent = usage.inbound;
-                                outCell.textContent = usage.outbound;
-                                row.setAttribute('data-inbound', usage.inbound);
-                                row.setAttribute('data-outbound', usage.outbound);
-                                if (costCell && usage.cost !== undefined) {{
-                                    costCell.textContent = '$' + parseFloat(usage.cost).toFixed(2);
-                                    row.setAttribute('data-cost', usage.cost);
-                                }}
-                            }} else if (inCell && outCell) {{
-                                inCell.textContent = '-';
-                                outCell.textContent = '-';
-                                if (costCell) costCell.textContent = '-';
-                            }}
-                        }});
-                        // Compute totals
-                        var totalIn = 0, totalOut = 0, totalCost = 0;
-                        Object.keys(data.usage).forEach(function(lid) {{
-                            var u = data.usage[lid];
-                            if (typeof u.inbound === 'number') totalIn += u.inbound;
-                            if (typeof u.outbound === 'number') totalOut += u.outbound;
-                            if (typeof u.cost === 'number') totalCost += u.cost;
-                        }});
+                        
+                        // Hide per-league cells (Usage API doesn't provide per-conversation breakdown)
+                        inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        outboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        costCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
+                        
+                        // Show account-wide totals in footer
+                        var totals = data.usage.account_total;
                         var ti = document.querySelector('.total-inbound');
                         var to = document.querySelector('.total-outbound');
                         var tc = document.querySelector('.total-cost');
-                        if (ti) ti.textContent = totalIn;
-                        if (to) to.textContent = totalOut;
-                        if (tc) tc.textContent = '$' + totalCost.toFixed(2);
+                        if (ti) ti.textContent = totals.inbound || '-';
+                        if (to) to.textContent = totals.outbound || '-';
+                        if (tc) tc.textContent = '$' + (totals.cost || 0).toFixed(2);
                     }})
                     .catch(function() {{
                         inboundCells.forEach(function(c) {{ if (c.tagName === 'TD') c.textContent = '-'; }});
