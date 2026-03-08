@@ -510,17 +510,50 @@ def send_sunday_race_update(league_id, force_season_image=False):
             scenario_text = f"{div1_scenario}\n\n{div2_scenario}"
             logging.info(f"League {league_id} division scenarios: {scenario_text}")
             
-            has_season_stakes = "SEASON STAKES" in scenario_text
+            # Build division standings summaries for AI context
+            def build_div_standings_summary(div_standings):
+                lines = []
+                for s in div_standings:
+                    if s['eligible']:
+                        lines.append(f"  {s['name']}: best-5 total = {s['best_5_total']}, games = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                    else:
+                        non_fail = [v for v in s['scores'].values() if v != 7]
+                        current = sum(sorted(non_fail)[:5]) if non_fail else 0
+                        lines.append(f"  {s['name']}: {s['days_posted']} games (needs 5), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                return "\n".join(lines) if lines else "  No players"
+            
+            def build_div_wins_summary(div_wins):
+                lines = []
+                for name, wins in sorted(div_wins.items(), key=lambda x: x[1], reverse=True):
+                    lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
+                return "\n".join(lines) if lines else "  No wins yet"
+            
+            div_context = f"""DIVISION I STANDINGS (lower is better, best 5 of 7):
+{build_div_standings_summary(div1_standings)}
+
+DIVISION I SEASON {div1_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
+{build_div_wins_summary(div1_weekly_wins)}
+
+DIVISION II STANDINGS (lower is better, best 5 of 7):
+{build_div_standings_summary(div2_standings)}
+
+DIVISION II SEASON {div2_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
+{build_div_wins_summary(div2_weekly_wins)}
+
+RACE ANALYSIS:
+{scenario_text}"""
+            
+            has_season_stakes = "SEASON STAKES" in scenario_text or "SEASON CLINCH" in scenario_text
             
             if has_season_stakes:
-                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {scenario_text} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
             else:
-                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {scenario_text} Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
             
             sunday_system_msg = """You are an exciting sports announcer for a Wordle league with DIVISIONS. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
-1. Convey the EXACT scenario given - don't change numbers, names, or math
+1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
 2. A score of 1 is nearly impossible (hail mary), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
@@ -528,10 +561,12 @@ IMPORTANT RULES:
 6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently!
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. When someone clinches the SEASON (not just the week), make it a BIG DEAL - this is a major accomplishment!
+9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
 10. This league has DIVISIONS (Division I and Division II) competing separately. Each division has its own weekly winner and its own season.
 11. Division seasons require 3 wins (not 4). Winning a Division II season earns a PROMOTION to Division I! When a Division I season ends, the worst player gets RELEGATED to Division II.
-12. Structure your message with Division I first, then Division II. Use line breaks between divisions."""
+12. Structure your message with Division I first, then Division II. Use line breaks between divisions.
+13. A player needs the number of wins shown in the prompt to win the season. Do NOT invent or exaggerate season standings.
+14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -540,7 +575,7 @@ IMPORTANT RULES:
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=350,
-                temperature=0.7
+                temperature=0.5
             )
             
             race_message = response.choices[0].message.content.strip()
@@ -558,6 +593,24 @@ IMPORTANT RULES:
             
             # Find players who could clinch the season with a win this week (currently at 3 wins)
             potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
+            
+            # Build raw standings summary for the AI prompt
+            standings_lines = []
+            for s in standings:
+                if s['eligible']:
+                    standings_lines.append(f"  {s['name']}: best-5 total = {s['best_5_total']}, games played = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                else:
+                    non_fail = [v for v in s['scores'].values() if v != 7]
+                    current = sum(sorted(non_fail)[:5]) if non_fail else 0
+                    standings_lines.append(f"  {s['name']}: {s['days_posted']} games (needs 5 to qualify), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
+            standings_summary = "\n".join(standings_lines)
+            
+            # Build season wins summary
+            season_wins_lines = []
+            if weekly_wins:
+                for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
+                    season_wins_lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
+            season_wins_summary = "\n".join(season_wins_lines) if season_wins_lines else "  No wins yet this season"
             
             if not eligible:
                 logging.info(f"No eligible players (5+ games) in league {league_id} - sending 'no winner this week' message")
@@ -761,24 +814,36 @@ IMPORTANT RULES:
                 
                 scenario_text = " ".join(scenarios) + season_clinch_text
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
+                logging.info(f"League {league_id} scenario text: '{scenario_text}'")
+                
+                # Build the full prompt with standings and season context
+                context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
+{standings_summary}
+
+SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
+{season_wins_summary}
+
+WEEKLY RACE ANALYSIS: {scenario_text}"""
                 
                 if season_clinch_text:
-                    prompt = f"It's Sunday morning Wordle race update! {scenario_text} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+                    prompt = f"It's Sunday morning Wordle race update! {context_block} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
                 else:
-                    prompt = f"It's Sunday morning Wordle race update! {scenario_text} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+                    prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
             
             sunday_system_msg = """You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
-1. Convey the EXACT scenario given - don't change numbers, names, or math
+1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
 2. A score of 1 is nearly impossible (hail mary), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
-6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently!
+6. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently!
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. When someone clinches the SEASON (not just the week), make it a BIG DEAL - this is a major accomplishment!"""
+9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
+10. A player needs the number of wins shown in the prompt to win the season. Do NOT invent or exaggerate season standings.
+11. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -787,7 +852,7 @@ IMPORTANT RULES:
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=200,
-                temperature=0.7
+                temperature=0.5
             )
             
             race_message = response.choices[0].message.content.strip()
