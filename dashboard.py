@@ -871,7 +871,6 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
     """Render the user profile page"""
     
     created_str = user_details['created_at'].strftime('%B %d, %Y') if user_details.get('created_at') else 'Unknown'
-    last_login_str = user_details['last_login'].strftime('%B %d, %Y at %I:%M %p') if user_details.get('last_login') else 'Never'
     
     league_list_html = ""
     if leagues:
@@ -997,10 +996,6 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     <div class="info-row">
                         <span class="info-label">Member Since</span>
                         <span class="info-value">{created_str}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Last Login</span>
-                        <span class="info-value">{last_login_str}</span>
                     </div>
                     <button type="button" class="btn btn-secondary btn-small" style="margin-top: 16px;" onclick="showEditProfile()">Edit Profile</button>
                 </div>
