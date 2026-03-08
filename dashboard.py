@@ -4498,10 +4498,22 @@ def render_admin_dashboard(user, leagues):
                         </tbody>
                         <tfoot>
                             <tr id="totalsRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['border']};">
-                                <td colspan="7" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Totals</td>
+                                <td colspan="7" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">MMS Messaging</td>
                                 <td class="total-inbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-outbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center;">...</td>
+                            </tr>
+                            <tr id="carrierFeesRow" style="background-color: {COLORS['bg_card']};">
+                                <td colspan="9" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Carrier Fees</td>
+                                <td class="carrier-fees-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
+                            </tr>
+                            <tr id="a2pRow" style="background-color: {COLORS['bg_card']};">
+                                <td colspan="9" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
+                                <td class="a2p-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
+                            </tr>
+                            <tr id="grandTotalRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['accent']};">
+                                <td colspan="9" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
+                                <td class="grand-total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center; font-size: 1.1em;">...</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -4627,19 +4639,19 @@ def render_admin_dashboard(user, leagues):
                         var ti = document.querySelector('.total-inbound');
                         var to2 = document.querySelector('.total-outbound');
                         var tc = document.querySelector('.total-cost');
+                        var cf = document.querySelector('.carrier-fees-cost');
+                        var a2p = document.querySelector('.a2p-cost');
+                        var gt = document.querySelector('.grand-total-cost');
                         if (totals) {{
                             if (ti) ti.textContent = totals.inbound;
                             if (to2) to2.textContent = totals.outbound;
-                            if (tc) {{
-                                var costStr = '$' + (totals.cost || 0).toFixed(2);
-                                var bd = totals.breakdown;
-                                if (bd) {{
-                                    var tip = 'MMS Messages: $' + (bd.mms_messages || 0).toFixed(2) + '\\nCarrier Fees: $' + (bd.carrier_fees || 0).toFixed(2) + '\\nA2P Registration: $' + (bd.a2p_registration || 0).toFixed(2);
-                                    tc.innerHTML = '<span title="' + tip + '" style="cursor:help;border-bottom:1px dotted #888;">' + costStr + '</span>';
-                                }} else {{
-                                    tc.textContent = costStr;
-                                }}
+                            var bd = totals.breakdown;
+                            if (bd) {{
+                                if (tc) tc.textContent = '$' + (bd.mms_messages || 0).toFixed(2);
+                                if (cf) cf.textContent = '$' + (bd.carrier_fees || 0).toFixed(2);
+                                if (a2p) a2p.textContent = '$' + (bd.a2p_registration || 0).toFixed(2);
                             }}
+                            if (gt) gt.textContent = '$' + (totals.cost || 0).toFixed(2);
                         }}
                     }})
                     .catch(function() {{

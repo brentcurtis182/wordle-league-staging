@@ -6483,7 +6483,7 @@ def admin_twilio_usage():
         categories = {
             'mms-inbound': f"{base_url}?Category=mms-inbound&StartDate={start_date}",
             'mms-outbound': f"{base_url}?Category=mms-outbound&StartDate={start_date}",
-            'carrier-fees': f"{base_url}?Category=carrier-fees&StartDate={start_date}",
+            'mms-messages-carrierfees': f"{base_url}?Category=mms-messages-carrierfees&StartDate={start_date}",
             'a2p-registration-fees': f"{base_url}?Category=a2p-registration-fees&StartDate={start_date}",
         }
         
@@ -6510,7 +6510,7 @@ def admin_twilio_usage():
         mms_message_cost = usage_data['mms-inbound']['price'] + usage_data['mms-outbound']['price']
         
         # Dynamic carrier fees (variable, grows with usage)
-        carrier_fees = usage_data['carrier-fees']['price']
+        carrier_fees = usage_data['mms-messages-carrierfees']['price']
         
         # Static A2P registration fee ($2/month)
         a2p_fees = usage_data['a2p-registration-fees']['price']
