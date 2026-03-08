@@ -4630,7 +4630,16 @@ def render_admin_dashboard(user, leagues):
                         if (totals) {{
                             if (ti) ti.textContent = totals.inbound;
                             if (to2) to2.textContent = totals.outbound;
-                            if (tc) tc.textContent = '$' + (totals.cost || 0).toFixed(2);
+                            if (tc) {{
+                                var costStr = '$' + (totals.cost || 0).toFixed(2);
+                                var bd = totals.breakdown;
+                                if (bd) {{
+                                    var tip = 'MMS Messages: $' + (bd.mms_messages || 0).toFixed(2) + '\\nCarrier Fees: $' + (bd.carrier_fees || 0).toFixed(2) + '\\nA2P Registration: $' + (bd.a2p_registration || 0).toFixed(2);
+                                    tc.innerHTML = '<span title="' + tip + '" style="cursor:help;border-bottom:1px dotted #888;">' + costStr + '</span>';
+                                }} else {{
+                                    tc.textContent = costStr;
+                                }}
+                            }}
                         }}
                     }})
                     .catch(function() {{

@@ -6477,25 +6477,45 @@ def admin_twilio_usage():
                 league_results[str(league_id)] = {'inbound': '?', 'outbound': '?', 'outbound_billed': '?', 'players': 0}
         
         # --- 2) Account-wide totals via Twilio Usage API (actual billed MMS) ---
-        inbound_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json?Category=mms-inbound&StartDate={start_date}"
-        outbound_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json?Category=mms-outbound&StartDate={start_date}"
-        inbound_resp = http_requests.get(inbound_url, auth=auth, timeout=10)
-        outbound_resp = http_requests.get(outbound_url, auth=auth, timeout=10)
+        base_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json"
         
-        if inbound_resp.status_code == 200 and outbound_resp.status_code == 200:
-            total_inbound = sum(int(r.get('count', 0)) for r in inbound_resp.json().get('usage_records', []))
-            total_outbound = sum(int(r.get('count', 0)) for r in outbound_resp.json().get('usage_records', []))
-        else:
-            total_inbound = 0
-            total_outbound = 0
+        # Fetch all usage categories we need in parallel-ish
+        categories = {
+            'mms-inbound': f"{base_url}?Category=mms-inbound&StartDate={start_date}",
+            'mms-outbound': f"{base_url}?Category=mms-outbound&StartDate={start_date}",
+            'carrier-fees': f"{base_url}?Category=carrier-fees&StartDate={start_date}",
+            'a2p-registration-fees': f"{base_url}?Category=a2p-registration-fees&StartDate={start_date}",
+        }
         
-        # Twilio MMS pricing (US)
-        MMS_INBOUND_RATE = 0.0165
-        MMS_OUTBOUND_RATE = 0.022
-        MONTHLY_FEES = 4.10  # A2P registration ($2) + carrier fees (~$2.10)
+        usage_data = {}
+        for cat_name, url in categories.items():
+            try:
+                resp = http_requests.get(url, auth=auth, timeout=10)
+                if resp.status_code == 200:
+                    records = resp.json().get('usage_records', [])
+                    usage_data[cat_name] = {
+                        'count': sum(int(r.get('count', 0)) for r in records),
+                        'price': sum(float(r.get('price', 0)) for r in records)
+                    }
+                else:
+                    usage_data[cat_name] = {'count': 0, 'price': 0.0}
+            except Exception as e:
+                logging.warning(f"Failed to fetch Twilio usage for {cat_name}: {e}")
+                usage_data[cat_name] = {'count': 0, 'price': 0.0}
         
-        message_cost = (total_inbound * MMS_INBOUND_RATE) + (total_outbound * MMS_OUTBOUND_RATE)
-        total_cost = message_cost + MONTHLY_FEES
+        total_inbound = usage_data['mms-inbound']['count']
+        total_outbound = usage_data['mms-outbound']['count']
+        
+        # Use actual prices from Twilio for MMS messages
+        mms_message_cost = usage_data['mms-inbound']['price'] + usage_data['mms-outbound']['price']
+        
+        # Dynamic carrier fees (variable, grows with usage)
+        carrier_fees = usage_data['carrier-fees']['price']
+        
+        # Static A2P registration fee ($2/month)
+        a2p_fees = usage_data['a2p-registration-fees']['price']
+        
+        total_cost = mms_message_cost + carrier_fees + a2p_fees
         
         return jsonify({
             'month': now.strftime('%B %Y'),
@@ -6503,7 +6523,12 @@ def admin_twilio_usage():
             'account_total': {
                 'inbound': total_inbound,
                 'outbound': total_outbound,
-                'cost': round(total_cost, 2)
+                'cost': round(total_cost, 2),
+                'breakdown': {
+                    'mms_messages': round(mms_message_cost, 2),
+                    'carrier_fees': round(carrier_fees, 2),
+                    'a2p_registration': round(a2p_fees, 2)
+                }
             }
         })
     
