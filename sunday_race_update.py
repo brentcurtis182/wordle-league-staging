@@ -998,6 +998,12 @@ if __name__ == "__main__":
         print(f"Not Sunday (today is {now.strftime('%A')}), skipping race update")
         sys.exit(0)
     
+    # DST-proof: Railway cron fires at both 17 and 18 UTC to cover PST/PDT.
+    # Only run if it's actually 10:00 AM Pacific.
+    if now.hour != 10:
+        print(f"Not 10:00 AM Pacific (currently {now.strftime('%I:%M %p %Z')}), skipping")
+        sys.exit(0)
+    
     print("Starting Sunday race update...")
     success = run_sunday_race_updates()
     if success:
