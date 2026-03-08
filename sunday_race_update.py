@@ -490,8 +490,8 @@ def send_sunday_race_update(league_id, force_season_image=False):
     """
     # Check if Sunday race update is enabled for this league
     if not is_ai_message_enabled(league_id, 'sunday_race'):
-        logging.info(f"Sunday race update disabled for league {league_id}")
-        return False
+        logging.info(f"Sunday race update disabled for league {league_id}, skipping")
+        return True
     
     try:
         from openai import OpenAI

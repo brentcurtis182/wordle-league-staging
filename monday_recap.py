@@ -351,8 +351,8 @@ def send_monday_recap(league_id):
     """Send the Monday morning recap for a league"""
     
     if not is_monday_recap_enabled(league_id):
-        logging.info(f"Monday recap disabled for league {league_id}")
-        return False
+        logging.info(f"Monday recap disabled for league {league_id}, skipping")
+        return True
     
     results = get_last_week_results(league_id)
     if not results:
