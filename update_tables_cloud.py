@@ -607,14 +607,22 @@ def run_full_update_for_league(league_id):
         if is_division_mode:
             from division_manager import check_division_season_transition, check_division1_relegation, clear_immunity
             # Check each division separately
+            transitioned_divisions = []
             for div_num in (1, 2):
                 transitioned = check_division_season_transition(league_id, div_num)
                 if transitioned:
+                    transitioned_divisions.append(div_num)
                     # Clear immunity for players in this division (their first full season just ended)
                     clear_immunity(league_id, div_num)
                     if div_num == 1:
                         # Division I season ended - relegate worst Season Total player
                         check_division1_relegation(league_id)
+            
+            # If both divisions finished simultaneously, the promoted player
+            # doesn't need immunity — everyone starts the new season together
+            if 1 in transitioned_divisions and 2 in transitioned_divisions:
+                clear_immunity(league_id, 1)
+                logging.info(f"Both divisions transitioned simultaneously for league {league_id} — cleared immunity on promoted player")
         else:
             check_and_handle_season_transition(league_id)
         
