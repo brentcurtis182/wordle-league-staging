@@ -357,7 +357,7 @@ def send_monday_recap(league_id):
     results = get_last_week_results(league_id)
     if not results:
         logging.info(f"No results to recap for league {league_id}")
-        return False
+        return True
     
     try:
         from openai import OpenAI
