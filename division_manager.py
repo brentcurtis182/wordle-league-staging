@@ -957,14 +957,14 @@ def _promote_player(cursor, league_id, player_name, joined_week):
 
 
 def _relegate_player(cursor, league_id, player_name, joined_week):
-    """Move a player from Division I to Division II with highlight"""
+    """Move a player from Division I to Division II with immunity (orange highlight)"""
     cursor.execute("""
         UPDATE players 
-        SET division = 2, division_immunity = FALSE, division_joined_week = %s
+        SET division = 2, division_immunity = TRUE, division_joined_week = %s
         WHERE name = %s AND league_id = %s AND active = TRUE
     """, (joined_week, player_name, league_id))
     
-    logging.info(f"Relegated {player_name} to Division II in league {league_id}")
+    logging.info(f"Relegated {player_name} to Division II (immune) in league {league_id}")
 
 
 def clear_immunity(league_id, division):
