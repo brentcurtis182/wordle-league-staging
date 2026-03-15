@@ -1851,8 +1851,8 @@ def slack_install():
     client_id = os.environ.get('SLACK_CLIENT_ID')
     redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
     
-    # Scopes needed for the bot
-    scopes = "chat:write,channels:history,channels:read,users:read,files:write"
+    # Scopes needed for the bot (commands scope required for /wordplay slash command)
+    scopes = "chat:write,channels:history,channels:read,users:read,files:write,commands"
     
     # State parameter to track which league this is for
     state = league_id or ""
