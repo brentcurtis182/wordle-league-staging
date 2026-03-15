@@ -1793,10 +1793,12 @@ def slack_oauth_callback():
     team_name = result.get("team", {}).get("name")
     bot_token = result.get("access_token")
     
-    # Get league_id from state parameter
-    league_id = state
+    # Get league_id from state parameter (may be empty string on reinstall)
+    league_id = state.strip() if state else None
+    if league_id and not league_id.isdigit():
+        league_id = None  # Invalid state value
     
-    logging.info(f"Slack OAuth result: team_id={team_id}, team_name={team_name}, bot_token={'yes' if bot_token else 'no'}, league_id={league_id}")
+    logging.info(f"Slack OAuth result: team_id={team_id}, team_name={team_name}, bot_token={'yes' if bot_token else 'no'}, league_id={league_id}, raw_state='{state}'")
     
     if team_id and bot_token:
         try:
