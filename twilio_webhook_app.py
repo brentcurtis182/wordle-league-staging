@@ -2517,6 +2517,16 @@ def dashboard_create_league():
               ai_filter_default, severity_val, severity_val, severity_val, severity_val))
         
         league_id = cursor.fetchone()[0]
+        
+        # Initialize league_seasons with proper season_start_week
+        from league_data_adapter import calculate_wordle_number, get_week_start_date
+        week_start_wordle = calculate_wordle_number(get_week_start_date())
+        cursor.execute("""
+            INSERT INTO league_seasons (league_id, current_season, season_start_week)
+            VALUES (%s, 1, %s)
+            ON CONFLICT (league_id) DO NOTHING
+        """, (league_id, week_start_wordle))
+        
         conn.commit()
         cursor.close()
         conn.close()
@@ -7213,6 +7223,21 @@ def _run_one_time_migrations():
         """)
         if cursor.rowcount > 0:
             logging.info(f"Startup migration: cleared stale immunity for {cursor.rowcount} player(s)")
+        
+        # Fix NULL season_start_week in league_seasons — use earliest weekly_winner week
+        cursor.execute("""
+            UPDATE league_seasons ls
+            SET season_start_week = (
+                SELECT MIN(ww.week_wordle_number)
+                FROM weekly_winners ww
+                WHERE ww.league_id = ls.league_id
+            )
+            WHERE ls.season_start_week IS NULL
+              AND EXISTS (SELECT 1 FROM weekly_winners ww WHERE ww.league_id = ls.league_id)
+        """)
+        if cursor.rowcount > 0:
+            logging.info(f"Startup migration: fixed NULL season_start_week for {cursor.rowcount} league(s)")
+        
         conn.commit()
         cursor.close()
         conn.close()
