@@ -106,22 +106,54 @@ def send_slack_message_with_image(bot_token: str, channel_id: str, text: str,
     }
     
     if image_bytes:
-        # Upload file directly to Slack
+        # Upload file using Slack's new uploadV2 flow
         try:
-            response = requests.post(
-                f"{SLACK_API_BASE}/files.upload",
-                headers=headers,
+            # Step 1: Get an upload URL
+            resp1 = requests.post(
+                f"{SLACK_API_BASE}/files.getUploadURLExternal",
+                headers={**headers, "Content-Type": "application/x-www-form-urlencoded"},
                 data={
-                    "channels": channel_id,
-                    "initial_comment": text,
-                    "filename": filename
+                    "filename": filename,
+                    "length": len(image_bytes)
                 },
-                files={
-                    "file": (filename, image_bytes, "image/png")
-                },
+                timeout=10
+            )
+            data1 = resp1.json()
+            if not data1.get("ok"):
+                logging.error(f"Slack getUploadURLExternal failed: {data1.get('error')}")
+                return data1
+
+            upload_url = data1["upload_url"]
+            file_id = data1["file_id"]
+
+            # Step 2: Upload the file bytes to the URL
+            resp2 = requests.post(
+                upload_url,
+                files={"file": (filename, image_bytes, "image/png")},
                 timeout=30
             )
-            return response.json()
+            if resp2.status_code != 200:
+                logging.error(f"Slack file upload PUT failed: {resp2.status_code} {resp2.text[:200]}")
+                return {"ok": False, "error": f"Upload failed: {resp2.status_code}"}
+
+            # Step 3: Complete the upload and share to channel
+            import json as _json
+            resp3 = requests.post(
+                f"{SLACK_API_BASE}/files.completeUploadExternal",
+                headers={**headers, "Content-Type": "application/json"},
+                json={
+                    "files": [{"id": file_id, "title": filename}],
+                    "channel_id": channel_id,
+                    "initial_comment": text
+                },
+                timeout=10
+            )
+            data3 = resp3.json()
+            if not data3.get("ok"):
+                logging.error(f"Slack completeUploadExternal failed: {data3.get('error')}")
+            else:
+                logging.info(f"Slack file uploaded successfully: file_id={file_id}")
+            return data3
         except Exception as e:
             logging.error(f"Failed to upload Slack image: {e}")
             return {"ok": False, "error": str(e)}
