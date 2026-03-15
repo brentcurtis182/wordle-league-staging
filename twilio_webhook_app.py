@@ -426,6 +426,7 @@ def get_ai_message_severity(league_id, message_type=None):
     
     message_type can be: 'perfect_score', 'failure_roast', 'daily_loser'
     If message_type is provided, returns the per-message severity, otherwise returns global.
+    If ai_filter is enabled for the league, always returns 4 (Gentle).
     """
     try:
         conn = get_db_connection()
@@ -433,6 +434,14 @@ def get_ai_message_severity(league_id, message_type=None):
             return 2  # Default to spicy
         
         cursor = conn.cursor()
+        
+        # Check ai_filter first — if ON, always return Gentle
+        cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
+        filter_row = cursor.fetchone()
+        if filter_row and filter_row[0]:
+            cursor.close()
+            conn.close()
+            return 4  # Gentle
         
         if message_type:
             column_map = {
@@ -460,7 +469,8 @@ def get_ai_message_severity(league_id, message_type=None):
 def get_player_ai_settings(league_id, player_id, message_type):
     """Get AI settings for a specific player and message type
     
-    Returns: (enabled, severity_override) where severity_override is None if using default
+    Returns: (enabled, severity_override) where severity_override is None if using default.
+    If ai_filter is ON, severity_override is always None (forced to league default = Gentle).
     """
     try:
         conn = get_db_connection()
@@ -468,6 +478,12 @@ def get_player_ai_settings(league_id, player_id, message_type):
             return (True, None)
         
         cursor = conn.cursor()
+        
+        # Check ai_filter — if ON, ignore player severity overrides
+        cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
+        filter_row = cursor.fetchone()
+        ai_filter_on = filter_row and filter_row[0]
+        
         cursor.execute("""
             SELECT enabled, severity_override 
             FROM ai_player_settings 
@@ -479,7 +495,8 @@ def get_player_ai_settings(league_id, player_id, message_type):
         conn.close()
         
         if result:
-            return (result[0], result[1])
+            # If ai_filter is ON, strip severity override (keep enabled flag)
+            return (result[0], None if ai_filter_on else result[1])
         return (True, None)  # Default: enabled, use league severity
         
     except Exception as e:
@@ -2067,11 +2084,20 @@ def dashboard_create_league():
         next_id = cursor.fetchone()[0]
         
         # Create the league (Sunday race update ON by default, Monday recap OFF to reduce costs)
+        # Slack leagues: auto-enable AI Filter (tones locked to Gentle)
+        ai_filter_default = channel_type == 'slack'
+        gentle_severity = 4  # Gentle
+        default_severity = 2  # Spicy (normal default)
+        severity_val = gentle_severity if ai_filter_default else default_severity
         cursor.execute("""
-            INSERT INTO leagues (id, name, display_name, slug, channel_type, ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast, ai_monday_recap)
-            VALUES (%s, %s, %s, %s, %s, false, false, true, false, false)
+            INSERT INTO leagues (id, name, display_name, slug, channel_type,
+                                ai_perfect_score_congrats, ai_failure_roast, ai_sunday_race_update, ai_daily_loser_roast, ai_monday_recap,
+                                ai_filter, ai_message_severity, ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity)
+            VALUES (%s, %s, %s, %s, %s, false, false, true, false, false,
+                    %s, %s, %s, %s, %s)
             RETURNING id
-        """, (next_id, slug, league_name, slug, channel_type))
+        """, (next_id, slug, league_name, slug, channel_type,
+              ai_filter_default, severity_val, severity_val, severity_val, severity_val))
         
         league_id = cursor.fetchone()[0]
         conn.commit()
@@ -2792,7 +2818,8 @@ def admin_dashboard():
                    l.channel_type, l.slack_channel_id, l.discord_channel_id,
                    l.slug, ul.created_at,
                    u.email as owner_email,
-                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
+                   COALESCE(l.ai_filter, FALSE) as ai_filter
             FROM leagues l
             LEFT JOIN user_leagues ul ON l.id = ul.league_id
             LEFT JOIN users u ON ul.user_id = u.id
@@ -2814,6 +2841,7 @@ def admin_dashboard():
                 'created_at': row[8],
                 'owner_email': row[9] or 'No owner',
                 'player_count': row[10] or 0,
+                'ai_filter': row[11] or False,
                 'twilio_inbound': '-',
                 'twilio_outbound': '-',
             })
@@ -2828,6 +2856,58 @@ def admin_dashboard():
         import traceback
         logging.error(traceback.format_exc())
         return "Error loading admin dashboard", 500
+
+
+@app.route('/admin/league/<int:league_id>/toggle-ai-filter', methods=['POST'])
+def admin_toggle_ai_filter(league_id):
+    """Admin-only: toggle ai_filter for a league. When ON, force all tones to Gentle."""
+    from auth import validate_session
+    
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    
+    if not user or user.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get current value
+        cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'League not found'}), 404
+        
+        new_val = not row[0]
+        
+        if new_val:
+            # Turning ON: force all severity columns to Gentle (4)
+            cursor.execute("""
+                UPDATE leagues 
+                SET ai_filter = TRUE,
+                    ai_message_severity = 4,
+                    ai_perfect_score_severity = 4,
+                    ai_failure_roast_severity = 4,
+                    ai_daily_loser_severity = 4
+                WHERE id = %s
+            """, (league_id,))
+        else:
+            # Turning OFF: just flip the flag, keep severity as-is
+            cursor.execute("UPDATE leagues SET ai_filter = FALSE WHERE id = %s", (league_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"Admin toggled ai_filter={'ON' if new_val else 'OFF'} for league {league_id}")
+        return jsonify({'success': True, 'ai_filter': new_val})
+        
+    except Exception as e:
+        logging.error(f"Error toggling ai_filter: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/admin/league/<int:league_id>')
@@ -3163,6 +3243,15 @@ def dashboard_ai_settings(league_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Check ai_filter — if ON, force all severity to Gentle
+        cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
+        filter_row = cursor.fetchone()
+        ai_filter_on = filter_row and filter_row[0]
+        if ai_filter_on:
+            perfect_score_severity = 4
+            failure_roast_severity = 4
+            daily_loser_severity = 4
+        
         # Update league-level settings
         cursor.execute("""
             UPDATE leagues 
@@ -3186,7 +3275,7 @@ def dashboard_ai_settings(league_id):
                 message_type = parts[0]
                 player_id = int(parts[1])
                 enabled = settings.get('enabled', True)
-                severity_override = settings.get('severity') if settings.get('severity') else None
+                severity_override = None if ai_filter_on else (settings.get('severity') if settings.get('severity') else None)
                 
                 # Upsert player settings
                 cursor.execute("""
@@ -3234,6 +3323,13 @@ def dashboard_message_config(league_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Check ai_filter — if ON, force severity to Gentle and strip player overrides
+        cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
+        filter_row = cursor.fetchone()
+        ai_filter_on = filter_row and filter_row[0]
+        if ai_filter_on:
+            severity = 4  # Force Gentle
+        
         # Update league-level severity for this message type
         severity_column = f"ai_{message_type}_severity"
         cursor.execute(f"""
@@ -3250,7 +3346,7 @@ def dashboard_message_config(league_id):
                 msg_type = parts[0]
                 player_id = int(parts[1])
                 enabled = settings.get('enabled', True)
-                severity_override = settings.get('severity') if settings.get('severity') else None
+                severity_override = None if ai_filter_on else (settings.get('severity') if settings.get('severity') else None)
                 
                 # Upsert player settings
                 cursor.execute("""
@@ -6676,6 +6772,10 @@ def _run_one_time_migrations():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Add ai_filter column if it doesn't exist
+        cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS ai_filter BOOLEAN DEFAULT FALSE")
+        
         # Fix: Both divisions in league 4 transitioned simultaneously on 2026-03-09,
         # but the promoted player (Jess) was given immunity unnecessarily.
         # Clear any stale immunity flags for division-mode leagues where both

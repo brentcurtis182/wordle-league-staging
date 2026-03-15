@@ -2376,7 +2376,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('perfect_score', '🎯 Perfect Score Congrats')">Edit ✏️</button>
                         </div>
                         <div class="ai-toggle-meta">
-                            <span>Tone: <strong id="perfect_score_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_perfect_score_severity', 2) - 1]}</strong></span>
+                            <span>Tone: <strong id="perfect_score_tone_label">{'Gentle 🔒' if league.get('ai_filter') else ['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_perfect_score_severity', 2) - 1]}</strong></span>
                             <span>Players: <strong id="perfect_score_players_label">All</strong></span>
                         </div>
                     </div>
@@ -2393,7 +2393,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('failure_roast', '🔥 Failure Roast')">Edit ✏️</button>
                         </div>
                         <div class="ai-toggle-meta">
-                            <span>Tone: <strong id="failure_roast_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_failure_roast_severity', 2) - 1]}</strong></span>
+                            <span>Tone: <strong id="failure_roast_tone_label">{'Gentle 🔒' if league.get('ai_filter') else ['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_failure_roast_severity', 2) - 1]}</strong></span>
                             <span>Players: <strong id="failure_roast_players_label">All</strong></span>
                         </div>
                     </div>
@@ -2425,7 +2425,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('daily_loser', '😈 Daily Loser Roast')">Edit ✏️</button>
                         </div>
                         <div class="ai-toggle-meta">
-                            <span>Tone: <strong id="daily_loser_tone_label">{['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_daily_loser_severity', 2) - 1]}</strong></span>
+                            <span>Tone: <strong id="daily_loser_tone_label">{'Gentle 🔒' if league.get('ai_filter') else ['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_daily_loser_severity', 2) - 1]}</strong></span>
                             <span>Players: <strong id="daily_loser_players_label">All</strong></span>
                         </div>
                     </div>
@@ -2633,6 +2633,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div class="tone-preview" id="tonePreview">
                         <p class="preview-label">Example:</p>
                         <p class="preview-text" id="previewText">"Loading example..."</p>
+                    </div>
+                    <div id="aiFilterLockNotice" style="display:none; background: {COLORS['accent']}15; border: 1px solid {COLORS['accent']}40; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
+                        <p style="color: {COLORS['accent']}; margin: 0; font-size: 0.85em; font-weight: 500;">🔒 AI Filter is enabled — tone is locked to <strong>Gentle</strong>. Contact your admin to change this.</p>
                     </div>
                 </div>
                 
@@ -3455,6 +3458,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             // AI Settings functions
+            const aiFilterOn = {'true' if league.get('ai_filter') else 'false'};
             const severityLabels = ['Savage 🔥', 'Spicy 🌶️', 'Playful 😄', 'Gentle 💚'];
             const severityNames = ['Savage', 'Spicy', 'Playful', 'Gentle'];
             const originalAISettings = {{
@@ -3491,9 +3495,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 // Set severity slider to current value
                 const severityKey = messageType + '_severity';
-                const currentSeverity = originalAISettings[severityKey] || 2;
-                document.getElementById('configSeverity').value = currentSeverity;
+                const currentSeverity = aiFilterOn ? 4 : (originalAISettings[severityKey] || 2);
+                const slider = document.getElementById('configSeverity');
+                slider.value = currentSeverity;
+                slider.disabled = aiFilterOn;
+                slider.style.opacity = aiFilterOn ? '0.4' : '1';
+                slider.style.cursor = aiFilterOn ? 'not-allowed' : 'pointer';
                 updateConfigSeverityLabel(currentSeverity);
+                
+                // Show/hide AI Filter lock notice
+                var lockNotice = document.getElementById('aiFilterLockNotice');
+                if (lockNotice) lockNotice.style.display = aiFilterOn ? 'block' : 'none';
                 
                 // Build player list
                 const playerList = document.getElementById('playerConfigList');
@@ -3503,15 +3515,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     const settings = messagePlayerSettings[messageType + '_' + player.id] || {{enabled: true, severity: null}};
                     const div = document.createElement('div');
                     div.className = 'player-config-item';
+                    const selDisabled = aiFilterOn ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
                     div.innerHTML = `
                         <input type="checkbox" id="player_${{player.id}}_enabled" ${{settings.enabled ? 'checked' : ''}}>
                         <span class="player-name">${{player.name}}</span>
-                        <select id="player_${{player.id}}_severity">
-                            <option value="" ${{settings.severity === null ? 'selected' : ''}}>Default</option>
-                            <option value="1" ${{settings.severity === 1 ? 'selected' : ''}}>Savage 🔥</option>
-                            <option value="2" ${{settings.severity === 2 ? 'selected' : ''}}>Spicy 🌶️</option>
-                            <option value="3" ${{settings.severity === 3 ? 'selected' : ''}}>Playful 😄</option>
-                            <option value="4" ${{settings.severity === 4 ? 'selected' : ''}}>Gentle 💚</option>
+                        <select id="player_${{player.id}}_severity" ${{selDisabled}}>
+                            <option value="" selected>Default</option>
+                            <option value="1" ${{!aiFilterOn && settings.severity === 1 ? 'selected' : ''}}>Savage 🔥</option>
+                            <option value="2" ${{!aiFilterOn && settings.severity === 2 ? 'selected' : ''}}>Spicy 🌶️</option>
+                            <option value="3" ${{!aiFilterOn && settings.severity === 3 ? 'selected' : ''}}>Playful 😄</option>
+                            <option value="4" ${{!aiFilterOn && settings.severity === 4 ? 'selected' : ''}}>Gentle 💚</option>
                         </select>
                     `;
                     playerList.appendChild(div);
@@ -4244,7 +4257,8 @@ def get_league_info(league_id):
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
                    slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
                    slack_bot_token, slack_team_id, ai_monday_recap,
-                   division_mode, division_confirmed_at, division_locked
+                   division_mode, division_confirmed_at, division_locked,
+                   COALESCE(ai_filter, FALSE)
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -4275,6 +4289,7 @@ def get_league_info(league_id):
                 'division_mode': row[20] or False,
                 'division_confirmed_at': row[21],
                 'division_locked': row[22] or False,
+                'ai_filter': row[23] or False,
                 'channel_name': None
             }
             
@@ -4319,6 +4334,11 @@ def render_admin_dashboard(user, leagues):
         type_color = type_colors.get(channel_type, COLORS['text_muted'])
         type_label = channel_type.upper()
         
+        # AI Filter toggle
+        ai_filter = lg.get('ai_filter', False)
+        filter_color = '#2ECC71' if ai_filter else COLORS['text_muted']
+        filter_text = 'ON' if ai_filter else 'OFF'
+        
         # Format created date
         created_at = lg.get('created_at')
         if created_at:
@@ -4338,6 +4358,7 @@ def render_admin_dashboard(user, leagues):
                 <td class="col-name frozen-col" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
                 <td class="col-status" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
                 <td class="col-type" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {type_color}20; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{type_label}</span></td>
+                <td class="col-filter" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; text-align: center;" onclick="event.stopPropagation(); toggleAiFilter({lg['id']}, this)"><span class="ai-filter-badge" style="background: {filter_color}20; color: {filter_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; cursor: pointer;">{filter_text}</span></td>
                 <td class="col-created" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{created_str}</td>
                 <td class="col-owner" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
                 <td class="col-players" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('player_count', 0)}</td>
@@ -4485,6 +4506,7 @@ def render_admin_dashboard(user, leagues):
                                 <th class="frozen-col-header" data-sort="name" onclick="sortTable('name')">League Name <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="status" onclick="sortTable('status')">Status <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="type" onclick="sortTable('type')">Type <span class="sort-arrow">&#9650;</span></th>
+                                <th style="text-align: center;">AI Filter</th>
                                 <th data-sort="created" onclick="sortTable('created')">Created <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="owner" onclick="sortTable('owner')">Owner <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="players" onclick="sortTable('players')">Players <span class="sort-arrow">&#9650;</span></th>
@@ -4494,25 +4516,25 @@ def render_admin_dashboard(user, leagues):
                             </tr>
                         </thead>
                         <tbody>
-                            {league_rows if league_rows else f'<tr><td colspan="10" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                            {league_rows if league_rows else f'<tr><td colspan="11" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
                         <tfoot>
                             <tr id="totalsRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['border']};">
-                                <td colspan="7" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">MMS Messaging</td>
+                                <td colspan="8" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">MMS Messaging</td>
                                 <td class="total-inbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-outbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center;">...</td>
                             </tr>
                             <tr id="carrierFeesRow" style="background-color: {COLORS['bg_card']};">
-                                <td colspan="9" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Carrier Fees</td>
+                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Carrier Fees</td>
                                 <td class="carrier-fees-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
                             <tr id="a2pRow" style="background-color: {COLORS['bg_card']};">
-                                <td colspan="9" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
+                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
                                 <td class="a2p-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
                             <tr id="grandTotalRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['accent']};">
-                                <td colspan="9" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
+                                <td colspan="10" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
                                 <td class="grand-total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center; font-size: 1.1em;">...</td>
                             </tr>
                         </tfoot>
@@ -4523,6 +4545,30 @@ def render_admin_dashboard(user, leagues):
         
         <script>
             {get_user_menu_script()}
+            
+            // Toggle AI Filter for a league (admin only)
+            function toggleAiFilter(leagueId, td) {{
+                var badge = td.querySelector('.ai-filter-badge');
+                var oldText = badge.textContent;
+                badge.textContent = '...';
+                fetch('/admin/league/' + leagueId + '/toggle-ai-filter', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}}
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        var isOn = data.ai_filter;
+                        badge.textContent = isOn ? 'ON' : 'OFF';
+                        badge.style.color = isOn ? '#2ECC71' : '#818384';
+                        badge.style.background = isOn ? '#2ECC7120' : '#81838420';
+                    }} else {{
+                        badge.textContent = oldText;
+                        alert('Error: ' + (data.error || 'Unknown'));
+                    }}
+                }})
+                .catch(function() {{ badge.textContent = oldText; }});
+            }}
             
             // Sortable table logic
             var currentSort = '';
