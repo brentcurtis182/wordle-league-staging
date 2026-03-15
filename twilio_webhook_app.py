@@ -1609,6 +1609,9 @@ def _handle_slash_standings(league_id, league_name, league_slug, bot_token, chan
             lines.append("  No wins yet")
     else:
         weekly_wins, current_season = get_weekly_wins_in_current_season(league_id)
+        from season_management import get_current_season
+        season_num, season_start = get_current_season(league_id)
+        logging.info(f"Slash standings debug: league={league_id}, season={season_num}, season_start_week={season_start}, weekly_wins={weekly_wins}")
         lines = [f"🏆 *{league_name} — Season {current_season} Standings* (need 4 wins)\n"]
         if weekly_wins:
             for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
