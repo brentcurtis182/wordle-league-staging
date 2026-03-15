@@ -121,13 +121,14 @@ def generate_weekly_image(league_name, standings_data, week_date_str=None):
                       fill=hex_to_rgb(COLORS['card_bg']),
                       outline=hex_to_rgb(COLORS['border']), width=2)
     
-    # Title - use week date if provided (e.g., "Week Jan 05")
-    if week_date_str:
-        title = f"{league_name.upper()} - Week {week_date_str}"
-    else:
-        title = f"{league_name.upper()} - THIS WEEK"
-    draw.text((width // 2, 45), title, font=title_font, 
+    # Title - league name large, week date smaller to avoid clipping
+    league_title = league_name.upper()
+    week_label = f"Week {week_date_str}" if week_date_str else "THIS WEEK"
+    week_font = get_font(22, bold=True)
+    draw.text((width // 2, 35), league_title, font=title_font,
               fill=hex_to_rgb(COLORS['primary']), anchor="mm")
+    draw.text((width // 2, 58), week_label, font=week_font,
+              fill=hex_to_rgb(COLORS['text_secondary']), anchor="mm")
     
     # Column positions - 3 columns only: Player, Score, Thrown Out
     col_player = 30
@@ -324,13 +325,14 @@ def generate_division_weekly_image(league_name, div1_data, div2_data, week_date_
                       fill=hex_to_rgb(COLORS['card_bg']),
                       outline=hex_to_rgb(COLORS['border']), width=2)
     
-    # Title
-    if week_date_str:
-        title = f"{league_name.upper()} - Week {week_date_str}"
-    else:
-        title = f"{league_name.upper()} - THIS WEEK"
-    draw.text((width // 2, 40), title, font=title_font,
+    # Title - league name large, week date smaller to avoid clipping
+    league_title = league_name.upper()
+    week_label = f"Week {week_date_str}" if week_date_str else "THIS WEEK"
+    week_font = get_font(18, bold=True)
+    draw.text((width // 2, 30), league_title, font=title_font,
               fill=hex_to_rgb(COLORS['primary']), anchor="mm")
+    draw.text((width // 2, 52), week_label, font=week_font,
+              fill=hex_to_rgb(COLORS['text_secondary']), anchor="mm")
     
     col_player = 30
     col_score = 250
