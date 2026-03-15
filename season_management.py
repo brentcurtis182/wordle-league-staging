@@ -134,6 +134,10 @@ def get_weekly_wins_in_current_season(league_id):
     """
     current_season, season_start_week = get_current_season(league_id)
     
+    # Handle NULL season_start_week — include all wins for this league
+    if season_start_week is None:
+        season_start_week = 0
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
