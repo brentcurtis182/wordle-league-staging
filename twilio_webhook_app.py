@@ -1436,8 +1436,8 @@ def slack_commands():
 
     # Route subcommands
     if subcommand in ('score', 'scoreboard', 'leaderboard', ''):
-        # Acknowledge immediately — image generation takes time
-        # Process in background thread and post to channel
+        # Acknowledge immediately (ephemeral) — image generation takes time
+        # Process in background thread and post image to channel
         def _send_scoreboard():
             try:
                 _handle_slash_score(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode)
@@ -1445,7 +1445,6 @@ def slack_commands():
                 logging.error(f"Slash /wordplay score error: {e}")
                 import traceback
                 logging.error(traceback.format_exc())
-                # Post error to user via response_url
                 try:
                     import requests as req
                     req.post(response_url, json={
@@ -1457,50 +1456,57 @@ def slack_commands():
 
         threading.Thread(target=_send_scoreboard, daemon=True).start()
         return jsonify({
-            "response_type": "in_channel",
+            "response_type": "ephemeral",
             "text": f"📊 Generating scoreboard for *{league_name}*..."
         }), 200
 
     elif subcommand in ('standings', 'season', 'wins'):
+        # Text-only — respond directly via response_url (single message)
         def _send_standings():
             try:
-                _handle_slash_standings(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode)
+                text = _handle_slash_standings(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode)
+                import requests as req
+                req.post(response_url, json={
+                    "response_type": "in_channel",
+                    "text": text
+                }, timeout=10)
             except Exception as e:
                 logging.error(f"Slash /wordplay standings error: {e}")
                 import traceback
                 logging.error(traceback.format_exc())
 
         threading.Thread(target=_send_standings, daemon=True).start()
-        return jsonify({
-            "response_type": "in_channel",
-            "text": f"🏆 Loading season standings for *{league_name}*..."
-        }), 200
+        return '', 200
 
     elif subcommand in ('streak', 'streaks'):
         def _send_streaks():
             try:
-                _handle_slash_streaks(league_id, league_name, bot_token, channel_id)
+                text = _handle_slash_streaks(league_id, league_name, bot_token, channel_id)
+                import requests as req
+                req.post(response_url, json={
+                    "response_type": "in_channel",
+                    "text": text
+                }, timeout=10)
             except Exception as e:
                 logging.error(f"Slash /wordplay streak error: {e}")
 
         threading.Thread(target=_send_streaks, daemon=True).start()
-        return jsonify({
-            "response_type": "in_channel",
-            "text": f"🔥 Loading streaks for *{league_name}*..."
-        }), 200
+        return '', 200
 
     elif subcommand in ('stats',):
         def _send_stats():
             try:
-                _handle_slash_stats(league_id, league_name, bot_token, channel_id)
+                text = _handle_slash_stats(league_id, league_name, bot_token, channel_id)
+                import requests as req
+                req.post(response_url, json={
+                    "response_type": "in_channel",
+                    "text": text
+                }, timeout=10)
             except Exception as e:
                 logging.error(f"Slash /wordplay stats error: {e}")
 
         threading.Thread(target=_send_stats, daemon=True).start()
-        return jsonify({
-            "response_type": "in_channel",
-            "text": f"📈 Crunching stats for *{league_name}*..."
-        }), 200
+        return '', 200
 
     elif subcommand == 'help':
         help_text = (
@@ -1580,9 +1586,8 @@ def _handle_slash_score(league_id, league_name, league_slug, bot_token, channel_
 
 
 def _handle_slash_standings(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode):
-    """Post season standings / win totals to Slack"""
-    from slack_integration import send_slack_message
-    from season_management import get_weekly_wins_in_current_season
+    """Build season standings text and return it"""
+    from season_management import get_weekly_wins_in_current_season, get_current_season
 
     if is_division_mode:
         from division_manager import get_division_weekly_wins, get_division_season_info
@@ -1609,9 +1614,17 @@ def _handle_slash_standings(league_id, league_name, league_slug, bot_token, chan
             lines.append("  No wins yet")
     else:
         weekly_wins, current_season = get_weekly_wins_in_current_season(league_id)
-        from season_management import get_current_season
         season_num, season_start = get_current_season(league_id)
-        logging.info(f"Slash standings debug: league={league_id}, season={season_num}, season_start_week={season_start}, weekly_wins={weekly_wins}")
+
+        # Debug: also check raw weekly_winners for this league
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT player_name, week_wordle_number FROM weekly_winners WHERE league_id = %s ORDER BY week_wordle_number", (league_id,))
+        all_winners = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        logging.info(f"Slash standings debug: league={league_id}, season={season_num}, season_start_week={season_start}, weekly_wins={weekly_wins}, all_winners_in_db={all_winners}")
+
         lines = [f"🏆 *{league_name} — Season {current_season} Standings* (need 4 wins)\n"]
         if weekly_wins:
             for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
@@ -1622,14 +1635,13 @@ def _handle_slash_standings(league_id, league_name, league_slug, bot_token, chan
 
     league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
     lines.append(f"\n📊 {league_url}")
-    send_slack_message(bot_token, channel_id, "\n".join(lines))
-    logging.info(f"Slash /wordplay standings: posted for league {league_id}")
+    result = "\n".join(lines)
+    logging.info(f"Slash /wordplay standings: league {league_id}, result length={len(result)}")
+    return result
 
 
 def _handle_slash_streaks(league_id, league_name, bot_token, channel_id):
-    """Post current play and win streaks to Slack"""
-    from slack_integration import send_slack_message
-
+    """Build play streaks text and return it"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -1640,8 +1652,7 @@ def _handle_slash_streaks(league_id, league_name, bot_token, channel_id):
     if not players:
         cursor.close()
         conn.close()
-        send_slack_message(bot_token, channel_id, "No active players found! 🤷")
-        return
+        return "No active players found! 🤷"
 
     # Calculate current play streak (consecutive days with a score, ending today or yesterday)
     import pytz
@@ -1687,13 +1698,12 @@ def _handle_slash_streaks(league_id, league_name, bot_token, channel_id):
         else:
             lines.append(f"  💤 *{name}* — no current streak")
 
-    send_slack_message(bot_token, channel_id, "\n".join(lines))
-    logging.info(f"Slash /wordplay streak: posted for league {league_id}")
+    logging.info(f"Slash /wordplay streak: built for league {league_id}")
+    return "\n".join(lines)
 
 
 def _handle_slash_stats(league_id, league_name, bot_token, channel_id):
-    """Post fun league stats to Slack"""
-    from slack_integration import send_slack_message
+    """Build fun league stats text and return it"""
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1763,8 +1773,8 @@ def _handle_slash_stats(league_id, league_name, bot_token, channel_id):
         lines.append(f"🎮 *Most Games:* {most_games[0]} — {most_games[1]} games played")
     lines.append(f"📝 *Total Scores:* {total_scores} across all players")
 
-    send_slack_message(bot_token, channel_id, "\n".join(lines))
-    logging.info(f"Slash /wordplay stats: posted for league {league_id}")
+    logging.info(f"Slash /wordplay stats: built for league {league_id}")
+    return "\n".join(lines)
 
 
 @app.route('/slack/oauth/callback', methods=['GET'])
