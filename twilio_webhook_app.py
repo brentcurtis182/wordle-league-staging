@@ -1376,6 +1376,394 @@ def slack_events():
     return jsonify({"status": "ignored"})
 
 
+@app.route('/slack/commands', methods=['POST'])
+def slack_commands():
+    """Handle /wordplay slash commands from Slack"""
+    from slack_integration import verify_slack_signature
+    import threading
+
+    # Verify request is from Slack
+    timestamp = request.headers.get('X-Slack-Request-Timestamp', '')
+    signature = request.headers.get('X-Slack-Signature', '')
+
+    if not verify_slack_signature(request.get_data(), timestamp, signature):
+        logging.warning("Invalid Slack signature on slash command")
+        return jsonify({"error": "Invalid signature"}), 401
+
+    # Slack sends slash commands as form data
+    channel_id = request.form.get('channel_id', '')
+    team_id = request.form.get('team_id', '')
+    subcommand = request.form.get('text', '').strip().lower()
+    response_url = request.form.get('response_url', '')
+    user_name = request.form.get('user_name', 'someone')
+
+    logging.info(f"Slack slash command: /wordplay {subcommand} from {user_name} in channel {channel_id} (team {team_id})")
+
+    # Look up the league by slack_channel_id
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT l.id, l.display_name, l.slug, l.slack_bot_token, l.division_mode
+            FROM leagues l
+            WHERE l.slack_channel_id = %s AND l.channel_type = 'slack'
+            LIMIT 1
+        """, (channel_id,))
+        league_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logging.error(f"Slash command DB error: {e}")
+        return jsonify({"response_type": "ephemeral", "text": "⚠️ Something went wrong. Please try again."}), 200
+
+    if not league_row:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": "⚠️ No WordPlay League is linked to this channel. Ask your league admin to set one up!"
+        }), 200
+
+    league_id = league_row[0]
+    league_name = league_row[1] or f"League {league_id}"
+    league_slug = league_row[2] or f"league{league_id}"
+    bot_token = league_row[3]
+    is_division_mode = league_row[4] or False
+
+    if not bot_token:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": "⚠️ Slack bot token not found for this league. Please reinstall the app."
+        }), 200
+
+    # Route subcommands
+    if subcommand in ('score', 'scoreboard', 'leaderboard', ''):
+        # Acknowledge immediately — image generation takes time
+        # Process in background thread and post to channel
+        def _send_scoreboard():
+            try:
+                _handle_slash_score(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode)
+            except Exception as e:
+                logging.error(f"Slash /wordplay score error: {e}")
+                import traceback
+                logging.error(traceback.format_exc())
+                # Post error to user via response_url
+                try:
+                    import requests as req
+                    req.post(response_url, json={
+                        "response_type": "ephemeral",
+                        "text": "⚠️ Failed to generate scoreboard. Please try again."
+                    }, timeout=5)
+                except:
+                    pass
+
+        threading.Thread(target=_send_scoreboard, daemon=True).start()
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"📊 Generating scoreboard for *{league_name}*..."
+        }), 200
+
+    elif subcommand in ('standings', 'season', 'wins'):
+        def _send_standings():
+            try:
+                _handle_slash_standings(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode)
+            except Exception as e:
+                logging.error(f"Slash /wordplay standings error: {e}")
+                import traceback
+                logging.error(traceback.format_exc())
+
+        threading.Thread(target=_send_standings, daemon=True).start()
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"🏆 Loading season standings for *{league_name}*..."
+        }), 200
+
+    elif subcommand in ('streak', 'streaks'):
+        def _send_streaks():
+            try:
+                _handle_slash_streaks(league_id, league_name, bot_token, channel_id)
+            except Exception as e:
+                logging.error(f"Slash /wordplay streak error: {e}")
+
+        threading.Thread(target=_send_streaks, daemon=True).start()
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"🔥 Loading streaks for *{league_name}*..."
+        }), 200
+
+    elif subcommand in ('stats',):
+        def _send_stats():
+            try:
+                _handle_slash_stats(league_id, league_name, bot_token, channel_id)
+            except Exception as e:
+                logging.error(f"Slash /wordplay stats error: {e}")
+
+        threading.Thread(target=_send_stats, daemon=True).start()
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"📈 Crunching stats for *{league_name}*..."
+        }), 200
+
+    elif subcommand == 'help':
+        help_text = (
+            "*📖 WordPlay League Commands*\n"
+            "`/wordplay score` — Current weekly scoreboard\n"
+            "`/wordplay standings` — Season win totals\n"
+            "`/wordplay streak` — Current play & win streaks\n"
+            "`/wordplay stats` — Fun league stats\n"
+            "`/wordplay help` — Show this message"
+        )
+        return jsonify({"response_type": "ephemeral", "text": help_text}), 200
+
+    else:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": f"❓ Unknown command: `{subcommand}`. Type `/wordplay help` to see available commands."
+        }), 200
+
+
+def _handle_slash_score(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode):
+    """Generate and post the weekly scoreboard image to Slack"""
+    from sunday_race_update import get_weekly_standings
+    from image_generator import generate_weekly_image, generate_division_weekly_image, image_to_bytes
+    from slack_integration import send_slack_message_with_image
+    from league_data_adapter import get_week_start_date
+    import pytz
+    from datetime import date
+
+    pacific = pytz.timezone('America/Los_Angeles')
+    today = datetime.now(pacific).date()
+    week_start = get_week_start_date(today)
+    ref_date = date(2025, 7, 31)
+    ref_wordle = 1503
+    days_offset = (week_start - ref_date).days
+    week_start_wordle = ref_wordle + days_offset
+    week_date_str = week_start.strftime("%b %d")
+
+    standings, todays_wordle = get_weekly_standings(league_id, week_start_wordle)
+    if not standings:
+        from slack_integration import send_slack_message
+        send_slack_message(bot_token, channel_id, "No scores recorded this week yet! 🤷")
+        return
+
+    def build_image_data(player_list):
+        image_data = []
+        for player in player_list:
+            if player['days_posted'] > 0:
+                score_values = [s for s in player['scores'].values() if s != 7]
+                sorted_scores = sorted(score_values)
+                num_to_use = min(len(sorted_scores), 5)
+                current_score = sum(sorted_scores[:num_to_use]) if sorted_scores else 0
+            else:
+                current_score = None
+            image_data.append({
+                'name': player['name'],
+                'score': current_score,
+                'used': player['days_posted'],
+                'failed': player.get('failed_attempts', 0),
+                'thrown': player.get('thrown_out', []),
+                'eligible': player['eligible']
+            })
+        return image_data
+
+    if is_division_mode:
+        div1 = sorted([s for s in standings if s.get('division') == 1],
+                       key=lambda x: (not x['eligible'], x['best_5_total'] if x['best_5_total'] is not None else 999))
+        div2 = sorted([s for s in standings if s.get('division') == 2],
+                       key=lambda x: (not x['eligible'], x['best_5_total'] if x['best_5_total'] is not None else 999))
+        img = generate_division_weekly_image(league_name, build_image_data(div1), build_image_data(div2), week_date_str)
+    else:
+        img = generate_weekly_image(league_name, build_image_data(standings), week_date_str)
+
+    img_bytes = image_to_bytes(img)
+    league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+    send_slack_message_with_image(bot_token, channel_id, f"📊 *Weekly Scoreboard* — {league_url}", image_bytes=img_bytes, filename="scoreboard.png")
+    logging.info(f"Slash /wordplay score: posted scoreboard for league {league_id}")
+
+
+def _handle_slash_standings(league_id, league_name, league_slug, bot_token, channel_id, is_division_mode):
+    """Post season standings / win totals to Slack"""
+    from slack_integration import send_slack_message
+    from season_management import get_weekly_wins_in_current_season
+
+    if is_division_mode:
+        from division_manager import get_division_weekly_wins, get_division_season_info
+        div1_wins = get_division_weekly_wins(league_id, 1)
+        div2_wins = get_division_weekly_wins(league_id, 2)
+        div1_info = get_division_season_info(league_id, 1)
+        div2_info = get_division_season_info(league_id, 2)
+
+        lines = [f"🏆 *{league_name} — Season Standings*\n"]
+        lines.append(f"*Division I — Season {div1_info['current_season']}* (need 3 wins)")
+        if div1_wins:
+            for name, wins in sorted(div1_wins.items(), key=lambda x: x[1], reverse=True):
+                bar = "🟩" * wins
+                lines.append(f"  {bar} *{name}* — {wins} win{'s' if wins != 1 else ''}")
+        else:
+            lines.append("  No wins yet")
+
+        lines.append(f"\n*Division II — Season {div2_info['current_season']}* (need 3 wins)")
+        if div2_wins:
+            for name, wins in sorted(div2_wins.items(), key=lambda x: x[1], reverse=True):
+                bar = "🟩" * wins
+                lines.append(f"  {bar} *{name}* — {wins} win{'s' if wins != 1 else ''}")
+        else:
+            lines.append("  No wins yet")
+    else:
+        weekly_wins, current_season = get_weekly_wins_in_current_season(league_id)
+        lines = [f"🏆 *{league_name} — Season {current_season} Standings* (need 4 wins)\n"]
+        if weekly_wins:
+            for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
+                bar = "🟩" * wins
+                lines.append(f"  {bar} *{name}* — {wins} win{'s' if wins != 1 else ''}")
+        else:
+            lines.append("  No wins yet this season")
+
+    league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+    lines.append(f"\n📊 {league_url}")
+    send_slack_message(bot_token, channel_id, "\n".join(lines))
+    logging.info(f"Slash /wordplay standings: posted for league {league_id}")
+
+
+def _handle_slash_streaks(league_id, league_name, bot_token, channel_id):
+    """Post current play and win streaks to Slack"""
+    from slack_integration import send_slack_message
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Get active players
+    cursor.execute("SELECT id, name FROM players WHERE league_id = %s AND active = TRUE ORDER BY name", (league_id,))
+    players = cursor.fetchall()
+
+    if not players:
+        cursor.close()
+        conn.close()
+        send_slack_message(bot_token, channel_id, "No active players found! 🤷")
+        return
+
+    # Calculate current play streak (consecutive days with a score, ending today or yesterday)
+    import pytz
+    from datetime import date
+    pacific = pytz.timezone('America/Los_Angeles')
+    today = datetime.now(pacific).date()
+    ref_date = date(2025, 7, 31)
+    ref_wordle = 1503
+    todays_wordle = ref_wordle + (today - ref_date).days
+
+    streaks = []
+    for player_id, player_name in players:
+        cursor.execute("""
+            SELECT wordle_number FROM scores
+            WHERE player_id = %s
+            ORDER BY wordle_number DESC
+            LIMIT 30
+        """, (player_id,))
+        wordle_nums = [r[0] for r in cursor.fetchall()]
+        if not wordle_nums:
+            streaks.append((player_name, 0))
+            continue
+
+        # Count consecutive days backwards from today (or yesterday)
+        streak = 0
+        check = todays_wordle
+        if check not in wordle_nums:
+            check = todays_wordle - 1  # allow yesterday as current
+        while check in wordle_nums:
+            streak += 1
+            check -= 1
+        streaks.append((player_name, streak))
+
+    cursor.close()
+    conn.close()
+
+    streaks.sort(key=lambda x: x[1], reverse=True)
+    lines = [f"🔥 *{league_name} — Play Streaks*\n"]
+    for name, streak in streaks:
+        if streak > 0:
+            fire = "🔥" * min(streak, 7)
+            lines.append(f"  {fire} *{name}* — {streak} day{'s' if streak != 1 else ''}")
+        else:
+            lines.append(f"  💤 *{name}* — no current streak")
+
+    send_slack_message(bot_token, channel_id, "\n".join(lines))
+    logging.info(f"Slash /wordplay streak: posted for league {league_id}")
+
+
+def _handle_slash_stats(league_id, league_name, bot_token, channel_id):
+    """Post fun league stats to Slack"""
+    from slack_integration import send_slack_message
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Best single-day score ever
+    cursor.execute("""
+        SELECT p.name, s.score, s.wordle_number
+        FROM scores s JOIN players p ON s.player_id = p.id
+        WHERE p.league_id = %s AND s.score BETWEEN 1 AND 6
+        ORDER BY s.score ASC, s.wordle_number DESC
+        LIMIT 1
+    """, (league_id,))
+    best = cursor.fetchone()
+
+    # Worst single-day score (most 7s / fails)
+    cursor.execute("""
+        SELECT p.name, COUNT(*) as fails
+        FROM scores s JOIN players p ON s.player_id = p.id
+        WHERE p.league_id = %s AND s.score = 7
+        GROUP BY p.name
+        ORDER BY fails DESC
+        LIMIT 1
+    """, (league_id,))
+    most_fails = cursor.fetchone()
+
+    # Most games played
+    cursor.execute("""
+        SELECT p.name, COUNT(*) as games
+        FROM scores s JOIN players p ON s.player_id = p.id
+        WHERE p.league_id = %s
+        GROUP BY p.name
+        ORDER BY games DESC
+        LIMIT 1
+    """, (league_id,))
+    most_games = cursor.fetchone()
+
+    # Best average (min 10 games, exclude fails)
+    cursor.execute("""
+        SELECT p.name, AVG(s.score) as avg_score, COUNT(*) as games
+        FROM scores s JOIN players p ON s.player_id = p.id
+        WHERE p.league_id = %s AND s.score BETWEEN 1 AND 6
+        GROUP BY p.name
+        HAVING COUNT(*) >= 10
+        ORDER BY avg_score ASC
+        LIMIT 1
+    """, (league_id,))
+    best_avg = cursor.fetchone()
+
+    # Total scores across the league
+    cursor.execute("""
+        SELECT COUNT(*) FROM scores s JOIN players p ON s.player_id = p.id
+        WHERE p.league_id = %s
+    """, (league_id,))
+    total_scores = cursor.fetchone()[0]
+
+    cursor.close()
+    conn.close()
+
+    lines = [f"📈 *{league_name} — League Stats*\n"]
+    if best:
+        lines.append(f"🎯 *Best Score:* {best[0]} — {best[1]}/6 (Wordle #{best[2]})")
+    if best_avg:
+        lines.append(f"📊 *Best Average:* {best_avg[0]} — {best_avg[1]:.2f} ({int(best_avg[2])} games)")
+    if most_fails:
+        lines.append(f"💀 *Most X/6 Fails:* {most_fails[0]} — {most_fails[1]} fail{'s' if most_fails[1] != 1 else ''}")
+    if most_games:
+        lines.append(f"🎮 *Most Games:* {most_games[0]} — {most_games[1]} games played")
+    lines.append(f"📝 *Total Scores:* {total_scores} across all players")
+
+    send_slack_message(bot_token, channel_id, "\n".join(lines))
+    logging.info(f"Slash /wordplay stats: posted for league {league_id}")
+
+
 @app.route('/slack/oauth/callback', methods=['GET'])
 def slack_oauth_callback():
     """Handle Slack OAuth callback when user installs the app to their workspace"""
