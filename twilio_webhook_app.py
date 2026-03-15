@@ -1798,27 +1798,41 @@ def slack_oauth_callback():
     
     logging.info(f"Slack OAuth result: team_id={team_id}, team_name={team_name}, bot_token={'yes' if bot_token else 'no'}, league_id={league_id}")
     
-    if league_id and team_id and bot_token:
+    if team_id and bot_token:
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Update league with Slack credentials (channel will be set when they send verification code)
-            cursor.execute("""
-                UPDATE leagues 
-                SET slack_team_id = %s,
-                    slack_bot_token = %s
-                WHERE id = %s
-            """, (team_id, bot_token, league_id))
+            if league_id:
+                # Fresh install: league_id was passed in state
+                cursor.execute("""
+                    UPDATE leagues 
+                    SET slack_team_id = %s,
+                        slack_bot_token = %s
+                    WHERE id = %s
+                """, (team_id, bot_token, league_id))
+                redirect_target = f"/dashboard/league/{league_id}?message=Slack workspace connected! Now invite the bot to a channel and send the verification code."
+            else:
+                # Reinstall: no league_id in state — update ALL leagues for this team
+                cursor.execute("""
+                    UPDATE leagues 
+                    SET slack_bot_token = %s
+                    WHERE slack_team_id = %s AND channel_type = 'slack'
+                """, (bot_token, team_id))
+                updated = cursor.rowcount
+                logging.info(f"Slack reinstall: updated bot token for {updated} league(s) in team {team_id}")
+                redirect_target = f"/dashboard?message=Slack app reinstalled! Updated {updated} league(s)."
             
             conn.commit()
             cursor.close()
             conn.close()
             
-            logging.info(f"League {league_id} connected to Slack workspace {team_name} - awaiting channel verification")
-            return redirect(f"/dashboard/league/{league_id}?message=Slack workspace connected! Now invite the bot to a channel and send the verification code.")
+            logging.info(f"Slack OAuth success: team={team_name}, league_id={league_id or 'reinstall'}")
+            return redirect(redirect_target)
         except Exception as e:
             logging.error(f"Error saving Slack credentials: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
             return redirect(f"/dashboard?error=slack_save_failed")
     
     logging.error(f"Slack OAuth missing data: league_id={league_id}, team_id={team_id}, bot_token={'yes' if bot_token else 'no'}")
