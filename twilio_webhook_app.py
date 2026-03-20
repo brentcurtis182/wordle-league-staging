@@ -7293,6 +7293,41 @@ def debug_league_11_season():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/fix-league-11-season-start', methods=['POST'])
+def fix_league_11_season_start():
+    """Temporary: Fix league 11 season_start_week to match current season from seasons table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get current season
+        cursor.execute("SELECT current_season FROM league_seasons WHERE league_id = 11")
+        current_season = cursor.fetchone()[0]
+        
+        # Get start_week for current season from seasons table
+        cursor.execute("SELECT start_week FROM seasons WHERE league_id = 11 AND season_number = %s", (current_season,))
+        correct_start = cursor.fetchone()[0]
+        
+        # Update league_seasons
+        cursor.execute("""
+            UPDATE league_seasons 
+            SET season_start_week = %s, updated_at = CURRENT_TIMESTAMP 
+            WHERE league_id = 11
+        """, (correct_start,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'league_id': 11,
+            'current_season': current_season,
+            'updated_season_start_week': correct_start
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
