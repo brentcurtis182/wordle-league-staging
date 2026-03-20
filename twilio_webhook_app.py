@@ -7246,6 +7246,53 @@ def _run_one_time_migrations():
 
 _run_one_time_migrations()
 
+@app.route('/debug-league-11-season', methods=['GET'])
+def debug_league_11_season():
+    """Temporary: Check season state for league 11"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check league_seasons
+        cursor.execute("SELECT current_season, season_start_week FROM league_seasons WHERE league_id = 11")
+        ls = cursor.fetchone()
+        
+        # Check seasons table
+        cursor.execute("SELECT season_number, start_week, end_week FROM seasons WHERE league_id = 11 ORDER BY season_number")
+        seasons = cursor.fetchall()
+        
+        # Check season_winners
+        cursor.execute("""
+            SELECT sw.season_number, p.name, sw.wins 
+            FROM season_winners sw 
+            JOIN players p ON sw.player_id = p.id 
+            WHERE sw.league_id = 11 
+            ORDER BY sw.season_number
+        """)
+        winners = cursor.fetchall()
+        
+        # Check weekly_winners
+        cursor.execute("""
+            SELECT player_name, week_wordle_number 
+            FROM weekly_winners 
+            WHERE league_id = 11 
+            ORDER BY week_wordle_number DESC 
+            LIMIT 10
+        """)
+        recent_wins = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'league_seasons': {'current_season': ls[0] if ls else None, 'season_start_week': ls[1] if ls else None},
+            'seasons_table': [{'season': s[0], 'start': s[1], 'end': s[2]} for s in seasons],
+            'season_winners': [{'season': w[0], 'name': w[1], 'wins': w[2]} for w in winners],
+            'recent_weekly_wins': [{'name': w[0], 'week': w[1]} for w in recent_wins]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
