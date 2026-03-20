@@ -272,6 +272,15 @@ def record_season_winner(league_id, player_name, win_count):
     current_week = calculate_wordle_number(get_week_start_date())
     next_season_start = current_week + 7  # Next Monday
     
+    # Create seasons table entry for the new season
+    cursor.execute("""
+        INSERT INTO seasons (league_id, season_number, start_week, end_week)
+        VALUES (%s, %s, %s, NULL)
+        ON CONFLICT (league_id, season_number) DO UPDATE
+        SET start_week = EXCLUDED.start_week
+    """, (league_id, next_season, next_season_start))
+    
+    # Update league_seasons to match
     cursor.execute("""
         UPDATE league_seasons
         SET current_season = %s,
