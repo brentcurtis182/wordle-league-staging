@@ -413,7 +413,15 @@ def get_shared_leagues(user_id):
         if not result or not result[0]:
             return []
         
-        user_phone = result[0]
+        import re
+        user_phone = re.sub(r'\D', '', result[0])
+        
+        # Normalize: check both with and without leading '1' country code
+        phone_variants = [user_phone]
+        if user_phone.startswith('1') and len(user_phone) == 11:
+            phone_variants.append(user_phone[1:])  # without country code
+        elif len(user_phone) == 10:
+            phone_variants.append('1' + user_phone)  # with country code
         
         # Find leagues where this phone number is an active player,
         # excluding leagues the user already manages (in user_leagues)
@@ -422,11 +430,11 @@ def get_shared_leagues(user_id):
                    p.name as player_name
             FROM players p
             JOIN leagues l ON p.league_id = l.id
-            WHERE p.phone_number = %s
+            WHERE p.phone_number IN %s
               AND p.active = TRUE
               AND l.id NOT IN (SELECT league_id FROM user_leagues WHERE user_id = %s)
             ORDER BY l.display_name
-        """, (user_phone, user_id))
+        """, (tuple(phone_variants), user_id))
         
         leagues = []
         for row in cursor.fetchall():
