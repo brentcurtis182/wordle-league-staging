@@ -427,6 +427,11 @@ def get_newsletter_templates():
             'name': 'Division Mode Launch',
             'subject': 'New Feature: Division Mode is Here! 🏆',
             'body_html': _get_division_mode_newsletter_body()
+        },
+        'shared_leagues': {
+            'name': 'Shared Leagues — Players Can Now View Their Leagues',
+            'subject': 'New Feature: Your Players Can Now See Their Leagues! 🤝',
+            'body_html': _get_shared_leagues_newsletter_body()
         }
     }
 
@@ -530,5 +535,72 @@ def _get_division_mode_newsletter_body():
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
         <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
         <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. We'd love to hear what you think of Division Mode — just reply to this email with any feedback!</p>
+    </td></tr></table>
+    """
+
+
+def _get_shared_leagues_newsletter_body():
+    """Pre-built Shared Leagues feature announcement email body"""
+    dashboard_url = f"{APP_URL}/dashboard"
+    signup_url = f"{APP_URL}/auth/register"
+    
+    return f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">We just launched a new feature — <strong style="color: #00E8DA;">Shared Leagues</strong>. Now the players in your leagues can create their own account and instantly see every league they're part of, all in one place.</p>
+    
+    <p style="color: #e0e0e0; line-height: 1.6;">Here's how it works and what to tell your league members:</p>
+    
+    <!-- How It Works -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin: 0 0 10px;">How It Works</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">When a player creates a free account at <strong style="color: #e0e0e0;">wordplayleague.com</strong> and adds their phone number to their profile, our system automatically matches that phone number to any active league they're in. Those leagues appear in a new <strong style="color: #00E8DA;">Shared Leagues</strong> section on their dashboard — no invites or setup needed.</p>
+    </td></tr></table>
+    
+    <!-- Steps for Players -->
+    <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">📋 What to Tell Your Players</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">1. Create a free account at <a href="{signup_url}" style="color: #00E8DA; text-decoration: underline;">wordplayleague.com</a></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">2. Go to <strong style="color: #e0e0e0;">Profile</strong> and add the phone number they use in your league</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">3. Head back to the <strong style="color: #e0e0e0;">Dashboard</strong> — all their leagues will appear under <strong style="color: #00E8DA;">Shared Leagues</strong></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">4. Each league has a <strong style="color: #e0e0e0;">View</strong> button for quick access to the public league page</td></tr>
+    </table>
+    
+    <!-- What Players See -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FFA64D;"><tr><td style="padding: 20px;">
+        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">👀 What Players Can See</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">League Name & Their Player Name</strong><br>
+                    Each shared league card shows the league name and which player name they're matched to.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">View Button</strong><br>
+                    One-click access to the public league page with standings, scores, season history, and more.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
+                    <strong style="color: #e0e0e0;">Fully Automatic</strong><br>
+                    If a player is added to a new league in the future, it shows up on their dashboard automatically. No action needed from you or the player.
+                </td>
+            </tr>
+        </table>
+    </td></tr></table>
+    
+    <!-- For Managers -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 8px;">🔒 Nothing Changes for You</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Players see their leagues in <strong style="color: #e0e0e0;">read-only</strong> mode. They can't change settings, manage players, or modify anything — that's still 100% in your control as the league manager. This just gives them a convenient home base to view their leagues.</p>
+    </td></tr></table>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
+    </div>
+    
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
+        <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
+        <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. Spread the word and tell your friends to create a league — we'd love your feedback! Just reply to this email anytime.</p>
     </td></tr></table>
     """
