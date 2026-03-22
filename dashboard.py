@@ -1850,6 +1850,8 @@ def _render_division_players(league, players, is_chat_platform):
     league_id = league['id']
     division_locked = league.get('division_locked', False)
     division_confirmed = league.get('division_confirmed_at') is not None
+    promo_count = league.get('promoted_count', 1)
+    releg_count = league.get('relegated_count', 1)
     
     identifier_empty = 'No phone'
     if is_chat_platform:
@@ -1972,6 +1974,29 @@ def _render_division_players(league, players, is_chat_platform):
             </div>
             <div class="division-player-list" id="div1-players">
                 {div1_html}
+            </div>
+        </div>
+        
+        <!-- Promotion / Relegation Settings -->
+        <div style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: {COLORS['accent']}; font-size: 0.85em; font-weight: 600;">&#x2B06; Promoted Players</span>
+                <select id="promotedCount" onchange="savePromoRelegCounts()" 
+                    style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent']}50; border-radius: 6px; padding: 4px 8px; font-size: 0.85em; cursor: pointer;">
+                    <option value="1" {'selected' if promo_count == 1 else ''}>1</option>
+                    <option value="2" {'selected' if promo_count == 2 else ''}>2</option>
+                    <option value="3" {'selected' if promo_count == 3 else ''}>3</option>
+                </select>
+            </div>
+            <span style="color: {COLORS['border']};">|</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: {COLORS['accent_orange']}; font-size: 0.85em; font-weight: 600;">&#x2B07; Relegated Players</span>
+                <select id="relegatedCount" onchange="savePromoRelegCounts()" 
+                    style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent_orange']}50; border-radius: 6px; padding: 4px 8px; font-size: 0.85em; cursor: pointer;">
+                    <option value="1" {'selected' if releg_count == 1 else ''}>1</option>
+                    <option value="2" {'selected' if releg_count == 2 else ''}>2</option>
+                    <option value="3" {'selected' if releg_count == 3 else ''}>3</option>
+                </select>
             </div>
         </div>
         
@@ -4024,6 +4049,29 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 if (div2Label) div2Label.textContent = '(' + div2 + ' players)';
             }}
             
+            function savePromoRelegCounts() {{
+                var promoted = document.getElementById('promotedCount');
+                var relegated = document.getElementById('relegatedCount');
+                if (!promoted || !relegated) return;
+                
+                fetch('/dashboard/league/{league['id']}/division-counts', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ promoted_count: parseInt(promoted.value), relegated_count: parseInt(relegated.value) }})
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        showToast('Promotion/relegation counts updated');
+                    }} else {{
+                        showToast('Error: ' + (data.error || 'Failed to update'));
+                    }}
+                }})
+                .catch(err => {{
+                    showToast('Error saving counts');
+                }});
+            }}
+            
             // Touch support for mobile drag-and-drop
             (function() {{
                 let touchPlayer = null;
@@ -4285,7 +4333,9 @@ def get_league_info(league_id):
                    slug, channel_type, slack_channel_id, discord_channel_id, verification_code,
                    slack_bot_token, slack_team_id, ai_monday_recap,
                    division_mode, division_confirmed_at, division_locked,
-                   COALESCE(ai_filter, FALSE)
+                   COALESCE(ai_filter, FALSE),
+                   COALESCE(promoted_count, 1),
+                   COALESCE(relegated_count, 1)
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -4317,6 +4367,8 @@ def get_league_info(league_id):
                 'division_confirmed_at': row[21],
                 'division_locked': row[22] or False,
                 'ai_filter': row[23] or False,
+                'promoted_count': row[24] or 1,
+                'relegated_count': row[25] or 1,
                 'channel_name': None
             }
             

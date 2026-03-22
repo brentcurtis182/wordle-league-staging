@@ -898,7 +898,17 @@ def generate_division_weekly_totals_html(league_data):
                     html += '<td>-</td>\n'
                 html += '</tr>\n'
         
-        html += '</tbody>\n</table>\n</div>\n</div>\n'
+        html += '</tbody>\n</table>\n</div>\n'
+        
+        # Show promoted/relegated count below each division table
+        promoted_count = league_data.get('promoted_count', 1)
+        relegated_count = league_data.get('relegated_count', 1)
+        if div_num == 1:
+            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #ff5c5c; font-style: italic;">&#x2B07; Relegated Players: {relegated_count}</p>\n'
+        else:
+            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #00E8DA; font-style: italic;">&#x2B06; Promoted Players: {promoted_count}</p>\n'
+        
+        html += '</div>\n'
     
     # Footer text (shown once after both division tables)
     html += '''<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your best 5 scores. Additional scores appear in 'Thrown Out'</p>

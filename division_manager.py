@@ -774,11 +774,85 @@ def check_division_season_transition(league_id, division):
             SET start_week = EXCLUDED.start_week, end_week = NULL
         """, (league_id, division, new_season, next_start))
         
-        # Handle promotion/relegation
+        # Handle promotion (Division II → Division I)
         if division == 2:
-            # Division II winner gets promoted to Division I
-            for winner_name, _ in winners:
-                _promote_player(cursor, league_id, winner_name, next_start)
+            # Get configurable promoted_count
+            cursor.execute("SELECT COALESCE(promoted_count, 1) FROM leagues WHERE id = %s", (league_id,))
+            promoted_count = cursor.fetchone()[0]
+            
+            # Season winners always get promoted
+            promoted_names = [name for name, _ in winners]
+            
+            if len(promoted_names) < promoted_count:
+                # Need more players promoted beyond the winner(s)
+                # Get remaining Div II players ranked by season performance
+                winner_name_list = promoted_names[:]
+                placeholders = ','.join(['%s'] * len(winner_name_list))
+                
+                cursor.execute(f"""
+                    SELECT p.name,
+                           COALESCE(SUM(ww.score), 999) as season_total,
+                           COUNT(ww.id) as win_count
+                    FROM players p
+                    LEFT JOIN weekly_winners ww ON ww.player_name = p.name 
+                        AND ww.league_id = %s AND ww.division = 2
+                        AND ww.week_wordle_number >= %s AND ww.week_wordle_number <= %s
+                    WHERE p.league_id = %s AND p.division = 2 AND p.active = TRUE
+                        AND p.name NOT IN ({placeholders})
+                    GROUP BY p.name
+                    ORDER BY season_total ASC, win_count DESC
+                """, (league_id, season_start, last_week, league_id, *winner_name_list))
+                
+                candidates = cursor.fetchall()
+                spots_remaining = promoted_count - len(promoted_names)
+                
+                i = 0
+                while spots_remaining > 0 and i < len(candidates):
+                    current_total = candidates[i][1]
+                    current_wins = candidates[i][2]
+                    
+                    # Check for tie at this position
+                    tied = [candidates[i]]
+                    j = i + 1
+                    while j < len(candidates) and candidates[j][1] == current_total:
+                        tied.append(candidates[j])
+                        j += 1
+                    
+                    if len(tied) <= spots_remaining:
+                        # All tied players can be promoted
+                        for t in tied:
+                            promoted_names.append(t[0])
+                            spots_remaining -= 1
+                        i = j
+                    else:
+                        # More tied players than spots - use weekly wins as tiebreaker
+                        tied.sort(key=lambda x: -x[2])  # Most wins first
+                        
+                        # Check if tiebreaker resolves it
+                        k = 0
+                        while spots_remaining > 0 and k < len(tied):
+                            current_win_count = tied[k][2]
+                            win_tied = [tied[k]]
+                            m = k + 1
+                            while m < len(tied) and tied[m][2] == current_win_count:
+                                win_tied.append(tied[m])
+                                m += 1
+                            
+                            if len(win_tied) <= spots_remaining:
+                                for wt in win_tied:
+                                    promoted_names.append(wt[0])
+                                    spots_remaining -= 1
+                                k = m
+                            else:
+                                # Stalemate - same score AND same weekly wins
+                                logging.info(f"Promotion stalemate in league {league_id}: {[wt[0] for wt in win_tied]} tied on score {current_total} and wins {current_win_count}")
+                                break
+                        break
+            
+            for name in promoted_names:
+                _promote_player(cursor, league_id, name, next_start)
+            
+            logging.info(f"Promoted {len(promoted_names)} player(s) from Div II to Div I in league {league_id}: {promoted_names}")
         
         conn.commit()
         
@@ -921,19 +995,51 @@ def check_division1_relegation(league_id):
             logging.info(f"No eligible players for relegation in league {league_id} (all immune or season winners)")
             return False
         
+        # Get configurable relegated_count
+        cursor.execute("SELECT COALESCE(relegated_count, 1) FROM leagues WHERE id = %s", (league_id,))
+        relegated_count = cursor.fetchone()[0]
+        
         # Sort: most missed weeks first, then worst (highest) season total, then fewest wins
         player_stats.sort(key=lambda x: (-x[4], -x[2], x[3]))
         
-        # Relegate the worst player
-        worst_player_id, worst_player_name, _, _, worst_missed = player_stats[0]
+        relegated_names = []
+        spots_remaining = relegated_count
+        
+        i = 0
+        while spots_remaining > 0 and i < len(player_stats):
+            current = player_stats[i]
+            current_key = (current[4], current[2], current[3])  # (missed, total, wins)
+            
+            # Find all players tied on the same relegation criteria
+            tied = [current]
+            j = i + 1
+            while j < len(player_stats):
+                candidate = player_stats[j]
+                candidate_key = (candidate[4], candidate[2], candidate[3])
+                if candidate_key == current_key:
+                    tied.append(candidate)
+                    j += 1
+                else:
+                    break
+            
+            if len(tied) <= spots_remaining:
+                # All tied players get relegated
+                for t in tied:
+                    relegated_names.append(t[1])
+                    spots_remaining -= 1
+                i = j
+            else:
+                # More tied players than spots — stalemate, none of these move
+                logging.info(f"Relegation stalemate in league {league_id}: {[t[1] for t in tied]} tied on missed={current[4]}, total={current[2]}, wins={current[3]}")
+                break
         
         current_week = calculate_wordle_number(get_week_start_date())
-        _relegate_player(cursor, league_id, worst_player_name, current_week)
+        for name in relegated_names:
+            _relegate_player(cursor, league_id, name, current_week)
         
         conn.commit()
         
-        reason = f"missed_weeks={worst_missed}" if worst_missed > 0 else "worst season total"
-        logging.info(f"Relegated {worst_player_name} from Division I to Division II in league {league_id} ({reason})")
+        logging.info(f"Relegated {len(relegated_names)} player(s) from Div I to Div II in league {league_id}: {relegated_names}")
         return True
     
     except Exception as e:

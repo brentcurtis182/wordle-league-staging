@@ -6852,6 +6852,41 @@ def dashboard_division_toggle(league_id):
         return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(e)}')
 
 
+@app.route('/dashboard/league/<int:league_id>/division-counts', methods=['POST'])
+def dashboard_division_counts(league_id):
+    """Update promoted_count and relegated_count for a division-mode league (AJAX)"""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Not authorized'}), 403
+    
+    data = request.get_json()
+    promoted = int(data.get('promoted_count', 1))
+    relegated = int(data.get('relegated_count', 1))
+    
+    if promoted not in (1, 2, 3) or relegated not in (1, 2, 3):
+        return jsonify({'success': False, 'error': 'Values must be 1, 2, or 3'}), 400
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE leagues SET promoted_count = %s, relegated_count = %s WHERE id = %s
+        """, (promoted, relegated, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logging.info(f"League {league_id}: division counts updated - promoted={promoted}, relegated={relegated}")
+        return jsonify({'success': True, 'promoted_count': promoted, 'relegated_count': relegated})
+    except Exception as e:
+        logging.error(f"Error updating division counts: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/dashboard/league/<int:league_id>/division-assign', methods=['POST'])
 def dashboard_division_assign(league_id):
     """Assign a player to a division (AJAX endpoint)"""
@@ -7212,6 +7247,10 @@ def _run_one_time_migrations():
         
         # Add ai_filter column if it doesn't exist
         cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS ai_filter BOOLEAN DEFAULT FALSE")
+        
+        # Add promoted_count and relegated_count columns for division mode (can differ to balance pacing)
+        cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS promoted_count INTEGER DEFAULT 1")
+        cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS relegated_count INTEGER DEFAULT 1")
         
         # Fix: Both divisions in league 4 transitioned simultaneously on 2026-03-09,
         # but the promoted player (Jess) was given immunity unnecessarily.

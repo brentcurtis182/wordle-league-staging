@@ -335,10 +335,12 @@ def get_complete_league_data(league_id):
         div_cursor = conn.cursor()
         
         # Check if league is in division mode
-        div_cursor.execute("SELECT division_mode, division_confirmed_at FROM leagues WHERE id = %s", (league_id,))
+        div_cursor.execute("SELECT division_mode, division_confirmed_at, COALESCE(promoted_count, 1), COALESCE(relegated_count, 1) FROM leagues WHERE id = %s", (league_id,))
         div_result = div_cursor.fetchone()
         is_division_mode = div_result and div_result[0]
         division_confirmed_at = div_result[1] if div_result else None
+        promoted_count = div_result[2] if div_result else 1
+        relegated_count = div_result[3] if div_result else 1
         
         # Check if there are any division season winners in the database (even if division mode is OFF)
         # This ensures division season history is retained when toggling division mode off
@@ -444,6 +446,8 @@ def get_complete_league_data(league_id):
         'player_divisions': player_divisions,
         'regular_season_count': regular_season_count,
         'missed_weeks': missed_weeks,
+        'promoted_count': promoted_count,
+        'relegated_count': relegated_count,
         'timestamp': datetime.now()
     }
 
