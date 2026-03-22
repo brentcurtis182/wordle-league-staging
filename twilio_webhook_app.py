@@ -7390,6 +7390,48 @@ def fix_league_11_season_start():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/fix-all-season-starts', methods=['POST'])
+def fix_all_season_starts():
+    """Fix season_start_week for ALL leagues by syncing with seasons table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all leagues with season data
+        cursor.execute("""
+            SELECT ls.league_id, ls.current_season, ls.season_start_week, s.start_week
+            FROM league_seasons ls
+            LEFT JOIN seasons s ON ls.league_id = s.league_id AND ls.current_season = s.season_number
+            WHERE ls.season_start_week != s.start_week OR (ls.season_start_week IS NULL AND s.start_week IS NOT NULL)
+        """)
+        mismatches = cursor.fetchall()
+        
+        fixed = []
+        for league_id, current_season, old_start, correct_start in mismatches:
+            cursor.execute("""
+                UPDATE league_seasons 
+                SET season_start_week = %s, updated_at = CURRENT_TIMESTAMP 
+                WHERE league_id = %s
+            """, (correct_start, league_id))
+            fixed.append({
+                'league_id': league_id,
+                'season': current_season,
+                'old_start': old_start,
+                'new_start': correct_start
+            })
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'fixed_count': len(fixed),
+            'fixed_leagues': fixed
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
