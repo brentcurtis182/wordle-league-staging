@@ -140,7 +140,15 @@ def get_weekly_standings(league_id, week_start_wordle):
 def get_score_difficulty_text(score_needed):
     """Return realistic language based on how difficult the score needed is"""
     if score_needed == 1:
-        return "needs a near-impossible 1 (hail mary!)"
+        import random
+        miracle_phrases = [
+            "needs a near-impossible 1 (hail mary!)",
+            "needs a miraculous 1 (dream shot!)",
+            "needs an impossible 1 (shot in the dark!)",
+            "needs a legendary 1 (one-in-a-million!)",
+            "needs a perfect 1 (lightning in a bottle!)",
+        ]
+        return random.choice(miracle_phrases)
     elif score_needed == 2:
         return "needs an amazing 2"
     elif score_needed == 3:
@@ -610,7 +618,7 @@ RACE ANALYSIS:
 
 IMPORTANT RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
-2. A score of 1 is nearly impossible (hail mary), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
+2. A score of 1 is nearly impossible (use the exact dramatic phrase provided like 'hail mary', 'dream shot', 'shot in the dark', 'miracle', etc.), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
@@ -800,7 +808,7 @@ WEEKLY RACE ANALYSIS: {scenario_text}"""
 
 IMPORTANT RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
-2. A score of 1 is nearly impossible (hail mary), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
+2. A score of 1 is nearly impossible (use the exact dramatic phrase provided like 'hail mary', 'dream shot', 'shot in the dark', 'miracle', etc.), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
