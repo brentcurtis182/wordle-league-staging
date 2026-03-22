@@ -7246,6 +7246,68 @@ def _run_one_time_migrations():
 
 _run_one_time_migrations()
 
+@app.route('/debug-league-season/<int:league_id>', methods=['GET'])
+def debug_league_season(league_id):
+    """Debug: Check season state for any league"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check league_seasons
+        cursor.execute("SELECT current_season, season_start_week FROM league_seasons WHERE league_id = %s", (league_id,))
+        ls = cursor.fetchone()
+        
+        # Check seasons table
+        cursor.execute("SELECT season_number, start_week, end_week FROM seasons WHERE league_id = %s ORDER BY season_number", (league_id,))
+        seasons = cursor.fetchall()
+        
+        # Check season_winners
+        cursor.execute("""
+            SELECT sw.season_number, p.name, sw.wins 
+            FROM season_winners sw 
+            JOIN players p ON sw.player_id = p.id 
+            WHERE sw.league_id = %s 
+            ORDER BY sw.season_number
+        """, (league_id,))
+        winners = cursor.fetchall()
+        
+        # Check weekly_winners for current season
+        if ls:
+            cursor.execute("""
+                SELECT player_name, COUNT(*) as wins
+                FROM weekly_winners 
+                WHERE league_id = %s AND week_wordle_number >= %s
+                GROUP BY player_name
+                ORDER BY wins DESC
+            """, (league_id, ls[1] if ls[1] else 0))
+            current_season_wins = cursor.fetchall()
+        else:
+            current_season_wins = []
+        
+        # Check recent weekly_winners
+        cursor.execute("""
+            SELECT player_name, week_wordle_number 
+            FROM weekly_winners 
+            WHERE league_id = %s 
+            ORDER BY week_wordle_number DESC 
+            LIMIT 15
+        """, (league_id,))
+        recent_wins = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'league_id': league_id,
+            'league_seasons': {'current_season': ls[0] if ls else None, 'season_start_week': ls[1] if ls else None},
+            'seasons_table': [{'season': s[0], 'start': s[1], 'end': s[2]} for s in seasons],
+            'season_winners': [{'season': w[0], 'name': w[1], 'wins': w[2]} for w in winners],
+            'current_season_wins': [{'name': w[0], 'wins': w[1]} for w in current_season_wins],
+            'recent_weekly_wins': [{'name': w[0], 'week': w[1]} for w in recent_wins]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/debug-league-11-season', methods=['GET'])
 def debug_league_11_season():
     """Temporary: Check season state for league 11"""
