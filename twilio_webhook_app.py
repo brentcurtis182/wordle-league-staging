@@ -7309,6 +7309,36 @@ def debug_league_season(league_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/debug-player-phones/<phone>', methods=['GET'])
+def debug_player_phones(phone):
+    """Debug: Check how a phone number is stored across all leagues"""
+    import re
+    digits = re.sub(r'\D', '', phone)
+    # Try with and without leading 1
+    variants = [digits]
+    if digits.startswith('1') and len(digits) == 11:
+        variants.append(digits[1:])  # without country code
+    elif len(digits) == 10:
+        variants.append('1' + digits)  # with country code
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.name, p.phone_number, p.league_id, l.display_name, p.active
+        FROM players p
+        JOIN leagues l ON p.league_id = l.id
+        WHERE p.phone_number IN %s
+        ORDER BY p.league_id
+    """, (tuple(variants),))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return jsonify({
+        'search_variants': variants,
+        'matches': [{'name': r[0], 'phone': r[1], 'league_id': r[2], 'league_name': r[3], 'active': r[4]} for r in rows]
+    })
+
 @app.route('/debug-league-11-season', methods=['GET'])
 def debug_league_11_season():
     """Temporary: Check season state for league 11"""
