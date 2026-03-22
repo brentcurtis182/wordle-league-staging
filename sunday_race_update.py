@@ -894,33 +894,8 @@ IMPORTANT RULES:
             import traceback
             logging.error(traceback.format_exc())
         
-        # Generate season image ONLY if there are potential season clinchers (or force_season_image for testing)
-        # Division mode: no separate season images — the summary text mentions season stakes when relevant
-        if is_division_mode:
-            pass  # Division mode only sends the weekly table image
-        else:
-            # Standard mode season image
-            logging.info(f"Season image check: potential_clinchers={potential_season_clinchers}, force={force_season_image}, weekly_wins={weekly_wins}")
-            if potential_season_clinchers or force_season_image:
-                try:
-                    season_image_data = [
-                        {'name': name, 'wins': wins}
-                        for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True)
-                    ]
-                    
-                    logging.info(f"Generating season image with data: {season_image_data}")
-                    season_img = generate_season_image(league_name, current_season, season_image_data)
-                    logging.info(f"Season image result: {season_img is not None}")
-                    if season_img:
-                        season_bytes = image_to_bytes(season_img)
-                        image_bytes_list.append(season_bytes)
-                        if channel_type == 'sms':
-                            season_media_sid = upload_image_to_twilio(season_bytes, twilio_sid, twilio_token, chat_service_sid)
-                            if season_media_sid:
-                                media_sids.append(season_media_sid)
-                                logging.info(f"Season image uploaded (stakes are high!): {season_media_sid}")
-                except Exception as img_error:
-                    logging.error(f"Failed to generate/upload season image: {img_error}")
+        # Season image generation removed - the AI-generated text with season stakes is sufficient
+        # Division mode and standard mode both only send the weekly standings image
         
         # Append league URL to the race message
         race_message_with_url = f"{race_message}\n\n📊 {league_url}"
