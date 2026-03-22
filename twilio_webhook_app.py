@@ -2303,7 +2303,7 @@ def auth_logout():
 @app.route('/dashboard')
 def dashboard():
     """Main dashboard page"""
-    from auth import validate_session, get_user_leagues
+    from auth import validate_session, get_user_leagues, get_shared_leagues
     from dashboard import render_dashboard
     
     session_token = request.cookies.get('session_token')
@@ -2316,10 +2316,11 @@ def dashboard():
         return redirect('/auth/login')
     
     leagues = get_user_leagues(user['id'])
+    shared_leagues = get_shared_leagues(user['id'])
     message = request.args.get('message')
     error = request.args.get('error')
     
-    return render_dashboard(user, leagues, message=message, error=error)
+    return render_dashboard(user, leagues, shared_leagues=shared_leagues, message=message, error=error)
 
 @app.route('/dashboard/profile')
 def dashboard_profile():

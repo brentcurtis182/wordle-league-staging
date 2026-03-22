@@ -1372,8 +1372,11 @@ def get_league_wix_url(league_id):
     }
     return wix_paths.get(league_id, f'league{league_id}')
 
-def render_dashboard(user, leagues, message=None, error=None):
+def render_dashboard(user, leagues, shared_leagues=None, message=None, error=None):
     """Render the main dashboard with leagues grouped by platform"""
+    
+    if shared_leagues is None:
+        shared_leagues = []
     
     # Group leagues by channel type
     sms_leagues = [l for l in leagues if (l.get('channel_type') or 'sms') == 'sms']
@@ -1516,6 +1519,30 @@ def render_dashboard(user, leagues, message=None, error=None):
             </div>
             
             {all_sections}
+            
+            {f'''
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 40px;">
+                <h2 style="color: {COLORS['text']};">Shared Leagues</h2>
+            </div>
+            <div class="platform-section">
+                <h3 class="platform-title">🤝 Leagues You're Playing In</h3>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 16px;">These leagues matched your phone number on file. You're a player in these leagues.</p>
+                <div class="league-grid">
+                    {"".join([f"""
+                    <div class="league-card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <h3>{sl['display_name']}</h3>
+                            <span style="background: {COLORS['accent_orange']}; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 600; white-space: nowrap;">Player</span>
+                        </div>
+                        <div class="meta">Playing as: {sl['player_name']}</div>
+                        <div class="actions">
+                            <a href="https://app.wordplayleague.com/leagues/{sl['slug']}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                        </div>
+                    </div>
+                    """ for sl in shared_leagues])}
+                </div>
+            </div>
+            ''' if shared_leagues else ''}
         </div>
         <script>
             {get_user_menu_script()}

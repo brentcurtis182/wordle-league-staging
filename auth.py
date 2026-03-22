@@ -401,6 +401,54 @@ def get_user_leagues(user_id):
         cursor.close()
         conn.close()
 
+def get_shared_leagues(user_id):
+    """Get leagues the user is a player in (matched by phone number) but does not manage"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get user's phone number
+        cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result or not result[0]:
+            return []
+        
+        user_phone = result[0]
+        
+        # Find leagues where this phone number is an active player,
+        # excluding leagues the user already manages (in user_leagues)
+        cursor.execute("""
+            SELECT DISTINCT l.id, l.name, l.display_name, l.slug, l.channel_type,
+                   p.name as player_name
+            FROM players p
+            JOIN leagues l ON p.league_id = l.id
+            WHERE p.phone_number = %s
+              AND p.active = TRUE
+              AND l.id NOT IN (SELECT league_id FROM user_leagues WHERE user_id = %s)
+            ORDER BY l.display_name
+        """, (user_phone, user_id))
+        
+        leagues = []
+        for row in cursor.fetchall():
+            leagues.append({
+                'id': row[0],
+                'name': row[1],
+                'display_name': row[2],
+                'slug': row[3],
+                'channel_type': row[4] or 'sms',
+                'player_name': row[5]
+            })
+        
+        logging.info(f"Found {len(leagues)} shared leagues for user {user_id} (phone: ...{user_phone[-4:]})")
+        return leagues
+        
+    except Exception as e:
+        logging.error(f"Error getting shared leagues: {e}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
+
 def assign_league_to_user(user_id, league_id, role='owner'):
     """Assign a league to a user"""
     conn = get_db_connection()
