@@ -2809,10 +2809,16 @@ def dashboard_add_player(league_id):
             """, (name, league_id))
         else:
             id_value = re.sub(r'\D', '', identifier)  # Clean phone number
+            # Normalize: ensure 11-digit format with leading '1' country code
+            if len(id_value) == 10:
+                id_value = '1' + id_value
             is_active_league = league_result[1] is not None  # twilio_conversation_sid
             
-            # Check if phone already exists in this league
-            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number = %s AND active = TRUE", (league_id, id_value))
+            # Check if phone already exists in this league (check both with and without country code)
+            phone_variants = [id_value]
+            if id_value.startswith('1') and len(id_value) == 11:
+                phone_variants.append(id_value[1:])
+            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number IN %s AND active = TRUE", (league_id, tuple(phone_variants)))
             if cursor.fetchone():
                 cursor.close()
                 conn.close()
@@ -2933,6 +2939,8 @@ def dashboard_edit_player(league_id):
             """, (new_name, id_value, player_id, league_id))
         else:
             new_phone = re.sub(r'\D', '', new_identifier) if new_identifier else None
+            if new_phone and len(new_phone) == 10:
+                new_phone = '1' + new_phone
             cursor.execute("""
                 UPDATE players SET name = %s, phone_number = %s WHERE id = %s AND league_id = %s
             """, (new_name, new_phone, player_id, league_id))
