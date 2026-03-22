@@ -545,54 +545,54 @@ def _get_shared_leagues_newsletter_body():
     signup_url = f"{APP_URL}/auth/register"
     
     return f"""
-    <p style="color: #e0e0e0; line-height: 1.6;">We just launched a new feature — <strong style="color: #00E8DA;">Shared Leagues</strong>. Now the players in your leagues can create their own account and instantly see every league they're part of, all in one place.</p>
+    <p style="color: #e0e0e0; line-height: 1.6;">We just launched a new feature — <strong style="color: #00E8DA;">Shared Leagues</strong>. Now you can see every league you're part of, all in one place on your dashboard.</p>
     
-    <p style="color: #e0e0e0; line-height: 1.6;">Here's how it works and what to tell your league members:</p>
+    <p style="color: #e0e0e0; line-height: 1.6;">Here's what's new:</p>
     
     <!-- How It Works -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
         <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin: 0 0 10px;">How It Works</p>
-        <p style="color: #bbb; margin: 0; line-height: 1.6;">When a player creates a free account at <strong style="color: #e0e0e0;">wordplayleague.com</strong> and adds their phone number to their profile, our system automatically matches that phone number to any active league they're in. Those leagues appear in a new <strong style="color: #00E8DA;">Shared Leagues</strong> section on their dashboard — no invites or setup needed.</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Add your phone number to your profile, and our system automatically matches it to any active league you're playing in. Those leagues appear in a new <strong style="color: #00E8DA;">Shared Leagues</strong> section on your dashboard — no invites or codes needed. It just works.</p>
     </td></tr></table>
     
-    <!-- Steps for Players -->
-    <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">📋 What to Tell Your Players</p>
+    <!-- Steps -->
+    <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">📋 Get Started</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
-        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">1. Create a free account at <a href="{signup_url}" style="color: #00E8DA; text-decoration: underline;">wordplayleague.com</a></td></tr>
-        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">2. Go to <strong style="color: #e0e0e0;">Profile</strong> and add the phone number they use in your league</td></tr>
-        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">3. Head back to the <strong style="color: #e0e0e0;">Dashboard</strong> — all their leagues will appear under <strong style="color: #00E8DA;">Shared Leagues</strong></td></tr>
-        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">4. Each league has a <strong style="color: #e0e0e0;">View</strong> button for quick access to the public league page</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">1. Log in or create a free account at <a href="{signup_url}" style="color: #00E8DA; text-decoration: underline;">wordplayleague.com</a></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">2. Go to <strong style="color: #e0e0e0;">Profile</strong> and add the phone number you use in your league</td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">3. Head back to the <strong style="color: #e0e0e0;">Dashboard</strong> — any leagues you're in will appear under <strong style="color: #00E8DA;">Shared Leagues</strong></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">4. Click <strong style="color: #e0e0e0;">View</strong> for quick access to your league's standings, scores, and season history</td></tr>
     </table>
     
-    <!-- What Players See -->
+    <!-- What You See -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FFA64D;"><tr><td style="padding: 20px;">
-        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">👀 What Players Can See</p>
+        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">👀 What You'll See</p>
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
-                    <strong style="color: #e0e0e0;">League Name & Their Player Name</strong><br>
-                    Each shared league card shows the league name and which player name they're matched to.
+                    <strong style="color: #e0e0e0;">Your Leagues at a Glance</strong><br>
+                    Each shared league card shows the league name and the player name you're matched to.
                 </td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
-                    <strong style="color: #e0e0e0;">View Button</strong><br>
-                    One-click access to the public league page with standings, scores, season history, and more.
+                    <strong style="color: #e0e0e0;">One-Click Access</strong><br>
+                    Hit View to jump straight to your league page with standings, scores, season winners, and more.
                 </td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #bbb; line-height: 1.6;">
                     <strong style="color: #e0e0e0;">Fully Automatic</strong><br>
-                    If a player is added to a new league in the future, it shows up on their dashboard automatically. No action needed from you or the player.
+                    Join a new league in the future? It shows up on your dashboard automatically — no extra steps.
                 </td>
             </tr>
         </table>
     </td></tr></table>
     
-    <!-- For Managers -->
+    <!-- For League Managers -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
-        <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 8px;">🔒 Nothing Changes for You</p>
-        <p style="color: #bbb; margin: 0; line-height: 1.6;">Players see their leagues in <strong style="color: #e0e0e0;">read-only</strong> mode. They can't change settings, manage players, or modify anything — that's still 100% in your control as the league manager. This just gives them a convenient home base to view their leagues.</p>
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 8px;">� League Managers — Spread the Word</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Let the players in your leagues know they can create an account and add their phone number to see their leagues on their own dashboard. Everything stays <strong style="color: #e0e0e0;">read-only</strong> for players — league settings and management are still fully in your control.</p>
     </td></tr></table>
     
     <div style="text-align: center; margin: 30px 0;">

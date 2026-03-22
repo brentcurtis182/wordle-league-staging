@@ -4996,19 +4996,14 @@ def render_admin_newsletter(user, templates, recipients, selected_template='', s
                        style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85em; font-weight: 600; border: 1px solid {COLORS['border']};">
                         👁 Preview
                     </a>
-                    <form method="POST" action="/admin/newsletter/send-test" style="display: inline;">
-                        <input type="hidden" name="template_key" value="{key}">
-                        <button type="submit" style="background: {COLORS['accent_orange']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
-                            📧 Send Test to Me
-                        </button>
-                    </form>
-                    <form method="POST" action="/admin/newsletter/send" style="display: inline;" 
-                          onsubmit="return confirm('Send this newsletter to ALL {recipient_count} recipients? This cannot be undone.');">
-                        <input type="hidden" name="template_key" value="{key}">
-                        <button type="submit" style="background: {COLORS['accent']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
-                            🚀 Send to All ({recipient_count})
-                        </button>
-                    </form>
+                    <button type="button" onclick="showModal('test', '{key}', '{tmpl['name']}')"
+                       style="background: {COLORS['accent_orange']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
+                        📧 Send Test to Me
+                    </button>
+                    <button type="button" onclick="showModal('all', '{key}', '{tmpl['name']}')"
+                       style="background: {COLORS['accent']}; color: #000; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 600; border: none; cursor: pointer;">
+                        🚀 Send to All ({recipient_count})
+                    </button>
                 </div>
             </div>
         </div>
@@ -5093,8 +5088,64 @@ def render_admin_newsletter(user, templates, recipients, selected_template='', s
             </details>
         </div>
         
+        <!-- Confirmation Modal -->
+        <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 28px; max-width: 440px; width: 90%; margin: auto; position: relative; top: 50%; transform: translateY(-50%);">
+                <h3 id="modalTitle" style="color: {COLORS['text']}; margin: 0 0 12px;"></h3>
+                <p id="modalDesc" style="color: {COLORS['text_muted']}; margin: 0 0 24px; line-height: 1.5;"></p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="hideModal()" style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 10px 20px; border-radius: 6px; font-size: 0.9em; font-weight: 600; border: 1px solid {COLORS['border']}; cursor: pointer;">Cancel</button>
+                    <form id="modalForm" method="POST" style="display:inline;">
+                        <input type="hidden" id="modalTemplateKey" name="template_key" value="">
+                        <button type="submit" id="modalConfirmBtn" style="padding: 10px 20px; border-radius: 6px; font-size: 0.9em; font-weight: 600; border: none; cursor: pointer;"></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
         <script>
             {get_user_menu_script()}
+            
+            function showModal(action, templateKey, templateName) {{
+                var modal = document.getElementById('confirmModal');
+                var title = document.getElementById('modalTitle');
+                var desc = document.getElementById('modalDesc');
+                var form = document.getElementById('modalForm');
+                var keyInput = document.getElementById('modalTemplateKey');
+                var btn = document.getElementById('modalConfirmBtn');
+                
+                keyInput.value = templateKey;
+                
+                if (action === 'test') {{
+                    title.textContent = 'Send Test Email';
+                    desc.textContent = 'This will send "' + templateName + '" to brentcurtis182@gmail.com only.';
+                    form.action = '/admin/newsletter/send-test';
+                    btn.textContent = 'Send Test';
+                    btn.style.background = '{COLORS['accent_orange']}';
+                    btn.style.color = '#000';
+                }} else {{
+                    title.textContent = 'Send to All Users';
+                    desc.textContent = 'This will send "' + templateName + '" to ALL {recipient_count} verified users. This cannot be undone.';
+                    form.action = '/admin/newsletter/send';
+                    btn.textContent = 'Send to All ({recipient_count})';
+                    btn.style.background = '{COLORS['accent']}';
+                    btn.style.color = '#000';
+                }}
+                
+                modal.style.display = 'block';
+            }}
+            
+            function hideModal() {{
+                document.getElementById('confirmModal').style.display = 'none';
+            }}
+            
+            document.getElementById('confirmModal').addEventListener('click', function(e) {{
+                if (e.target === this) hideModal();
+            }});
+            
+            document.addEventListener('keydown', function(e) {{
+                if (e.key === 'Escape') hideModal();
+            }});
         </script>
     </body>
     </html>
