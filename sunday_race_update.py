@@ -614,15 +614,16 @@ IMPORTANT RULES:
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
-6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently!
+6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently! Use the EXACT phrasing provided.
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
 9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
 10. This league has DIVISIONS (Division I and Division II) competing separately. Each division has its own weekly winner and its own season.
 11. Division seasons require 3 wins (not 4). Winning a Division II season earns a PROMOTION to Division I! When a Division I season ends, the worst player gets RELEGATED to Division II.
 12. Structure your message with Division I first, then Division II. Use line breaks between divisions.
-13. A player needs the number of wins shown in the prompt to win the season. Do NOT invent or exaggerate season standings.
-14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given."""
+13. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section for each division. Do NOT add, calculate, or infer win counts. If someone has "2 wins" listed, say "2 wins" - do NOT say they "need 3 wins" (everyone needs that).
+14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
+15. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -753,17 +754,17 @@ IMPORTANT RULES:
                                 clinchers_in_contention.append(player['name'])
                     if len(clinchers_in_contention) >= 3:
                         names_list = ", ".join(clinchers_in_contention[:-1]) + f" and {clinchers_in_contention[-1]}"
-                        season_clinch_text = f" EPIC SEASON STAKES: {names_list} ALL have 3 wins! A tie this week could mean SHARED Season {current_season} champions!"
+                        season_clinch_text = f" EPIC SEASON STAKES: {names_list} ALL have 3 wins (one win away from the season)! A tie this week could mean SHARED Season {current_season} champions!"
                     elif len(clinchers_in_contention) == 2:
-                        season_clinch_text = f" SEASON STAKES: {clinchers_in_contention[0]} and {clinchers_in_contention[1]} both have 3 wins - winner takes Season {current_season}, or they could share it!"
+                        season_clinch_text = f" SEASON STAKES: {clinchers_in_contention[0]} and {clinchers_in_contention[1]} both have 3 wins (one win away) - winner takes Season {current_season}, or they could share it!"
                 
                 if not season_clinch_text:
                     if leaders_who_could_clinch:
                         if len(leaders_who_could_clinch) == 1:
-                            season_clinch_text = f" SEASON STAKES: If {leaders_who_could_clinch[0]} wins this week, they clinch Season {current_season}!"
+                            season_clinch_text = f" SEASON STAKES: {leaders_who_could_clinch[0]} has 3 wins (one win away from the season)! If they win this week, they clinch Season {current_season}!"
                         else:
                             clinchers_list = " or ".join(leaders_who_could_clinch)
-                            season_clinch_text = f" SEASON STAKES: If {clinchers_list} wins this week, they clinch Season {current_season}!"
+                            season_clinch_text = f" SEASON STAKES: {clinchers_list} each have 3 wins (one win away)! If either wins this week, they clinch Season {current_season}!"
                     else:
                         contenders_who_could_clinch = []
                         for player in standings:
@@ -772,10 +773,10 @@ IMPORTANT RULES:
                                     contenders_who_could_clinch.append(player['name'])
                         if contenders_who_could_clinch:
                             if len(contenders_who_could_clinch) == 1:
-                                season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} could clinch Season {current_season} with a win!"
+                                season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} has 3 wins (one win away from the season) and could clinch Season {current_season} with a win!"
                             else:
                                 clinchers_list = " or ".join(contenders_who_could_clinch[:2])
-                                season_clinch_text = f" SEASON STAKES: {clinchers_list} could clinch Season {current_season} with a win!"
+                                season_clinch_text = f" SEASON STAKES: {clinchers_list} each have 3 wins (one win away) and could clinch Season {current_season} with a win!"
                 
                 scenario_text = " ".join(scenarios) + season_clinch_text
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
@@ -803,12 +804,13 @@ IMPORTANT RULES:
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
-6. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently!
+6. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently! Use the EXACT phrasing provided (e.g., "one win away from the season").
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
 9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
-10. A player needs the number of wins shown in the prompt to win the season. Do NOT invent or exaggerate season standings.
-11. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given."""
+10. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section. Do NOT add, calculate, or infer win counts. If someone has "3 wins" listed, say "3 wins" - do NOT say they "need 4 wins" (everyone needs that). Say they are "one win away" if the prompt says so.
+11. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
+12. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
