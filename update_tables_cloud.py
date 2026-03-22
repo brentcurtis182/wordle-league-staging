@@ -530,12 +530,14 @@ def check_and_handle_season_transition(league_id):
             ON CONFLICT (league_id, season_number) DO NOTHING
         """, (league_id, new_season, next_season_start))
         
-        # Update league_seasons table
+        # Update league_seasons table (both current_season AND season_start_week)
         cursor.execute("""
             UPDATE league_seasons
-            SET current_season = %s
+            SET current_season = %s,
+                season_start_week = %s,
+                updated_at = CURRENT_TIMESTAMP
             WHERE league_id = %s
-        """, (new_season, league_id))
+        """, (new_season, next_season_start, league_id))
         
         conn.commit()
         
