@@ -1978,25 +1978,30 @@ def _render_division_players(league, players, is_chat_platform):
         </div>
         
         <!-- Promotion / Relegation Settings -->
-        <div style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="color: {COLORS['accent']}; font-size: 0.85em; font-weight: 600;">&#x2B06; Promoted Players</span>
-                <select id="promotedCount" onchange="savePromoRelegCounts()" 
-                    style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent']}50; border-radius: 6px; padding: 4px 8px; font-size: 0.85em; cursor: pointer;">
-                    <option value="1" {'selected' if promo_count == 1 else ''}>1</option>
-                    <option value="2" {'selected' if promo_count == 2 else ''}>2</option>
-                    <option value="3" {'selected' if promo_count == 3 else ''}>3</option>
-                </select>
+        <div style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 10px; padding: 16px 20px;">
+            <div style="margin-bottom: 10px;">
+                <span style="color: {COLORS['text']}; font-weight: 600; font-size: 0.9em;">Season Movement</span>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.8em; margin: 4px 0 0;">How many players move between divisions when a season ends. Default is 1. Can be adjusted at any time.</p>
             </div>
-            <span style="color: {COLORS['border']};">|</span>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="color: {COLORS['accent_orange']}; font-size: 0.85em; font-weight: 600;">&#x2B07; Relegated Players</span>
-                <select id="relegatedCount" onchange="savePromoRelegCounts()" 
-                    style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent_orange']}50; border-radius: 6px; padding: 4px 8px; font-size: 0.85em; cursor: pointer;">
-                    <option value="1" {'selected' if releg_count == 1 else ''}>1</option>
-                    <option value="2" {'selected' if releg_count == 2 else ''}>2</option>
-                    <option value="3" {'selected' if releg_count == 3 else ''}>3</option>
-                </select>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="color: {COLORS['accent']}; font-size: 0.85em; font-weight: 600; min-width: 150px;">&#x2B06; Promoted Players</span>
+                    <select id="promotedCount" onchange="confirmPromoRelegChange()" 
+                        style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent']}50; border-radius: 6px; padding: 5px 10px; font-size: 0.85em; cursor: pointer;">
+                        <option value="1" {'selected' if promo_count == 1 else ''}>1</option>
+                        <option value="2" {'selected' if promo_count == 2 else ''}>2</option>
+                        <option value="3" {'selected' if promo_count == 3 else ''}>3</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="color: {COLORS['accent_orange']}; font-size: 0.85em; font-weight: 600; min-width: 150px;">&#x2B07; Relegated Players</span>
+                    <select id="relegatedCount" onchange="confirmPromoRelegChange()" 
+                        style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['accent_orange']}50; border-radius: 6px; padding: 5px 10px; font-size: 0.85em; cursor: pointer;">
+                        <option value="1" {'selected' if releg_count == 1 else ''}>1</option>
+                        <option value="2" {'selected' if releg_count == 2 else ''}>2</option>
+                        <option value="3" {'selected' if releg_count == 3 else ''}>3</option>
+                    </select>
+                </div>
             </div>
         </div>
         
@@ -2845,6 +2850,19 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeResetModal()">Cancel</button>
                     <button type="button" class="btn btn-small" id="resetModalConfirmBtn" style="background: {COLORS['accent_orange']}; color: white;" onclick="confirmReset()">Yes, Reset</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Season Movement Confirmation Modal -->
+        <div class="modal-overlay" id="promoRelegModal">
+            <div class="modal">
+                <h3>Update Season Movement?</h3>
+                <p>Update the number of players that move between divisions at the end of each season:</p>
+                <div id="promoRelegDesc" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.95em; line-height: 1.6;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="cancelPromoReleg()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmPromoReleg()">Yes, Update</button>
                 </div>
             </div>
         </div>
@@ -4049,27 +4067,54 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 if (div2Label) div2Label.textContent = '(' + div2 + ' players)';
             }}
             
-            function savePromoRelegCounts() {{
-                var promoted = document.getElementById('promotedCount');
-                var relegated = document.getElementById('relegatedCount');
-                if (!promoted || !relegated) return;
+            var prevPromoted = '{promo_count}';
+            var prevRelegated = '{releg_count}';
+            
+            function confirmPromoRelegChange() {{
+                var promoted = document.getElementById('promotedCount').value;
+                var relegated = document.getElementById('relegatedCount').value;
+                
+                var promoModal = document.getElementById('promoRelegModal');
+                var desc = document.getElementById('promoRelegDesc');
+                desc.innerHTML = 'Promoted Players: <strong style="color:{COLORS["accent"]};">' + promoted + '</strong><br>Relegated Players: <strong style="color:{COLORS["accent_orange"]};">' + relegated + '</strong>';
+                promoModal.classList.add('active');
+            }}
+            
+            function confirmPromoReleg() {{
+                var promoted = document.getElementById('promotedCount').value;
+                var relegated = document.getElementById('relegatedCount').value;
+                document.getElementById('promoRelegModal').classList.remove('active');
                 
                 fetch('/dashboard/league/{league['id']}/division-counts', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ promoted_count: parseInt(promoted.value), relegated_count: parseInt(relegated.value) }})
+                    body: JSON.stringify({{ promoted_count: parseInt(promoted), relegated_count: parseInt(relegated) }})
                 }})
                 .then(r => r.json())
                 .then(data => {{
                     if (data.success) {{
-                        showToast('Promotion/relegation counts updated');
+                        prevPromoted = promoted;
+                        prevRelegated = relegated;
+                        showToast('Season movement updated');
                     }} else {{
+                        revertPromoReleg();
                         showToast('Error: ' + (data.error || 'Failed to update'));
                     }}
                 }})
                 .catch(err => {{
+                    revertPromoReleg();
                     showToast('Error saving counts');
                 }});
+            }}
+            
+            function cancelPromoReleg() {{
+                document.getElementById('promoRelegModal').classList.remove('active');
+                revertPromoReleg();
+            }}
+            
+            function revertPromoReleg() {{
+                document.getElementById('promotedCount').value = prevPromoted;
+                document.getElementById('relegatedCount').value = prevRelegated;
             }}
             
             // Touch support for mobile drag-and-drop

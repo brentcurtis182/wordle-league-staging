@@ -904,9 +904,9 @@ def generate_division_weekly_totals_html(league_data):
         promoted_count = league_data.get('promoted_count', 1)
         relegated_count = league_data.get('relegated_count', 1)
         if div_num == 1:
-            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #ff5c5c; font-style: italic;">&#x2B07; Relegated Players: {relegated_count}</p>\n'
+            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #00E8DA; font-style: italic;">&#x2B07; Relegated Players: {relegated_count}</p>\n'
         else:
-            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #00E8DA; font-style: italic;">&#x2B06; Promoted Players: {promoted_count}</p>\n'
+            html += f'<p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B06; Promoted Players: {promoted_count}</p>\n'
         
         html += '</div>\n'
     
