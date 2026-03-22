@@ -7194,10 +7194,11 @@ def admin_newsletter_send_test():
             return redirect(f'/admin/newsletter?error=Template not found')
         
         template = templates[template_key]
-        send_newsletter_single(user['email'], user.get('first_name'), template['subject'], template['body_html'])
+        test_email = 'brentcurtis182@gmail.com'
+        send_newsletter_single(test_email, user.get('first_name'), template['subject'], template['body_html'])
         
-        logging.info(f"Test newsletter '{template['name']}' sent to {user['email']}")
-        return redirect(f'/admin/newsletter?sent=1&template={template_key}&error=Test email sent to {user["email"]}')
+        logging.info(f"Test newsletter '{template['name']}' sent to {test_email}")
+        return redirect(f'/admin/newsletter?sent=1&template={template_key}&error=Test email sent to {test_email}')
     except Exception as e:
         logging.error(f"Error sending test newsletter: {e}")
         return redirect(f'/admin/newsletter?error={_safe_redirect_msg(e)}')
