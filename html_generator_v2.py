@@ -832,9 +832,10 @@ def generate_division_weekly_totals_html(league_data):
             
             # Check immunity for season total display
             st_val = season_totals.get(player_name)
-            # Color "Immune" text with division color
+            # Promoted players in Div I show "Immune", relegated players in Div II show "Relegated"
             if st_val is None:
-                season_total_display = f'<span style="color: {div_color};">Immune</span>'
+                immune_label = 'Immune' if div_num == 1 else 'Relegated'
+                season_total_display = f'<span style="color: {div_color};">{immune_label}</span>'
             else:
                 season_total_display = str(st_val) if st_val else "-"
             
@@ -878,9 +879,10 @@ def generate_division_weekly_totals_html(league_data):
         for p in div_players_list:
             if p['name'] not in div_stats:
                 st_val = season_totals.get(p['name'])
-                # Color "Immune" text with division color
+                # Promoted players in Div I show "Immune", relegated players in Div II show "Relegated"
                 if st_val is None:
-                    season_total_display = f'<span style="color: {div_color};">Immune</span>'
+                    immune_label = 'Immune' if div_num == 1 else 'Relegated'
+                    season_total_display = f'<span style="color: {div_color};">{immune_label}</span>'
                 else:
                     season_total_display = str(st_val) if st_val else "-"
                 name_style = f' style="color: {div_color};"' if p['name'] in immune_players else ''
@@ -933,16 +935,19 @@ function toggleScoreView(divNum) {
         if (!originalOrder[divNum]) {
             originalOrder[divNum] = rows.map(function(r) { return r; });
         }
-        // Sort by season total: numeric ascending (lower=better), Immune and - go to bottom
+        // Sort by season total: numeric ascending (lower=better), Immune/Relegated and - go to bottom
+        var statusLabels = ['Immune', 'Relegated'];
         rows.sort(function(a, b) {
             var aCell = a.querySelector('.score-col-season-' + divNum);
             var bCell = b.querySelector('.score-col-season-' + divNum);
             var aVal = aCell ? aCell.textContent.trim() : '-';
             var bVal = bCell ? bCell.textContent.trim() : '-';
-            var aNum = (aVal === 'Immune' || aVal === '-' || aVal === '0') ? 99999 : parseInt(aVal);
-            var bNum = (bVal === 'Immune' || bVal === '-' || bVal === '0') ? 99999 : parseInt(bVal);
-            if (aVal === 'Immune' && bVal !== 'Immune') return 1;
-            if (bVal === 'Immune' && aVal !== 'Immune') return -1;
+            var aIsStatus = statusLabels.indexOf(aVal) >= 0;
+            var bIsStatus = statusLabels.indexOf(bVal) >= 0;
+            var aNum = (aIsStatus || aVal === '-' || aVal === '0') ? 99999 : parseInt(aVal);
+            var bNum = (bIsStatus || bVal === '-' || bVal === '0') ? 99999 : parseInt(bVal);
+            if (aIsStatus && !bIsStatus) return 1;
+            if (bIsStatus && !aIsStatus) return -1;
             if (aVal === '-' && bVal !== '-') return 1;
             if (bVal === '-' && aVal !== '-') return -1;
             return aNum - bNum;
