@@ -2038,6 +2038,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
     ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
     
+    # Division promotion/relegation counts (used in JS)
+    promo_count = league.get('promoted_count', 1)
+    releg_count = league.get('relegated_count', 1)
+    
     # Get reset/revert statuses
     try:
         from league_reset import get_season_revert_status, get_season_winners_revert_status, get_alltime_revert_status, get_all_player_revert_statuses, ensure_reset_snapshots_table
