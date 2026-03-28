@@ -4037,6 +4037,7 @@ def recent_messages(league_id):
             </style>
         </head>
         <body>
+            <p style="margin-bottom: 16px;"><a href="/admin/league/{league_id}" style="color: #00E8DA; text-decoration: none;">&larr; Back to {league_name}</a> &nbsp;|&nbsp; <a href="/admin/dashboard" style="color: #FFA64D; text-decoration: none;">Admin Dashboard</a></p>
             <h1>📱 Recent Messages - {league_name}</h1>
             <p>{nav_links}</p>
             <p style="color: #818384;">Showing last 20 messages (newest first)</p>
