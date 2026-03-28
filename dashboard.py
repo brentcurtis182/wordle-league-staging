@@ -2768,8 +2768,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 3: Link your channel</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Send this verification code in the channel:</p>
-                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
-                            {league.get('verification_code') or 'Loading...'}
+                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                            <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600; flex: 1;">
+                                {league.get('verification_code') or 'Loading...'}
+                            </div>
+                            <button type="button" onclick="copyToClipboard('{league.get('verification_code') or ''}', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
                         </div>
                     </div>
                     """ if channel_type == 'slack' else f"""
@@ -2782,8 +2785,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Link your channel</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">In your Discord channel, use the slash command with this code:</p>
-                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.1em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
-                            /wordle-link {league.get('verification_code') or 'Loading...'}
+                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                            <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.1em; text-align: center; color: {COLORS['accent']}; font-weight: 600; flex: 1;">
+                                /wordle-link {league.get('verification_code') or 'Loading...'}
+                            </div>
+                            <button type="button" onclick="copyToClipboard('/wordle-link {league.get('verification_code') or ''}', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
                         </div>
                     </div>
                     
@@ -2796,16 +2802,22 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 1: Add the Wordle Bot to your group</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
-                        <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']};">
-                            +1 (858) 666-6827
+                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                            <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']}; flex: 1;">
+                                +1 (858) 666-6827
+                            </div>
+                            <button type="button" onclick="copyToClipboard('+18586666827', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
                         </div>
                     </div>
                     
                     <div style="background: {COLORS['bg_dark']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <h4 style="margin: 0 0 12px 0; color: {COLORS['text']};">Step 2: Send the secret code phrase</h4>
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Once the bot is added, send this phrase in the group chat:</p>
-                        <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600;">
-                            {league.get('verification_code') or 'Loading...'}
+                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                            <div id="verificationCode" style="background: {COLORS['bg_card']}; padding: 16px; border-radius: 6px; font-size: 1.3em; text-align: center; color: {COLORS['accent']}; font-weight: 600; flex: 1;">
+                                {league.get('verification_code') or 'Loading...'}
+                            </div>
+                            <button type="button" onclick="copyToClipboard('{league.get('verification_code') or ''}', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
                         </div>
                     </div>
                     """}
@@ -3385,6 +3397,25 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     }}
                 }})
                 .catch(error => alert('Error: ' + error));
+            }}
+            
+            function copyToClipboard(text, btn) {{
+                navigator.clipboard.writeText(text).then(function() {{
+                    var orig = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(function() {{ btn.textContent = orig; }}, 2000);
+                }}).catch(function() {{
+                    // Fallback for older browsers
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    var orig = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(function() {{ btn.textContent = orig; }}, 2000);
+                }});
             }}
             
             function checkActivationStatus() {{
