@@ -4606,6 +4606,33 @@ def render_admin_dashboard(user, leagues):
                 font-size: 0.85em;
                 margin-top: 4px;
             }}
+            .modal-overlay {{
+                display: none;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.7);
+                z-index: 1000;
+                align-items: center;
+                justify-content: center;
+            }}
+            .modal-overlay.active {{
+                display: flex;
+            }}
+            .modal {{
+                background: {COLORS['bg_card']};
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 440px;
+                width: 90%;
+                border: 1px solid {COLORS['border']};
+            }}
+            .modal h3 {{
+                margin: 0 0 12px 0;
+            }}
+            .modal p {{
+                color: {COLORS['text_muted']};
+                margin: 0;
+            }}
         </style>
     </head>
     <body>
