@@ -3059,24 +3059,33 @@ def dashboard_delete_league(league_id):
         cursor.execute("SELECT id FROM players WHERE league_id = %s", (league_id,))
         player_ids = [row[0] for row in cursor.fetchall()]
         
-        # Delete in order
-        # 1. Delete weekly winners
-        cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
+        # Delete in order (children before parents to avoid FK violations)
+        # 1. Delete division-related tables
+        cursor.execute("DELETE FROM division_seasons WHERE league_id = %s", (league_id,))
+        cursor.execute("DELETE FROM division_season_boundaries WHERE league_id = %s", (league_id,))
+        cursor.execute("DELETE FROM division_snapshots WHERE league_id = %s", (league_id,))
         
-        # 2. Delete latest scores  
+        # 2. Delete weekly winners and season winners
+        cursor.execute("DELETE FROM weekly_winners WHERE league_id = %s", (league_id,))
+        cursor.execute("DELETE FROM season_winners WHERE league_id = %s", (league_id,))
+        
+        # 3. Delete seasons
+        cursor.execute("DELETE FROM seasons WHERE league_id = %s", (league_id,))
+        
+        # 4. Delete latest scores  
         cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
         
-        # 3. Delete scores (via player_ids since scores table doesn't have league_id)
+        # 5. Delete scores (via player_ids since scores table doesn't have league_id)
         if player_ids:
             cursor.execute("DELETE FROM scores WHERE player_id = ANY(%s)", (player_ids,))
         
-        # 4. Delete players
+        # 6. Delete players
         cursor.execute("DELETE FROM players WHERE league_id = %s", (league_id,))
         
-        # 5. Delete user_leagues associations
+        # 7. Delete user_leagues associations
         cursor.execute("DELETE FROM user_leagues WHERE league_id = %s", (league_id,))
         
-        # 6. Finally delete the league itself
+        # 8. Finally delete the league itself
         cursor.execute("DELETE FROM leagues WHERE id = %s", (league_id,))
         
         conn.commit()
