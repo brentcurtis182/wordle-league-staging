@@ -125,8 +125,8 @@ def _enable_division_mode(league_id, cursor, conn):
     """, (league_id,))
     players = cursor.fetchall()
     
-    if len(players) < 4:
-        return {'success': False, 'error': 'Need at least 4 active players for division mode'}
+    if len(players) < 5:
+        return {'success': False, 'error': 'Need at least 5 active players for division mode'}
     
     # Snapshot current state for potential revert
     # Save: player divisions (all NULL currently), current weekly winners, season state
