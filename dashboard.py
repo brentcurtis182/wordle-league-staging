@@ -3453,7 +3453,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         stopActivationPolling();
                         window.location.reload();
                     }} else {{
-                        alert('League not yet activated. Make sure you\'ve added the bot to your group and sent the verification code.');
+                        alert('League not yet activated. Make sure you\\'ve added the bot to your group and sent the verification code.');
                     }}
                 }})
                 .catch(error => alert('Error: ' + error));
