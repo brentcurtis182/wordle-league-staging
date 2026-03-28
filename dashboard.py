@@ -4671,11 +4671,58 @@ def render_admin_dashboard(user, leagues):
             </div>
         </div>
         
+        <!-- AI Filter Confirmation Modal -->
+        <div class="modal-overlay" id="aiFilterModal">
+            <div class="modal">
+                <h3 id="aiFilterModalTitle">Toggle AI Filter?</h3>
+                <p id="aiFilterModalText"></p>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="cancelAiFilterToggle()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmAiFilterToggle()">Yes, Update</button>
+                </div>
+            </div>
+        </div>
+        
         <script>
             {get_user_menu_script()}
             
-            // Toggle AI Filter for a league (admin only)
+            // AI Filter toggle with confirmation modal
+            var pendingFilterLeagueId = null;
+            var pendingFilterTd = null;
+            
             function toggleAiFilter(leagueId, td) {{
+                var badge = td.querySelector('.ai-filter-badge');
+                var currentlyOn = badge.textContent.trim() === 'ON';
+                var leagueName = td.closest('tr').querySelector('.frozen-col').textContent.trim();
+                
+                pendingFilterLeagueId = leagueId;
+                pendingFilterTd = td;
+                
+                var title = currentlyOn ? 'Turn OFF AI Filter?' : 'Turn ON AI Filter?';
+                var msg = currentlyOn
+                    ? 'This will unlock tone settings for <strong>' + leagueName + '</strong>. Managers will be able to set any tone level.'
+                    : 'This will lock all AI tones to <strong>Gentle</strong> for <strong>' + leagueName + '</strong>. Managers will not be able to change the tone.';
+                
+                document.getElementById('aiFilterModalTitle').textContent = title;
+                document.getElementById('aiFilterModalText').innerHTML = msg;
+                document.getElementById('aiFilterModal').classList.add('active');
+            }}
+            
+            function cancelAiFilterToggle() {{
+                document.getElementById('aiFilterModal').classList.remove('active');
+                pendingFilterLeagueId = null;
+                pendingFilterTd = null;
+            }}
+            
+            function confirmAiFilterToggle() {{
+                document.getElementById('aiFilterModal').classList.remove('active');
+                var leagueId = pendingFilterLeagueId;
+                var td = pendingFilterTd;
+                pendingFilterLeagueId = null;
+                pendingFilterTd = null;
+                
+                if (!leagueId || !td) return;
+                
                 var badge = td.querySelector('.ai-filter-badge');
                 var oldText = badge.textContent;
                 badge.textContent = '...';
