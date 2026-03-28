@@ -285,7 +285,8 @@ def get_base_styles():
             margin-bottom: 8px;
         }}
         .player-item .name {{ font-weight: 500; }}
-        .player-item .phone {{ color: {COLORS['text_muted']}; font-size: 0.9em; }}
+        .player-item .phone {{ color: {COLORS['text_muted']} !important; font-size: 0.9em; }}
+        .player-item .phone a {{ color: {COLORS['text_muted']} !important; text-decoration: none; }}
         .alert {{
             padding: 16px 20px;
             border-radius: 8px;
@@ -2134,6 +2135,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     <head>
         <title>{league['display_name']} - Manage League</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="format-detection" content="telephone=no">
         <style>
             {get_base_styles()}
             .back-link {{
