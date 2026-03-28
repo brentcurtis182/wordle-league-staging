@@ -3358,7 +3358,32 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('activatePasscode').value = '';
             }}
             
+            var activationPollInterval = null;
+            
+            function startActivationPolling() {{
+                stopActivationPolling();
+                activationPollInterval = setInterval(function() {{
+                    fetch('/dashboard/league/{league['id']}/check-status')
+                    .then(function(r) {{ return r.json(); }})
+                    .then(function(data) {{
+                        if (data.active) {{
+                            stopActivationPolling();
+                            window.location.reload();
+                        }}
+                    }})
+                    .catch(function() {{}});
+                }}, 5000);
+            }}
+            
+            function stopActivationPolling() {{
+                if (activationPollInterval) {{
+                    clearInterval(activationPollInterval);
+                    activationPollInterval = null;
+                }}
+            }}
+            
             function closeActivateModal() {{
+                stopActivationPolling();
                 document.getElementById('activateModal').classList.remove('active');
             }}
             
@@ -3369,6 +3394,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     document.getElementById('activateSteps').style.display = 'block';
                     // Generate code phrase after unlocking
                     generateNewCode();
+                    // Start auto-polling for activation
+                    startActivationPolling();
                 }} else {{
                     alert('Incorrect passcode. Contact support for access.');
                 }}
@@ -3423,9 +3450,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 .then(response => response.json())
                 .then(data => {{
                     if (data.active) {{
+                        stopActivationPolling();
                         window.location.reload();
                     }} else {{
-                        alert('League not yet activated. Make sure you\\'ve added the bot to your group and sent the verification code.');
+                        alert('League not yet activated. Make sure you\'ve added the bot to your group and sent the verification code.');
                     }}
                 }})
                 .catch(error => alert('Error: ' + error));
