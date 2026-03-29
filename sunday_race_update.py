@@ -398,7 +398,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
         elif text and status == 'eliminated':
             eliminated.append(player['name'])
     
-    race_is_decided = all_eligible_posted and len(players_who_can_catch_up) == 0
+    race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
     
     # Build scenario
     scenarios = []
@@ -720,7 +720,9 @@ IMPORTANT RULES:
                     elif text and status == 'eliminated':
                         eliminated.append(player['name'])
                 
-                race_is_decided = all_eligible_posted and len(players_who_can_catch_up) == 0
+                # Race is decided if no one who hasn't posted can catch up
+                # (even if eliminated players haven't posted yet — they can't change the outcome)
+                race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
                 
                 if all_players_posted or race_is_decided:
                     if len(leaders) > 1:
