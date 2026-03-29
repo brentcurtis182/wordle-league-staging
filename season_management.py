@@ -61,10 +61,48 @@ def create_league_seasons_table():
     logging.info("league_seasons table created/verified")
 
 def get_current_season(league_id):
-    """Get the current season number for a league"""
+    """Get the current season number for a league.
+    
+    Uses the seasons table as the source of truth (most recent season with no end_week,
+    or the highest season_number). Falls back to league_seasons if no seasons entry exists.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Primary source: seasons table (has correct start_week values)
+    cursor.execute("""
+        SELECT season_number, start_week
+        FROM seasons
+        WHERE league_id = %s
+        ORDER BY season_number DESC
+        LIMIT 1
+    """, (league_id,))
+    
+    seasons_result = cursor.fetchone()
+    if seasons_result:
+        season_num = seasons_result[0]
+        start_week = seasons_result[1]
+        
+        # Sync league_seasons table to stay consistent
+        cursor.execute("""
+            INSERT INTO league_seasons (league_id, current_season, season_start_week)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (league_id) DO UPDATE
+            SET current_season = EXCLUDED.current_season,
+                season_start_week = EXCLUDED.season_start_week,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE league_seasons.current_season != EXCLUDED.current_season
+               OR league_seasons.season_start_week != EXCLUDED.season_start_week
+        """, (league_id, season_num, start_week))
+        if cursor.rowcount > 0:
+            conn.commit()
+            logging.info(f"Synced league_seasons for league {league_id}: season={season_num}, start_week={start_week}")
+        
+        cursor.close()
+        conn.close()
+        return season_num, start_week
+    
+    # Fallback: league_seasons table
     cursor.execute("""
         SELECT current_season, season_start_week
         FROM league_seasons

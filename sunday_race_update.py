@@ -622,16 +622,17 @@ IMPORTANT RULES:
 3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
 4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
 5. Focus on players who realistically CAN still win or tie
-6. Include SEASON STAKES info if provided - this is CRITICAL context about clinching the season! Always mention it prominently! Use the EXACT phrasing provided.
+6. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS section. If the RACE ANALYSIS for a division does NOT contain "SEASON STAKES" or "SEASON CLINCH", do NOT mention clinching, season wins, or season implications for that division AT ALL.
 7. Use emojis for excitement!
 8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
+9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" or "is on the verge of clinching" unless the RACE ANALYSIS text EXPLICITLY contains "SEASON CLINCH" or "SEASON STAKES" for that specific division. Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
 10. This league has DIVISIONS (Division I and Division II) competing separately. Each division has its own weekly winner and its own season.
 11. Division seasons require 3 wins (not 4). Winning a Division II season earns a PROMOTION to Division I! When a Division I season ends, the worst player gets RELEGATED to Division II.
 12. Structure your message with Division I first, then Division II. Use line breaks between divisions.
-13. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section for each division. Do NOT add, calculate, or infer win counts. If someone has "2 wins" listed, say "2 wins" - do NOT say they "need 3 wins" (everyone needs that).
+13. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section for each division. Do NOT add, calculate, or infer win counts. If someone has "1 win" listed, say "1 win" - NEVER inflate it.
 14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
-15. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data."""
+15. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data.
+16. If a division's RACE ANALYSIS has no SEASON STAKES or SEASON CLINCH text, just describe the weekly race for that division - do NOT add any season commentary."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -640,7 +641,7 @@ IMPORTANT RULES:
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=350,
-                temperature=0.5
+                temperature=0.3
             )
             
             race_message = response.choices[0].message.content.strip()
