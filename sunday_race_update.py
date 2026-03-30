@@ -274,10 +274,31 @@ def compute_player_scenario(player, leader_total, leader_names):
         non_fail_count = len(non_fail_scores)
         if non_fail_count == 4:
             current_total = sum(sorted(non_fail_scores)[:4])
+            # For 4-game players, the 5th score ADDS to their total (not replaces)
+            # best_5_total = current_total + new_score
+            # To beat leader: current_total + new_score < leader_total
+            # To tie leader: current_total + new_score = leader_total
+            best_possible = current_total + 1  # perfect score
+            worst_possible = current_total + 6  # worst non-fail score
+            
+            if best_possible > leader_total:
+                # Even a perfect 1 can't tie/beat the leader
+                return f"{name} (at {current_total} with 4 games) is mathematically eliminated", 'eliminated'
+            
+            # They CAN catch up — figure out what they need
+            # For 4-game players: new_total = current_total + new_score
+            # score_to_tie = leader_total - current_total (score that ties)
+            # score_to_win = score_to_tie - 1 (score that beats)
             score_to_tie = leader_total - current_total
             score_to_win = score_to_tie - 1
-            if score_to_tie <= 0:
-                return f"{name} (at {current_total} with 4 games) is mathematically eliminated", 'eliminated'
+            
+            # If even worst possible score (6) beats the leader, they win no matter what
+            if worst_possible < leader_total:
+                return f"{name} (at {current_total} with 4 games) just needs to post today to qualify and WIN — any score beats the leader!", 'can_catch_up'
+            elif worst_possible == leader_total:
+                return f"{name} (at {current_total} with 4 games) just needs to post today to qualify and at minimum TIE the leader!", 'can_catch_up'
+            
+            # They need a specific score range to catch up
             text = get_catch_up_text(name, score_to_win, score_to_tie, current_total, 4)
             if text:
                 if "eliminated" in text:
@@ -678,15 +699,33 @@ IMPORTANT RULES:
                     season_wins_lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
             season_wins_summary = "\n".join(season_wins_lines) if season_wins_lines else "  No wins yet this season"
             
+            prompt = None
+            
             if not eligible:
                 logging.info(f"No eligible players (5+ games) in league {league_id} - sending 'no winner this week' message")
                 prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly win. You need at least 5 scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
             elif len(eligible) == 1:
-                # Only one eligible player - they have it locked!
+                # Check if any ineligible player with 4 games could still qualify and beat the leader
                 winner = eligible[0]
-                logging.info(f"Only one eligible player in league {league_id}: {winner['name']} has it locked")
-                prompt = f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at {winner['best_5_total']}! No one else has enough scores to compete. Congratulate the winner! Use emojis. Keep it under 200 characters."
-            else:
+                potential_qualifiers = []
+                for p in standings:
+                    if not p['eligible'] and p['days_posted'] >= 4:
+                        non_fail = [s for s in p['scores'].values() if s != 7]
+                        if len(non_fail) == 4:
+                            current_total = sum(sorted(non_fail)[:4])
+                            # With a 5th score of 6 (worst non-fail), could they beat or tie the leader?
+                            if current_total + 6 <= winner['best_5_total']:
+                                potential_qualifiers.append(p)
+                
+                if not potential_qualifiers:
+                    # Truly locked - no one can qualify and beat them
+                    logging.info(f"Only one eligible player in league {league_id}: {winner['name']} has it locked")
+                    prompt = f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at {winner['best_5_total']}! No one else has enough scores to compete. Congratulate the winner! Use emojis. Keep it under 200 characters."
+                else:
+                    # Someone could still qualify and beat the leader - fall through to full analysis
+                    logging.info(f"Only one eligible player but {[p['name'] for p in potential_qualifiers]} could still qualify and beat them")
+            
+            if prompt is None and len(eligible) >= 1:
                 # Find current leader(s) among eligible players
                 leader_total = eligible[0]['best_5_total']
                 leaders = [s for s in eligible if s['best_5_total'] == leader_total]
