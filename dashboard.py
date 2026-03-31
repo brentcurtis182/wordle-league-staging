@@ -4749,6 +4749,10 @@ def render_admin_dashboard(user, leagues):
                                 <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
                                 <td class="a2p-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
+                            <tr id="phoneNumbersRow" style="background-color: {COLORS['bg_card']};">
+                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Phone Numbers (<span class="phone-numbers-count">...</span>)</td>
+                                <td class="phone-numbers-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
+                            </tr>
                             <tr id="grandTotalRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['accent']};">
                                 <td colspan="10" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
                                 <td class="grand-total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center; font-size: 1.1em;">...</td>
@@ -4950,6 +4954,8 @@ def render_admin_dashboard(user, leagues):
                         var tc = document.querySelector('.total-cost');
                         var cf = document.querySelector('.carrier-fees-cost');
                         var a2p = document.querySelector('.a2p-cost');
+                        var pnCost = document.querySelector('.phone-numbers-cost');
+                        var pnCount = document.querySelector('.phone-numbers-count');
                         var gt = document.querySelector('.grand-total-cost');
                         if (totals) {{
                             if (ti) ti.textContent = totals.inbound;
@@ -4959,6 +4965,8 @@ def render_admin_dashboard(user, leagues):
                                 if (tc) tc.textContent = '$' + (bd.mms_messages || 0).toFixed(2);
                                 if (cf) cf.textContent = '$' + (bd.carrier_fees || 0).toFixed(2);
                                 if (a2p) a2p.textContent = '$' + (bd.a2p_registration || 0).toFixed(2);
+                                if (pnCost) pnCost.textContent = '$' + (bd.phone_numbers || 0).toFixed(2);
+                                if (pnCount) pnCount.textContent = bd.phone_numbers_count || 0;
                             }}
                             if (gt) gt.textContent = '$' + (totals.cost || 0).toFixed(2);
                         }}

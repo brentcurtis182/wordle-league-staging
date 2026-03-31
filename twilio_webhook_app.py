@@ -7062,6 +7062,7 @@ def admin_twilio_usage():
             'mms-outbound': f"{base_url}?Category=mms-outbound&StartDate={start_date}",
             'mms-messages-carrierfees': f"{base_url}?Category=mms-messages-carrierfees&StartDate={start_date}",
             'a2p-registration-fees': f"{base_url}?Category=a2p-registration-fees&StartDate={start_date}",
+            'phonenumbers': f"{base_url}?Category=phonenumbers&StartDate={start_date}",
         }
         
         usage_data = {}
@@ -7092,7 +7093,11 @@ def admin_twilio_usage():
         # Static A2P registration fee ($2/month)
         a2p_fees = usage_data['a2p-registration-fees']['price']
         
-        total_cost = mms_message_cost + carrier_fees + a2p_fees
+        # Phone numbers (monthly recurring per active number)
+        phone_numbers_cost = usage_data['phonenumbers']['price']
+        phone_numbers_count = usage_data['phonenumbers']['count']
+        
+        total_cost = mms_message_cost + carrier_fees + a2p_fees + phone_numbers_cost
         
         return jsonify({
             'month': now.strftime('%B %Y'),
@@ -7104,7 +7109,9 @@ def admin_twilio_usage():
                 'breakdown': {
                     'mms_messages': round(mms_message_cost, 2),
                     'carrier_fees': round(carrier_fees, 2),
-                    'a2p_registration': round(a2p_fees, 2)
+                    'a2p_registration': round(a2p_fees, 2),
+                    'phone_numbers': round(phone_numbers_cost, 2),
+                    'phone_numbers_count': phone_numbers_count
                 }
             }
         })
