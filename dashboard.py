@@ -4922,7 +4922,12 @@ def render_admin_dashboard(user, leagues):
                             return;
                         }}
                         // Per-league inbound/outbound from Conversations API
+                        // Two-pass: first collect MMS counts, then distribute carrier fees proportionally
                         var rows = document.querySelectorAll('#leaguesTable tbody tr');
+                        var leagueData = [];
+                        var totalMms = 0;
+                        
+                        // Pass 1: populate cells and collect MMS counts
                         rows.forEach(function(row) {{
                             var lid = row.getAttribute('data-id');
                             var usage = data.usage ? data.usage[lid] : null;
@@ -4935,16 +4940,27 @@ def render_admin_dashboard(user, leagues):
                                 outCell.textContent = billed;
                                 row.setAttribute('data-inbound', usage.inbound);
                                 row.setAttribute('data-outbound', billed);
-                                // Estimate per-league cost (MMS rates, no static fees)
-                                if (costCell && typeof usage.inbound === 'number') {{
-                                    var leagueCost = (usage.inbound * 0.0165) + (billed * 0.022);
-                                    costCell.textContent = '$' + leagueCost.toFixed(2);
-                                    row.setAttribute('data-cost', leagueCost.toFixed(2));
+                                if (typeof usage.inbound === 'number') {{
+                                    var mmsCount = usage.inbound + billed;
+                                    var mmsCost = (usage.inbound * 0.0165) + (billed * 0.022);
+                                    totalMms += mmsCount;
+                                    leagueData.push({{ row: row, costCell: costCell, mmsCost: mmsCost, mmsCount: mmsCount }});
                                 }}
                             }} else if (inCell && outCell) {{
                                 inCell.textContent = '-';
                                 outCell.textContent = '-';
                                 if (costCell) costCell.textContent = '-';
+                            }}
+                        }});
+                        
+                        // Pass 2: distribute carrier fees proportionally by MMS volume
+                        var carrierTotal = (data.account_total && data.account_total.breakdown) ? (data.account_total.breakdown.carrier_fees || 0) : 0;
+                        leagueData.forEach(function(ld) {{
+                            var carrierShare = totalMms > 0 ? (ld.mmsCount / totalMms) * carrierTotal : 0;
+                            var totalCost = ld.mmsCost + carrierShare;
+                            if (ld.costCell) {{
+                                ld.costCell.innerHTML = '$' + totalCost.toFixed(2) + '<br><span style="font-size:0.75em;color:#888;">(+$' + carrierShare.toFixed(2) + ' carrier)</span>';
+                                ld.row.setAttribute('data-cost', totalCost.toFixed(2));
                             }}
                         }});
                         // Account-wide totals from Twilio Usage API (actual billed amounts)
