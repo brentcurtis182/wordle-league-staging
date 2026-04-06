@@ -424,6 +424,10 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     # Build scenario
     scenarios = []
     if all_posted or race_is_decided:
+        # Race is over — update win counts to include the pending win
+        for winner_name in leader_names:
+            div_weekly_wins[winner_name] = div_weekly_wins.get(winner_name, 0) + 1
+        
         if len(leaders) > 1:
             leader_list = " and ".join(leader_names)
             scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")
@@ -764,6 +768,19 @@ IMPORTANT RULES:
                 race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
                 
                 if all_players_posted or race_is_decided:
+                    # Race is over — the leader(s) will get this week's win
+                    # Update season wins display to include the pending win so AI reports accurate counts
+                    for winner_name in leader_names:
+                        weekly_wins[winner_name] = weekly_wins.get(winner_name, 0) + 1
+                    # Rebuild season wins summary with updated counts
+                    season_wins_lines = []
+                    if weekly_wins:
+                        for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
+                            season_wins_lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
+                    season_wins_summary = "\n".join(season_wins_lines) if season_wins_lines else "  No wins yet this season"
+                    # Re-check potential season clinchers with updated win counts
+                    potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
+                    
                     if len(leaders) > 1:
                         leader_list = " and ".join(leader_names)
                         scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")

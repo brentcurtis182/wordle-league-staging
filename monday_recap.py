@@ -420,8 +420,8 @@ def send_monday_recap(league_id):
             if results['season_just_clinched']:
                 scenario_parts.append(f"🏆 SEASON CHAMPION: {results['season_clincher_name']} just clinched Season {results['clinched_season_number']} with {results['season_clincher_wins']} weekly wins! This is a HUGE accomplishment - a new season begins!")
             
-            # Standard season standings
-            if results['season_wins']:
+            # Standard season standings (skip if season was just clinched — new season just started)
+            if results['season_wins'] and not results['season_just_clinched']:
                 standings = sorted(results['season_wins'].items(), key=lambda x: x[1], reverse=True)
                 top_3 = standings[:3]
                 standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_3])
@@ -494,7 +494,9 @@ IMPORTANT RULES:
 5. Use emojis for excitement
 6. Don't invent stats or names - only use what's provided
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
-8. If it's a tie, celebrate both/all winners equally"""
+8. If it's a tie, celebrate both/all winners equally
+9. When a season was just clinched, do NOT mention next season standings or win counts — the new season just started with 0 wins
+10. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text"""
         
         else:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
@@ -509,7 +511,8 @@ IMPORTANT RULES:
 5. Use emojis for excitement
 6. Don't invent stats or names - only use what's provided
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
-8. If it's a tie, celebrate both/all winners equally"""
+8. If it's a tie, celebrate both/all winners equally
+9. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text"""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -518,7 +521,7 @@ IMPORTANT RULES:
                 {"role": "user", "content": prompt}
             ],
             max_tokens=350 if is_div else 250,
-            temperature=0.7
+            temperature=0.4
         )
         
         recap_message = response.choices[0].message.content.strip()
