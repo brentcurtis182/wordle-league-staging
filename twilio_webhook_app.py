@@ -1784,7 +1784,7 @@ def slack_oauth_callback():
     
     code = request.args.get('code')
     error = request.args.get('error')
-    state = request.args.get('state')  # Contains league_id
+    state = request.args.get('state')  # Random token mapped to league_id in DB
     
     if error:
         logging.error(f"Slack OAuth error: {error}")
@@ -1792,6 +1792,36 @@ def slack_oauth_callback():
     
     if not code:
         return redirect("/dashboard?error=slack_oauth_no_code")
+    
+    # Validate state parameter against DB to prevent CSRF
+    league_id = None
+    if state:
+        try:
+            conn_state = get_db_connection()
+            cursor_state = conn_state.cursor()
+            cursor_state.execute("SELECT league_id FROM slack_oauth_states WHERE state_token = %s", (state,))
+            state_row = cursor_state.fetchone()
+            if state_row:
+                league_id = state_row[0] if state_row[0] else None
+                # Delete used state token (one-time use)
+                cursor_state.execute("DELETE FROM slack_oauth_states WHERE state_token = %s", (state,))
+                conn_state.commit()
+            else:
+                logging.warning(f"Slack OAuth: invalid or expired state token")
+                cursor_state.close()
+                conn_state.close()
+                return redirect("/dashboard?error=slack_oauth_invalid_state")
+            cursor_state.close()
+            conn_state.close()
+        except Exception as e:
+            logging.error(f"Error validating OAuth state: {e}")
+            return redirect("/dashboard?error=slack_oauth_state_error")
+    else:
+        logging.warning("Slack OAuth: no state parameter received")
+        return redirect("/dashboard?error=slack_oauth_no_state")
+    
+    if league_id and not league_id.isdigit():
+        league_id = None  # Invalid league_id value
     
     # Exchange code for tokens - must match the redirect_uri used in /slack/install
     redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
@@ -1805,11 +1835,6 @@ def slack_oauth_callback():
     team_id = result.get("team", {}).get("id")
     team_name = result.get("team", {}).get("name")
     bot_token = result.get("access_token")
-    
-    # Get league_id from state parameter (may be empty string on reinstall)
-    league_id = state.strip() if state else None
-    if league_id and not league_id.isdigit():
-        league_id = None  # Invalid state value
     
     logging.info(f"Slack OAuth result: team_id={team_id}, team_name={team_name}, bot_token={'yes' if bot_token else 'no'}, league_id={league_id}, raw_state='{state}'")
     
@@ -1836,7 +1861,7 @@ def slack_oauth_callback():
                 """, (bot_token, team_id))
                 updated = cursor.rowcount
                 logging.info(f"Slack reinstall: updated bot token for {updated} league(s) in team {team_id}")
-                redirect_target = f"/dashboard?message=Slack app reinstalled! Updated {updated} league(s)."
+                redirect_target = f"/dashboard?message=App for Slack reinstalled! Updated {updated} league(s)."
             
             conn.commit()
             cursor.close()
@@ -1857,6 +1882,7 @@ def slack_oauth_callback():
 @app.route('/slack/install', methods=['GET'])
 def slack_install():
     """Redirect to Slack OAuth to install the app"""
+    import secrets
     from urllib.parse import urlencode
     
     league_id = request.args.get('league_id')
@@ -1864,18 +1890,40 @@ def slack_install():
     client_id = os.environ.get('SLACK_CLIENT_ID')
     redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
     
-    # Scopes needed for the bot (commands scope required for /wordplay slash command)
-    scopes = "chat:write,channels:history,channels:read,users:read,files:write,commands"
+    # Scopes must match exactly what's listed in Slack app settings
+    scopes = "app_mentions:read,channels:history,channels:read,chat:write,commands,users:read"
     
-    # State parameter to track which league this is for
-    state = league_id or ""
+    # Generate a cryptographically random, non-guessable state parameter
+    # Store it in the DB with the associated league_id so the callback can validate it
+    state_token = secrets.token_urlsafe(32)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Create table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS slack_oauth_states (
+                state_token TEXT PRIMARY KEY,
+                league_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Clean up old states (older than 1 hour)
+        cursor.execute("DELETE FROM slack_oauth_states WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '1 hour'")
+        # Store this state
+        cursor.execute("INSERT INTO slack_oauth_states (state_token, league_id) VALUES (%s, %s)", (state_token, league_id or ''))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logging.error(f"Failed to store OAuth state: {e}")
+        return redirect("/dashboard?error=slack_install_failed")
     
     # Build URL with proper encoding
     params = urlencode({
         'client_id': client_id,
         'scope': scopes,
         'redirect_uri': redirect_uri,
-        'state': state
+        'state': state_token
     })
     slack_url = f"https://slack.com/oauth/v2/authorize?{params}"
     
