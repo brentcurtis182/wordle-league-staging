@@ -2,6 +2,7 @@
 """
 Twilio Webhook Flask App for Wordle League
 Receives SMS messages from Twilio and extracts Wordle scores
+Updated: 2026-04-10
 """
 
 import os
