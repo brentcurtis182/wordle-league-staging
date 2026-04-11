@@ -1151,34 +1151,44 @@ def webhook():
                 
                 if league:
                     league_id, league_name = league
-                    # Link the conversation to the league
+
+                    # Get the old conversation SID before overwriting (for cleanup)
+                    cursor.execute("SELECT twilio_conversation_sid, slug FROM leagues WHERE id = %s", (league_id,))
+                    old_row = cursor.fetchone()
+                    old_conv_sid = old_row[0] if old_row else None
+                    league_slug = old_row[1] if old_row and old_row[1] else str(league_id)
+
+                    # Link (or relink) the conversation to the league
                     cursor.execute("""
-                        UPDATE leagues 
-                        SET twilio_conversation_sid = %s, verification_code = NULL 
+                        UPDATE leagues
+                        SET twilio_conversation_sid = %s, verification_code = NULL
                         WHERE id = %s
                     """, (conv_sid, league_id))
-                    
+
                     # Clear pending_activation flag for all players in this league
                     cursor.execute("""
-                        UPDATE players 
-                        SET pending_activation = FALSE 
+                        UPDATE players
+                        SET pending_activation = FALSE
                         WHERE league_id = %s
                     """, (league_id,))
-                    
+
                     conn.commit()
-                    
-                    logging.info(f"✅ League {league_name} (id={league_id}) activated with conversation {conv_sid}")
-                    
-                    # Get the league slug for naming
-                    cursor.execute("SELECT slug FROM leagues WHERE id = %s", (league_id,))
-                    slug_row = cursor.fetchone()
-                    league_slug = slug_row[0] if slug_row and slug_row[0] else str(league_id)
-                    
-                    # Update Twilio conversation name and send confirmation
+
+                    logging.info(f"League {league_name} (id={league_id}) activated with conversation {conv_sid}")
+
                     from twilio.rest import Client
                     twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
-                    
+
+                    # Delete the old conversation if this is a relink
+                    if old_conv_sid and old_conv_sid != conv_sid:
+                        try:
+                            twilio_client.conversations.v1.conversations(old_conv_sid).delete()
+                            logging.info(f"Deleted old conversation {old_conv_sid} for league {league_id}")
+                        except Exception as e:
+                            logging.warning(f"Could not delete old conversation {old_conv_sid}: {e}")
+
                     # Name the conversation for easy identification in Twilio console
+                    # Always set friendly_name and unique_name (covers both new and relinked leagues)
                     try:
                         twilio_client.conversations.v1.conversations(conv_sid).update(
                             friendly_name=f"{league_name}",
