@@ -1140,11 +1140,12 @@ def webhook():
             
             if conv_sid:
                 # Check if this code phrase matches any pending league activation
+                # Also matches leagues that already have a conversation SID (relink scenario)
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT id, display_name FROM leagues 
-                    WHERE LOWER(verification_code) = %s AND twilio_conversation_sid IS NULL
+                    SELECT id, display_name FROM leagues
+                    WHERE LOWER(verification_code) = %s
                 """, (stripped_message,))
                 league = cursor.fetchone()
                 
