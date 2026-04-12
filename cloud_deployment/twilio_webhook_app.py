@@ -3274,10 +3274,9 @@ def dashboard_check_status(league_id):
         """, (league_id,))
         result = cursor.fetchone()
         
-        cursor.close()
-        conn.close()
-        
         if not result:
+            cursor.close()
+            conn.close()
             return jsonify({'success': True, 'active': False})
         
         channel_type = result[0] or 'sms'
@@ -3289,7 +3288,17 @@ def dashboard_check_status(league_id):
             active = result[3] is not None
         else:
             active = False
-            
+        
+        # If league is active but still has pending players, treat as not yet re-linked
+        # This prevents the modal from auto-closing during a re-link flow
+        if active:
+            cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND pending_activation = TRUE", (league_id,))
+            pending_count = cursor.fetchone()[0]
+            if pending_count > 0:
+                active = False
+        
+        cursor.close()
+        conn.close()
         return jsonify({'success': True, 'active': active})
         
     except Exception as e:
