@@ -22,6 +22,9 @@ logging.basicConfig(
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-in-production')
 
+# Base URL for links (uses Railway's public domain, falls back to production)
+APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
+
 
 def run_pipeline_with_retry(league_id, max_retries=3):
     """Run the update pipeline with retry logic and exponential backoff"""
@@ -1202,7 +1205,7 @@ def webhook():
                     try:
                         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
                         # Build the public league URL
-                        league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+                        league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
                         twilio_client.conversations.v1.conversations(conv_sid).messages.create(
                             body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!\n\n📊 View your league standings: {league_url}",
                             author=twilio_phone
@@ -1592,7 +1595,7 @@ def _handle_slash_score(league_id, league_name, league_slug, bot_token, channel_
         img = generate_weekly_image(league_name, build_image_data(standings), week_date_str)
 
     img_bytes = image_to_bytes(img)
-    league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+    league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
     send_slack_message_with_image(bot_token, channel_id, f"📊 *Weekly Scoreboard* — {league_url}", image_bytes=img_bytes, filename="scoreboard.png")
     logging.info(f"Slash /wordplay score: posted scoreboard for league {league_id}")
 
@@ -1645,7 +1648,7 @@ def _handle_slash_standings(league_id, league_name, league_slug, bot_token, chan
         else:
             lines.append("  No wins yet this season")
 
-    league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+    league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
     lines.append(f"\n📊 {league_url}")
     result = "\n".join(lines)
     logging.info(f"Slash /wordplay standings: league {league_id}, result length={len(result)}")
@@ -1836,7 +1839,7 @@ def slack_oauth_callback():
         league_id = None  # Invalid league_id value
     
     # Exchange code for tokens - must match the redirect_uri used in /slack/install
-    redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
+    redirect_uri = f"{APP_BASE_URL}/slack/oauth/callback"
     result = exchange_slack_code(code, redirect_uri)
     
     if not result.get("ok"):
@@ -1900,7 +1903,7 @@ def slack_install():
     league_id = request.args.get('league_id')
     
     client_id = os.environ.get('SLACK_CLIENT_ID')
-    redirect_uri = "https://app.wordplayleague.com/slack/oauth/callback"
+    redirect_uri = f"{APP_BASE_URL}/slack/oauth/callback"
     
     # Scopes must match exactly what's listed in Slack app settings
     scopes = "app_mentions:read,channels:history,channels:read,chat:write,commands,users:read"
@@ -2009,7 +2012,7 @@ def discord_oauth_callback():
         return redirect("/dashboard?error=discord_oauth_no_code")
     
     # Exchange code for tokens (optional - we mainly need the guild_id)
-    redirect_uri = "https://app.wordplayleague.com/discord/oauth/callback"
+    redirect_uri = f"{APP_BASE_URL}/discord/oauth/callback"
     result = exchange_discord_code(code, redirect_uri)
     
     # Get guild info from the OAuth response
@@ -2054,7 +2057,7 @@ def discord_install():
     league_id = request.args.get('league_id')
     
     client_id = os.environ.get('DISCORD_CLIENT_ID')
-    redirect_uri = "https://app.wordplayleague.com/discord/oauth/callback"
+    redirect_uri = f"{APP_BASE_URL}/discord/oauth/callback"
     
     # Permissions needed: Send Messages, Read Message History, Embed Links, Attach Files
     permissions = 117760  # Calculated from Discord permissions calculator

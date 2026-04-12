@@ -550,7 +550,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
         league_display_name = league_row[2] or f"League {league_id}"
         is_division_mode = league_row[4] or False
         league_slug = league_row[3] or f"league{league_id}"
-        league_url = f"https://app.wordplayleague.com/leagues/{league_slug}"
+        league_url = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{league_slug}"
         
         # Get week start
         pacific = pytz.timezone('America/Los_Angeles')

@@ -440,7 +440,7 @@ def handle_discord_slash_command(interaction_data: dict, db_connection) -> dict:
                 return {
                     "type": 4,
                     "data": {
-                        "content": f"Hey {username}! Your score wasn't recorded because you're not in this league yet. Ask the league manager to add you at app.wordplayleague.com 👋",
+                        "content": f"Hey {username}! Your score wasn't recorded because you're not in this league yet. Ask the league manager to add you at {os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')} 👋",
                         "flags": 64
                     }
                 }

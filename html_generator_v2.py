@@ -1406,7 +1406,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <body>
 <nav style="background: #1a1a1b; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;">
     <a href="https://www.wordplayleague.com" style="color: #00E8DA; text-decoration: none; font-weight: bold; font-size: 0.95rem;">WordPlay<span style="color: #FFA64D;">League</span></a>
-    <a href="https://app.wordplayleague.com/dashboard" style="color: #d7dadc; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: #333; border-radius: 4px;">Dashboard →</a>
+    <a href="https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/dashboard" style="color: #d7dadc; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: #333; border-radius: 4px;">Dashboard →</a>
 </nav>
 <header style="padding: 10px 0; margin-bottom: 10px;">
 <div class="container" style="padding: 10px; text-align: center;">

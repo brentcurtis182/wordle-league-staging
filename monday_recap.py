@@ -528,7 +528,7 @@ IMPORTANT RULES:
         logging.info(f"Generated Monday recap for league {league_id}: {recap_message}")
         
         # Add league URL
-        league_url = f"https://app.wordplayleague.com/leagues/{results['league_slug']}"
+        league_url = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{results['league_slug']}"
         recap_with_url = f"{recap_message}\n\n📊 {league_url}"
         
         # Send via message router
