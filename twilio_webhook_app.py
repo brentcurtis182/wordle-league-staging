@@ -29,22 +29,29 @@ APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayl
 STAGING_URL = os.environ.get('STAGING_URL', '')
 
 
-def forward_score_to_staging(player_id, league_id, wordle_number, score, emoji_pattern, wordle_date):
+def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoji_pattern, wordle_date):
     """Forward a saved score to staging environment (fire-and-forget, never affects production)"""
     if not STAGING_URL or 'staging' in APP_BASE_URL:
         return  # Don't forward if no staging URL set, or if we ARE staging
+    if not player_phone:
+        logging.warning(f"Skipping forward to staging: no phone for player in league {league_id}")
+        return
     try:
         import requests as req
-        req.post(f"{STAGING_URL}/api/forward-score", json={
-            'player_id': player_id,
+        resp = req.post(f"{STAGING_URL}/api/forward-score", json={
+            'player_phone': player_phone,
             'league_id': league_id,
             'wordle_number': wordle_number,
             'score': score,
             'emoji_pattern': emoji_pattern,
             'date': str(wordle_date)
         }, timeout=5)
-    except Exception:
-        pass  # Never let staging issues affect production
+        if resp.status_code == 200:
+            logging.info(f"Forwarded score to staging: phone ...{player_phone[-4:]}, league {league_id}, wordle {wordle_number}")
+        else:
+            logging.warning(f"Staging forward returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logging.warning(f"Staging forward failed (non-fatal): {e}")
 
 
 def run_pipeline_with_retry(league_id, max_retries=3):
@@ -907,8 +914,11 @@ def process_wordle_score(league_id, player_id, player_name, wordle_number, score
         conn.commit()
         logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_number} via {channel_type}")
 
-        # Forward score to staging environment
-        forward_score_to_staging(player_id, league_id, wordle_number, score, emoji_pattern, wordle_date)
+        # Forward score to staging environment (look up phone first)
+        cursor.execute("SELECT phone_number FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
+        phone_row = cursor.fetchone()
+        player_phone = phone_row[0] if phone_row else None
+        forward_score_to_staging(player_phone, league_id, wordle_number, score, emoji_pattern, wordle_date)
 
         # Trigger AI messages if enabled (failure roast, perfect score, etc.)
         # Check if this player is the last to post
@@ -7066,14 +7076,34 @@ def dashboard_division_reset(league_id):
 
 @app.route('/api/forward-score', methods=['POST'])
 def receive_forwarded_score():
-    """Receive a score forwarded from production (used by staging)"""
+    """Receive a score forwarded from production (used by staging).
+    Looks up the local player_id by phone + league_id since IDs differ between envs."""
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data'}), 400
 
+    player_phone = data.get('player_phone')
+    league_id = data.get('league_id')
+    if not player_phone or not league_id:
+        return jsonify({'error': 'player_phone and league_id required'}), 400
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Look up THIS environment's player_id by phone + league
+        cursor.execute(
+            "SELECT id FROM players WHERE phone_number = %s AND league_id = %s",
+            (player_phone, league_id)
+        )
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            logging.warning(f"Forwarded score: no matching player for phone ...{player_phone[-4:]} in league {league_id}")
+            return jsonify({'error': 'no matching player'}), 404
+        local_player_id = row[0]
+
         now = datetime.now()
         wordle_date = data.get('date', str(date.today()))
 
@@ -7081,7 +7111,7 @@ def receive_forwarded_score():
             INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (player_id, wordle_number) DO NOTHING
-        """, (data['player_id'], data['wordle_number'], data['score'], wordle_date, data.get('emoji_pattern'), now))
+        """, (local_player_id, data['wordle_number'], data['score'], wordle_date, data.get('emoji_pattern'), now))
 
         cursor.execute("""
             INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
@@ -7090,12 +7120,12 @@ def receive_forwarded_score():
             DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score,
                           emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp,
                           league_id = EXCLUDED.league_id
-        """, (data['player_id'], data['league_id'], data['wordle_number'], data['score'], data.get('emoji_pattern'), now))
+        """, (local_player_id, league_id, data['wordle_number'], data['score'], data.get('emoji_pattern'), now))
 
         conn.commit()
         cursor.close()
         conn.close()
-        logging.info(f"Received forwarded score: player {data['player_id']}, Wordle #{data['wordle_number']}")
+        logging.info(f"Received forwarded score: local player {local_player_id} (phone ...{player_phone[-4:]}), wordle {data['wordle_number']}")
         return jsonify({'success': True}), 200
     except Exception as e:
         logging.error(f"Error receiving forwarded score: {e}")
