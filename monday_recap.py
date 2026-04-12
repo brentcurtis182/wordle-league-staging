@@ -479,7 +479,10 @@ IMPORTANT RULES:
 7. Don't invent stats or names - only use what's provided
 8. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
 9. Structure: Division I recap, then Division II recap, then shared stats
-10. Use line breaks between divisions"""
+10. Use line breaks between divisions
+11. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
+12. NEVER invent win counts, season standings, or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all.
+13. NEVER claim someone "clinched" a season or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
         
         elif results['season_just_clinched']:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} THE SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the season champion! Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
@@ -496,7 +499,9 @@ IMPORTANT RULES:
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
 8. If it's a tie, celebrate both/all winners equally
 9. When a season was just clinched, do NOT mention next season standings or win counts — the new season just started with 0 wins
-10. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text"""
+10. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
+11. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
+12. NEVER invent win counts or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all."""
         
         else:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
@@ -512,10 +517,13 @@ IMPORTANT RULES:
 6. Don't invent stats or names - only use what's provided
 7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
 8. If it's a tie, celebrate both/all winners equally
-9. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text"""
+9. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
+10. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
+11. NEVER invent win counts or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all.
+12. NEVER claim someone "clinched the season" or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
         
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
