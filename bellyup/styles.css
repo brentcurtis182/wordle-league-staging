@@ -1,0 +1,290 @@
+/* General styles */
+* {
+    box-sizing: border-box;
+}
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #121213;
+    color: #d7dadc;
+    min-height: 100vh;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Sticky column for weekly table */
+.sticky-column {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 2 !important;
+    background-color: #1a1a1b !important;
+    min-width: 150px;
+    white-space: nowrap;
+}
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 15px;
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    html {
+        font-size: 22px;
+    }
+    body {
+        font-size: 1rem;
+    }
+    .container {
+        padding: 16px;
+        max-width: 100%;
+    }
+    .title {
+        font-size: 1.6rem !important;
+    }
+    .score-card {
+        padding: 18px;
+        margin-bottom: 14px;
+        border-radius: 8px;
+    }
+    .player-name {
+        font-size: 1.25rem;
+    }
+    .score-display {
+        font-size: 1.5rem;
+        padding: 12px 18px;
+        border-radius: 6px;
+    }
+    .tab-button {
+        padding: 16px 22px;
+        font-size: 1.1rem;
+        border-radius: 8px;
+    }
+    table {
+        font-size: 1.05rem;
+    }
+    th, td {
+        padding: 14px 12px;
+    }
+    nav {
+        padding: 14px 18px !important;
+    }
+    nav a {
+        font-size: 1rem !important;
+    }
+}
+header {
+    background-color: #1a1a1b;
+    padding: 10px 0;
+    margin-bottom: 10px;
+}
+.title {
+    margin: 0 auto;
+    color: #00E8DA;
+    font-size: 24px;
+    text-align: center;
+}
+.subtitle {
+    margin: 5px 0 0;
+    color: #d7dadc;
+    font-size: 0.9em;
+}
+
+/* Score card styles */
+.score-card {
+    background-color: #1a1a1b;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.player-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.player-name {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 4px;
+}
+.player-score {
+    font-size: 1.1em;
+    font-weight: bold;
+    display: inline-block;
+}
+.player-score span {
+    padding: 2px 8px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.score-display {
+    font-size: 1.2em;
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+}
+.score-1 {
+    background-color: #00E8DA;
+    color: #121213;
+}
+.score-2 {
+    background-color: #00E8DA;
+    color: #121213;
+}
+.score-3 {
+    background-color: #00E8DA;
+    color: #121213;
+}
+.score-4 {
+    background-color: #FFA64D;
+    color: #121213;
+}
+.score-5 {
+    background-color: #FFA64D;
+    color: #121213;
+}
+.score-6 {
+    background-color: #FFA64D;
+    color: #121213;
+}
+.score-X {
+    background-color: #86888a;
+    color: #121213;
+}
+.score-none {
+    background-color: #3a3a3c;
+    color: #d7dadc;
+    font-size: 0.9em;
+}
+
+/* Emoji pattern styles - main styling in inline <style> block in html_generator_v2.py */
+.emoji-pattern {
+    display: inline-block;
+    margin-left: auto;
+}
+.emoji-row {
+    white-space: nowrap;
+}
+.player-score {
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Wordle links */
+.wordle-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+.wordle-link {
+    background-color: #3a3a3c;
+    color: #d7dadc;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+.wordle-link.current {
+    background-color: #00E8DA;
+    color: #121213;
+}
+
+/* Table styles */
+.table-container {
+    overflow-x: auto;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+th, td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #3a3a3c;
+}
+th {
+    background-color: #1a1a1b;
+    font-weight: bold;
+}
+tr:nth-child(even) {
+    background-color: #1a1a1b;
+}
+tr.highlight {
+    background-color: rgba(0, 232, 218, 0.2);
+}
+
+/* Tab navigation */
+.tab-container {
+    margin-bottom: 15px;
+}
+.tabs {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+.tab-button {
+    background-color: #1a1a1b;
+    border: 1px solid #3a3a3c;
+    border-radius: 5px;
+    padding: 10px 20px;
+    color: #d7dadc;
+    cursor: pointer;
+    margin: 0 8px 8px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+.tab-button.active {
+    background-color: #00E8DA;
+    color: #121213;
+}
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+/* Season table column sizing */
+.season-table {
+    table-layout: auto;
+}
+.season-table th:nth-child(1),
+.season-table td:nth-child(1) {
+    width: 55%;
+    white-space: nowrap;
+}
+.season-table th:nth-child(2),
+.season-table td:nth-child(2) {
+    width: 12%;
+    white-space: nowrap;
+}
+.season-table th:nth-child(3),
+.season-table td:nth-child(3) {
+    width: 33%;
+}
+
+@media (max-width: 768px) {
+    .score-card {
+        flex-direction: row;
+        align-items: center;
+        padding: 8px;
+    }
+
+    .player-info {
+        flex: 1;
+    }
+    .emoji-pattern {
+        font-size: 0.5rem;
+    }
+}
+        
