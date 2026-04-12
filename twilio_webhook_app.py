@@ -25,6 +25,27 @@ app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-i
 # Base URL for links (uses Railway's public domain, falls back to production)
 APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
 
+# Staging URL for score forwarding (only active on production)
+STAGING_URL = os.environ.get('STAGING_URL', '')
+
+
+def forward_score_to_staging(player_id, league_id, wordle_number, score, emoji_pattern, wordle_date):
+    """Forward a saved score to staging environment (fire-and-forget, never affects production)"""
+    if not STAGING_URL or 'staging' in APP_BASE_URL:
+        return  # Don't forward if no staging URL set, or if we ARE staging
+    try:
+        import requests as req
+        req.post(f"{STAGING_URL}/api/forward-score", json={
+            'player_id': player_id,
+            'league_id': league_id,
+            'wordle_number': wordle_number,
+            'score': score,
+            'emoji_pattern': emoji_pattern,
+            'date': str(wordle_date)
+        }, timeout=5)
+    except Exception:
+        pass  # Never let staging issues affect production
+
 
 def run_pipeline_with_retry(league_id, max_retries=3):
     """Run the update pipeline with retry logic and exponential backoff"""
@@ -885,7 +906,10 @@ def process_wordle_score(league_id, player_id, player_name, wordle_number, score
         
         conn.commit()
         logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_number} via {channel_type}")
-        
+
+        # Forward score to staging environment
+        forward_score_to_staging(player_id, league_id, wordle_number, score, emoji_pattern, wordle_date)
+
         # Trigger AI messages if enabled (failure roast, perfect score, etc.)
         # Check if this player is the last to post
         cursor.execute("""
@@ -7039,6 +7063,44 @@ def dashboard_division_reset(league_id):
 # ============================================================
 # Admin Twilio Usage API (Async)
 # ============================================================
+
+@app.route('/api/forward-score', methods=['POST'])
+def receive_forwarded_score():
+    """Receive a score forwarded from production (used by staging)"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        now = datetime.now()
+        wordle_date = data.get('date', str(date.today()))
+
+        cursor.execute("""
+            INSERT INTO scores (player_id, wordle_number, score, date, emoji_pattern, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (player_id, wordle_number) DO NOTHING
+        """, (data['player_id'], data['wordle_number'], data['score'], wordle_date, data.get('emoji_pattern'), now))
+
+        cursor.execute("""
+            INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (player_id)
+            DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score,
+                          emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp,
+                          league_id = EXCLUDED.league_id
+        """, (data['player_id'], data['league_id'], data['wordle_number'], data['score'], data.get('emoji_pattern'), now))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logging.info(f"Received forwarded score: player {data['player_id']}, Wordle #{data['wordle_number']}")
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.error(f"Error receiving forwarded score: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/admin/api/twilio-usage')
 def admin_twilio_usage():
