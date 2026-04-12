@@ -420,11 +420,15 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
             eliminated.append(player['name'])
     
     race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
-    
+
+    # Compute clinch candidates BEFORE incrementing pending win.
+    # potential_clinchers = "1 win away entering this week" — they clinch IF they win this week.
+    potential_clinchers = [name for name, wins in div_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
+
     # Build scenario
     scenarios = []
     if all_posted or race_is_decided:
-        # Race is over — update win counts to include the pending win
+        # Race is over — update win counts to include the pending win (for display only)
         for winner_name in leader_names:
             div_weekly_wins[winner_name] = div_weekly_wins.get(winner_name, 0) + 1
         
@@ -450,9 +454,8 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
             parts.append(". ".join(catch_up_scenarios[:3]))
         scenarios.append(". ".join(parts))
     
-    # Season clinch detection for this division
+    # Season clinch detection for this division (potential_clinchers computed above, pre-increment)
     season_clinch_text = ""
-    potential_clinchers = [name for name, wins in div_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
     leaders_who_could_clinch = [name for name in leader_names if name in potential_clinchers]
     
     if race_is_decided or all_posted:
@@ -617,22 +620,35 @@ def send_sunday_race_update(league_id, force_season_image=False):
                     lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
                 return "\n".join(lines) if lines else "  No wins yet"
             
-            div_context = f"""DIVISION I STANDINGS (lower is better, best 5 of 7):
-{build_div_standings_summary(div1_standings)}
+            # Per-division stakes detection — omit SEASON WINS for divisions with no stakes
+            # to prevent the AI from inventing win-count claims unrelated to today's race.
+            div1_has_stakes = "SEASON STAKES" in div1_scenario or "SEASON CLINCH" in div1_scenario
+            div2_has_stakes = "SEASON STAKES" in div2_scenario or "SEASON CLINCH" in div2_scenario
+
+            div1_block = f"""DIVISION I STANDINGS (lower is better, best 5 of 7):
+{build_div_standings_summary(div1_standings)}"""
+            if div1_has_stakes:
+                div1_block += f"""
 
 DIVISION I SEASON {div1_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
-{build_div_wins_summary(div1_weekly_wins)}
+{build_div_wins_summary(div1_weekly_wins)}"""
 
-DIVISION II STANDINGS (lower is better, best 5 of 7):
-{build_div_standings_summary(div2_standings)}
+            div2_block = f"""DIVISION II STANDINGS (lower is better, best 5 of 7):
+{build_div_standings_summary(div2_standings)}"""
+            if div2_has_stakes:
+                div2_block += f"""
 
 DIVISION II SEASON {div2_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
-{build_div_wins_summary(div2_weekly_wins)}
+{build_div_wins_summary(div2_weekly_wins)}"""
+
+            div_context = f"""{div1_block}
+
+{div2_block}
 
 RACE ANALYSIS:
 {scenario_text}"""
-            
-            has_season_stakes = "SEASON STAKES" in scenario_text or "SEASON CLINCH" in scenario_text
+
+            has_season_stakes = div1_has_stakes or div2_has_stakes
             
             if has_season_stakes:
                 prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
@@ -657,10 +673,13 @@ IMPORTANT RULES:
 13. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section for each division. Do NOT add, calculate, or infer win counts. If someone has "1 win" listed, say "1 win" - NEVER inflate it.
 14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
 15. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data.
-16. If a division's RACE ANALYSIS has no SEASON STAKES or SEASON CLINCH text, just describe the weekly race for that division - do NOT add any season commentary."""
+16. If a division's RACE ANALYSIS has no SEASON STAKES or SEASON CLINCH text, just describe the weekly race for that division - do NOT add any season commentary.
+17. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in RACE ANALYSIS for that exact player/division: "locked", "has it locked", "out of contention", "out of the race", "eliminated", "in the hunt", "hail mary" (only if a score of 1 is required). Do not use these phrases as filler.
+18. If NO "SEASON WINS" section is provided for a division, do NOT mention season wins, win counts, or season standings for that division AT ALL. Do not invent counts. Do not say "each player has X wins" or "with X wins this season". Just describe the weekly race.
+19. If two players are tied for the lead and the leader who hasn't posted "could improve", the race is NOT locked — describe it as "currently tied, [name] could break the tie by improving"."""
             
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": sunday_system_msg},
                     {"role": "user", "content": prompt}
@@ -770,6 +789,9 @@ IMPORTANT RULES:
                 if all_players_posted or race_is_decided:
                     # Race is over — the leader(s) will get this week's win
                     # Update season wins display to include the pending win so AI reports accurate counts
+                    # NOTE: do NOT recompute potential_season_clinchers from this updated count —
+                    # potential_season_clinchers is the pre-week snapshot ("1 away entering"), and the
+                    # clinch logic below relies on that meaning.
                     for winner_name in leader_names:
                         weekly_wins[winner_name] = weekly_wins.get(winner_name, 0) + 1
                     # Rebuild season wins summary with updated counts
@@ -778,8 +800,6 @@ IMPORTANT RULES:
                         for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
                             season_wins_lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
                     season_wins_summary = "\n".join(season_wins_lines) if season_wins_lines else "  No wins yet this season"
-                    # Re-check potential season clinchers with updated win counts
-                    potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
                     
                     if len(leaders) > 1:
                         leader_list = " and ".join(leader_names)
@@ -849,12 +869,20 @@ IMPORTANT RULES:
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
                 logging.info(f"League {league_id} scenario text: '{scenario_text}'")
                 
-                # Build the full prompt with standings and season context
-                context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
+                # Build the full prompt with standings and (only if relevant) season context.
+                # Omit SEASON WINS entirely when there are no season stakes — prevents the AI
+                # from inventing claims about win counts that aren't relevant to today's race.
+                if season_clinch_text:
+                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
 {standings_summary}
 
 SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
 {season_wins_summary}
+
+WEEKLY RACE ANALYSIS: {scenario_text}"""
+                else:
+                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
+{standings_summary}
 
 WEEKLY RACE ANALYSIS: {scenario_text}"""
                 
@@ -877,10 +905,13 @@ IMPORTANT RULES:
 9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
 10. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section. Do NOT add, calculate, or infer win counts. If someone has "3 wins" listed, say "3 wins" - do NOT say they "need 4 wins" (everyone needs that). Say they are "one win away" if the prompt says so.
 11. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
-12. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data."""
+12. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data.
+13. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in RACE ANALYSIS for that exact player: "locked", "has it locked", "out of contention", "out of the race", "eliminated", "in the hunt", "hail mary" (only if a score of 1 is required). Do not use these phrases as filler.
+14. If NO "SEASON WINS" section is provided in the prompt, do NOT mention season wins, win counts, or season standings AT ALL. Do not invent counts. Do not say "each player has X wins" or "with X wins this season". Just describe the weekly race.
+15. If two players are tied for the lead and the leader who hasn't posted "could improve", the race is NOT locked — describe it as "currently tied, [name] could break the tie by improving"."""
             
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": sunday_system_msg},
                     {"role": "user", "content": prompt}
