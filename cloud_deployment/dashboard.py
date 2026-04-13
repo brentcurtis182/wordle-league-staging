@@ -13,8 +13,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
-APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
-
 # Color scheme matching the site
 COLORS = {
     'bg_dark': '#1a1a1b',
@@ -1425,7 +1423,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             {meta_html}
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
-                <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                <a href="{f'https://app.wordplayleague.com/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
             </div>
         </div>
         """
@@ -1539,7 +1537,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
                         </div>
                         <div class="meta">Playing as: {sl['player_name']}</div>
                         <div class="actions">
-                            <a href="{APP_BASE_URL}/leagues/{sl['slug']}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                            <a href="https://app.wordplayleague.com/leagues/{sl['slug']}" target="_blank" class="btn btn-secondary btn-small">View</a>
                         </div>
                     </div>
                     """ for sl in shared_leagues])}
@@ -1736,7 +1734,7 @@ def render_create_league(user, error=None):
                                placeholder="e.g., office-champions" required
                                pattern="[a-z0-9-]+" 
                                title="Only lowercase letters, numbers, and hyphens allowed">
-                        <div class="hint">Your league will be at: <span class="slug-preview">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/<span id="slugPreview">your-slug</span></span></div>
+                        <div class="hint">Your league will be at: <span class="slug-preview">app.wordplayleague.com/leagues/<span id="slugPreview">your-slug</span></span></div>
                     </div>
                     
                     <div class="status-info">
@@ -2366,7 +2364,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
                     </span>
                     {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">{'Activate' if channel_type == 'sms' else 'Connect Channel'}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
-                    {f'<a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
+                    {f'<a href="https://app.wordplayleague.com/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">app.wordplayleague.com/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
                 {f"""
                 <div style="margin-top: 16px; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; border-left: 3px solid {COLORS['accent']};">
@@ -2594,7 +2592,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card">
                 <h2>🔗 Public League Page</h2>
                 <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
-                <a href="{f'{APP_BASE_URL}/leagues/{league["slug"]}' if league.get('slug') else f'https://www.wordplayleague.com/{get_league_wix_url(league["id"])}'}" target="_blank" class="btn btn-secondary">
+                <a href="{f'https://app.wordplayleague.com/leagues/{league["slug"]}' if league.get('slug') else f'https://www.wordplayleague.com/{get_league_wix_url(league["id"])}'}" target="_blank" class="btn btn-secondary">
                     View Public Page →
                 </a>
             </div>
@@ -5032,7 +5030,7 @@ def render_admin_league_detail(user, league):
         '''
     
     # Public league URL
-    public_url = f'{APP_BASE_URL}/leagues/{league["slug"]}' if league.get('slug') else 'No slug'
+    public_url = f'https://app.wordplayleague.com/leagues/{league["slug"]}' if league.get('slug') else 'No slug'
     
     # Recent messages link
     recent_msgs_html = ''
