@@ -1224,6 +1224,7 @@ def webhook():
                     twilio_client = Client(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
 
                     # Delete the old conversation if this is a relink
+                    logging.info(f"Relink check: old_conv_sid={old_conv_sid}, new_conv_sid={conv_sid}, same={old_conv_sid == conv_sid}")
                     if old_conv_sid and old_conv_sid != conv_sid:
                         try:
                             twilio_client.conversations.v1.conversations(old_conv_sid).delete()
