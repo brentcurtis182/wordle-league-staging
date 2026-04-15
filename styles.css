@@ -16,12 +16,12 @@ body {
     -webkit-text-size-adjust: 100%;
 }
 
-/* Sticky column for weekly table */
+/* Sticky column for weekly table — tinted, mostly opaque so horiz-scroll content is hidden behind */
 .sticky-column {
     position: sticky !important;
     left: 0 !important;
     z-index: 2 !important;
-    background-color: #1a1a1b !important;
+    background-color: rgba(14, 14, 30, 0.96) !important;
     min-width: 150px;
     white-space: nowrap;
 }
@@ -256,29 +256,46 @@ header {
     color: #121213;
 }
 
-/* Table styles */
+/* Table styles — glass-morphism wrapper + translucent rows */
 .table-container {
     overflow-x: auto;
+    background: rgba(16, 16, 36, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    padding: 4px 4px 8px;
+    margin-bottom: 16px;
 }
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    background: transparent;
 }
 th, td {
-    padding: 8px 10px;
+    padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid #3a3a3c;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 th {
-    background-color: #1a1a1b;
-    font-weight: bold;
+    background: rgba(255, 255, 255, 0.04);
+    color: #a8a8c0;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
 }
 tr:nth-child(even) {
-    background-color: #1a1a1b;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+tr:last-child td {
+    border-bottom: none;
 }
 tr.highlight {
-    background-color: rgba(0, 232, 218, 0.2);
+    background-color: rgba(0, 232, 218, 0.12);
+    box-shadow: inset 3px 0 0 #00E8DA;
 }
 
 /* Tab navigation — pill/oval style */
@@ -377,7 +394,17 @@ tr.highlight {
     color: #FFA64D;
 }
 
-/* Season table column sizing */
+/* Season tables — glass wrapper matching .table-container */
+.season-container {
+    background: rgba(16, 16, 36, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    padding: 6px 10px 10px;
+    overflow-x: auto;
+}
 .season-table {
     table-layout: auto;
 }
