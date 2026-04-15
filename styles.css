@@ -77,15 +77,52 @@ body {
         font-size: 1rem !important;
     }
 }
+/* Floating nav — no cell, just text + pill dashboard button */
+.wpl-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: transparent;
+}
+.wpl-brand {
+    color: #00E8DA;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+}
+.wpl-brand span {
+    color: #FFA64D;
+}
+.wpl-dashboard-btn {
+    color: #d7dadc;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 7px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.25s ease;
+}
+.wpl-dashboard-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+/* Floating header — no cell background */
 header {
-    background-color: #1a1a1b;
-    padding: 10px 0;
-    margin-bottom: 10px;
+    padding: 12px 0 4px;
+    background: transparent;
 }
 .title {
     margin: 0 auto;
     color: #00E8DA;
-    font-size: 24px;
+    font-size: 1.6rem;
     text-align: center;
 }
 .subtitle {
@@ -235,7 +272,7 @@ tr.highlight {
     background-color: rgba(0, 232, 218, 0.2);
 }
 
-/* Tab navigation */
+/* Tab navigation — pill/oval style */
 .tab-container {
     margin-bottom: 15px;
 }
@@ -243,22 +280,35 @@ tr.highlight {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 15px;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding-top: 4px;
 }
 .tab-button {
-    background-color: #1a1a1b;
-    border: 1px solid #3a3a3c;
-    border-radius: 5px;
-    padding: 10px 20px;
-    color: #d7dadc;
+    padding: 9px 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #8a8aa5;
     cursor: pointer;
-    margin: 0 8px 8px 0;
-    font-size: 1.1em;
-    font-weight: bold;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tab-button:hover {
+    color: #f0f0ff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 .tab-button.active {
-    background-color: #00E8DA;
-    color: #121213;
+    background: rgba(0, 232, 218, 0.12);
+    border-color: rgba(0, 232, 218, 0.28);
+    color: #00E8DA;
+    box-shadow: 0 0 24px -6px rgba(0, 232, 218, 0.35);
 }
 .tab-content {
     display: none;

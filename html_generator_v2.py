@@ -1407,25 +1407,21 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </style>
 </head>
 <body>
-<nav style="background: #1a1a1b; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;">
-    <a href="https://www.wordplayleague.com" style="color: #00E8DA; text-decoration: none; font-weight: bold; font-size: 0.95rem;">WordPlay<span style="color: #FFA64D;">League</span></a>
-    <a href="https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/dashboard" style="color: #d7dadc; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: #333; border-radius: 4px;">Dashboard →</a>
+<nav class="wpl-nav">
+    <a class="wpl-brand" href="https://www.wordplayleague.com">WordPlay<span>League</span></a>
+    <a class="wpl-dashboard-btn" href="https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/dashboard">Dashboard →</a>
 </nav>
-<header style="padding: 10px 0; margin-bottom: 10px;">
-<div class="container" style="padding: 10px; text-align: center;">
-<h1 class="title" style="font-size: 24px; margin-bottom: 0; text-align: center;">{league_name}</h1>
+<header>
+<div class="container" style="text-align: center;">
+<h1 class="title">{league_name}</h1>
 </div>
 </header>
 <div class="container">
 <div class="tab-container">
 <div class="tab-buttons tabs">
-<div style="width: 100%; display: flex; justify-content: center; gap: 8px;">
-<button class="tab-button active" data-tab="latest" style="min-height: 48px; padding: 12px 20px;">Latest Scores</button>
-<button class="tab-button" data-tab="weekly" style="min-height: 48px; padding: 12px 20px;">Weekly Totals</button>
-</div>
-<div style="width: 100%; display: flex; justify-content: center; margin-top: 8px;">
-<button class="tab-button" data-tab="stats" style="min-height: 48px; padding: 12px 20px;">Season / All-Time Stats</button>
-</div>
+<button class="tab-button active" data-tab="latest">Latest Scores</button>
+<button class="tab-button" data-tab="weekly">Weekly Totals</button>
+<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
 </div>
 <div class="tab-content active" id="latest">
 {latest_html}
