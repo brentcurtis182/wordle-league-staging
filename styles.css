@@ -6,10 +6,10 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #0a0a14;
+    background-color: #06060e;
     background-image:
-        radial-gradient(ellipse at 20% 0%, rgba(56, 189, 248, 0.08), transparent 50%),
-        radial-gradient(ellipse at 80% 100%, rgba(168, 85, 247, 0.08), transparent 50%);
+        radial-gradient(ellipse 60% 40% at 10% -10%, rgba(56, 189, 248, 0.05), transparent 70%),
+        radial-gradient(ellipse 60% 40% at 90% 110%, rgba(168, 85, 247, 0.05), transparent 70%);
     background-attachment: fixed;
     color: #d7dadc;
     min-height: 100vh;
@@ -96,7 +96,7 @@ header {
 
 /* Score card styles — glass-morphism */
 .score-card {
-    background: rgba(20, 20, 38, 0.55);
+    background: rgba(16, 16, 36, 0.7);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -106,7 +106,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
     transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 .score-card:hover {
