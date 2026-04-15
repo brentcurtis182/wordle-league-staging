@@ -413,7 +413,7 @@ tr.highlight {
     padding: 7px 8px;
     text-transform: none;
     letter-spacing: 0;
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 .season-table th:nth-child(1),
 .season-table td:nth-child(1) {
