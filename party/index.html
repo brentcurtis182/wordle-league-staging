@@ -82,24 +82,24 @@
 </style>
 </head>
 <body>
-<nav style="background: #1a1a1b; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;">
-    <a href="https://www.wordplayleague.com" style="color: #00E8DA; text-decoration: none; font-weight: bold; font-size: 0.95rem;">WordPlay<span style="color: #FFA64D;">League</span></a>
-    <a href="https://staging.wordplayleague.com/dashboard" style="color: #d7dadc; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: #333; border-radius: 4px;">Dashboard →</a>
-</nav>
-<header style="padding: 10px 0; margin-bottom: 10px;">
-<div class="container" style="padding: 10px; text-align: center;">
-<h1 class="title" style="font-size: 24px; margin-bottom: 0; text-align: center;">Pickle Party</h1>
+<div class="wpl-top-bar">
+    <a class="wpl-dashboard-btn" href="https://staging.wordplayleague.com/dashboard">Dashboard →</a>
+</div>
+<header>
+<div class="container" style="text-align: center;">
+<h1 class="title">Pickle Party</h1>
+<a class="wpl-brand" href="https://www.wordplayleague.com">WordPlayLeague</a>
 </div>
 </header>
 <div class="container">
 <div class="tab-container">
 <div class="tab-buttons tabs">
-<div style="width: 100%; display: flex; justify-content: center; gap: 8px;">
-<button class="tab-button active" data-tab="latest" style="min-height: 48px; padding: 12px 20px;">Latest Scores</button>
-<button class="tab-button" data-tab="weekly" style="min-height: 48px; padding: 12px 20px;">Weekly Totals</button>
+<div class="tab-row">
+<button class="tab-button active" data-tab="latest">Latest Scores</button>
+<button class="tab-button" data-tab="weekly">Weekly Totals</button>
 </div>
-<div style="width: 100%; display: flex; justify-content: center; margin-top: 8px;">
-<button class="tab-button" data-tab="stats" style="min-height: 48px; padding: 12px 20px;">Season / All-Time Stats</button>
+<div class="tab-row">
+<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
 </div>
 </div>
 <div class="tab-content active" id="latest">
@@ -112,10 +112,34 @@
     <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
+        <div class="player-name">Jason</div>
+        <div class="player-score"><span style="color: #00E8DA; background-color: rgba(0, 232, 218, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">3/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
         <div class="player-name">Jess</div>
         <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
     </div>
     <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Patty</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Brent</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Dani</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
         <div class="player-name">Meghan</div>
@@ -130,40 +154,16 @@
     <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
-        <div class="player-name">Brent</div>
-        <div class="player-score"><span>No Score</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Dani</div>
-        <div class="player-score"><span>No Score</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Jason</div>
-        <div class="player-score"><span>No Score</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"></div></div>
-</div><div class="score-card">
-    <div class="player-info">
         <div class="player-name">Matt</div>
-        <div class="player-score"><span>No Score</span></div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">6/6</span></div>
     </div>
-    <div class="emoji-container"><div class="emoji-pattern"></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Patty</div>
-        <div class="player-score"><span>No Score</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"></div></div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div>
 </div>
 <div class="tab-content" id="weekly">
 <div style="margin-bottom: 30px;">
-<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">3 scores</strong> count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">3 scores</strong> needed to compete for the week!</p>
+<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">5 scores</strong> count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">5 scores</strong> needed to compete for the week!</p>
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
   <h3 style="color: #00E8DA; margin: 0;">DIVISION I</h3>
   <select id="score-toggle-1" onchange="toggleScoreView(1)" style="background: #2a2a2c; color: #d7dadc; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; font-size: 0.85em;">
@@ -192,10 +192,10 @@
 </tr>
 </thead>
 <tbody>
-<tr style="background-color: rgba(0, 232, 218, 0.15);">
+<tr>
     <td class="sticky-column"><strong>Jess</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">10</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">29</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">45</td>
     <td>3</td>
     <td>-</td>
     <td>-</td>
@@ -205,29 +205,28 @@
 <td>-</td>
 <td>-</td>
 </tr>
-<tr style="background-color: rgba(0, 232, 218, 0.15);">
-    <td class="sticky-column"><strong>Rob</strong></td>
+<tr>
+    <td class="sticky-column"><strong>Jason</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">11</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">29</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">44</td>
     <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
-    <td class="sticky-column"><strong>Jason</strong></td>
-    <td class="score-col-weekly-1" style="font-weight: bold;">8</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">26</td>
-    <td>2</td>
+    <td class="sticky-column"><strong>Rob</strong></td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">11</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">46</td>
+    <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
-<td>-</td>
+<td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -266,84 +265,80 @@
 </tr>
 </thead>
 <tbody>
-<tr style="background-color: rgba(255, 166, 77, 0.15);">
-    <td class="sticky-column"><strong>Dustin</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">13</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">63</td>
-    <td>3</td>
-    <td>-</td>
-    <td>-</td>
-    <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr style="background-color: rgba(255, 166, 77, 0.15);">
-    <td class="sticky-column"><strong>Meghan</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">13</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">64</td>
-    <td>3</td>
-    <td>-</td>
-    <td>-</td>
-    <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-</tr>
 <tr>
     <td class="sticky-column"><strong>Brent</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">7</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">60</td>
-    <td>2</td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">11</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">107</td>
+    <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
-<td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
     <td class="sticky-column"><strong style="color: #FFA64D;">Dani</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">9</td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">13</td>
     <td class="score-col-season-2" style="display:none; font-weight: bold;"><span style="color: #FFA64D;">Relegated</span></td>
-    <td>2</td>
+    <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
 <td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Dustin</strong></td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">13</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">105</td>
+    <td>3</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Meghan</strong></td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">13</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">109</td>
+    <td>3</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
     <td class="sticky-column"><strong>Patty</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">10</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">63</td>
-    <td>2</td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">14</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">112</td>
+    <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
-<td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
     <td class="sticky-column"><strong>Matt</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">11</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">62</td>
-    <td>2</td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">17</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">108</td>
+    <td>3</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">6</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
-<td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">6</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">6</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -353,7 +348,7 @@
 </div>
 <p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B06; Promoted Players: 1</p>
 </div>
-<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best 3 scores</strong>. Additional scores appear in 'Thrown Out'</p>
+<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best 5 scores</strong>. Additional scores appear in 'Thrown Out'</p>
 <script>
 var originalOrder = {};
 function toggleScoreView(divNum) {
@@ -469,12 +464,12 @@ function toggleScoreView(divNum) {
 <tbody>
 <tr class="highlight" style="background-color: rgba(0, 232, 218, 0.15);">
     <td><strong>Jason</strong></td>
-    <td>217</td>
-    <td>3.86</td>
+    <td>218</td>
+    <td>3.85</td>
 </tr>
 <tr>
     <td><strong>Dani</strong></td>
-    <td>127</td>
+    <td>128</td>
     <td>4.01</td>
 </tr>
 <tr>
@@ -484,7 +479,7 @@ function toggleScoreView(divNum) {
 </tr>
 <tr>
     <td><strong>Matt</strong></td>
-    <td>243</td>
+    <td>244</td>
     <td>4.11</td>
 </tr>
 <tr>
@@ -494,12 +489,12 @@ function toggleScoreView(divNum) {
 </tr>
 <tr>
     <td><strong>Patty</strong></td>
-    <td>129</td>
+    <td>130</td>
     <td>4.22</td>
 </tr>
 <tr>
     <td><strong>Brent</strong></td>
-    <td>244</td>
+    <td>245</td>
     <td>4.22</td>
 </tr>
 <tr>
@@ -694,6 +689,33 @@ function toggleScoreView(divNum) {
 </div>
 </div>
 </div>
+<footer class="wpl-footer">
+<div class="container">
+<div class="footer-tiles">
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+</div>
+<p>Pickle Party · <a href="https://www.wordplayleague.com">WordPlayLeague</a></p>
+</div>
+</footer>
+<script>
+(function() {
+    var colors = ['t-cyan', 't-orange', 't-dark'];
+    var tiles = document.querySelectorAll('.footer-tile');
+    function pick() { return colors[Math.floor(Math.random() * colors.length)]; }
+    tiles.forEach(function(tile, i) {
+        tile.classList.add(pick());
+        tile.style.animationDelay = (i * 0.2) + 's';
+        tile.addEventListener('animationiteration', function() {
+            colors.forEach(function(c) { tile.classList.remove(c); });
+            tile.classList.add(pick());
+        });
+    });
+})();
+</script>
 <script src="script.js"></script>
 <script src="tabs.js"></script>
 </body>
