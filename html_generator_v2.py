@@ -1419,9 +1419,13 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <div class="container">
 <div class="tab-container">
 <div class="tab-buttons tabs">
+<div class="tab-row">
 <button class="tab-button active" data-tab="latest">Latest Scores</button>
 <button class="tab-button" data-tab="weekly">Weekly Totals</button>
+</div>
+<div class="tab-row">
 <button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
+</div>
 </div>
 <div class="tab-content active" id="latest">
 {latest_html}
@@ -1434,6 +1438,33 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </div>
 </div>
 </div>
+<footer class="wpl-footer">
+<div class="container">
+<div class="footer-tiles">
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+</div>
+<p>{league_name} · <a href="https://www.wordplayleague.com">WordPlayLeague</a></p>
+</div>
+</footer>
+<script>
+(function() {{
+    var colors = ['t-cyan', 't-orange', 't-dark'];
+    var tiles = document.querySelectorAll('.footer-tile');
+    function pick() {{ return colors[Math.floor(Math.random() * colors.length)]; }}
+    tiles.forEach(function(tile, i) {{
+        tile.classList.add(pick());
+        tile.style.animationDelay = (i * 0.2) + 's';
+        tile.addEventListener('animationiteration', function() {{
+            colors.forEach(function(c) {{ tile.classList.remove(c); }});
+            tile.classList.add(pick());
+        }});
+    }});
+}})();
+</script>
 <script src="script.js"></script>
 <script src="tabs.js"></script>
 </body>

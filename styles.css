@@ -287,20 +287,26 @@ tr.highlight {
 }
 .tabs {
     display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
     gap: 14px;
     margin-bottom: 22px;
     padding-top: 8px;
 }
+.tab-row {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+}
 .tab-button {
-    padding: 13px 28px;
+    padding: 11px 24px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 100px;
     background: rgba(255, 255, 255, 0.04);
     color: #8a8aa5;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     white-space: nowrap;
@@ -324,6 +330,51 @@ tr.highlight {
 }
 .tab-content.active {
     display: block;
+}
+
+/* Footer — flipping tile animation */
+.wpl-footer {
+    text-align: center;
+    padding: 36px 0 28px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 40px;
+}
+.footer-tiles {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    perspective: 600px;
+}
+.footer-tile {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #37374a;
+    animation: tileReveal 2s ease-in-out infinite;
+    transition: background-color 0.3s ease;
+}
+.footer-tile.t-cyan   { background: #00E8DA; }
+.footer-tile.t-orange { background: #FFA64D; }
+.footer-tile.t-dark   { background: #37374a; }
+
+@keyframes tileReveal {
+    0%, 100% { transform: rotateX(0); }
+    50%      { transform: rotateX(180deg); }
+}
+
+.wpl-footer p {
+    color: #6a6a85;
+    font-size: 0.8rem;
+    margin: 0;
+}
+.wpl-footer a {
+    color: #00E8DA;
+    text-decoration: none;
+    font-weight: 600;
+}
+.wpl-footer a:hover {
+    color: #FFA64D;
 }
 
 /* Season table column sizing */
