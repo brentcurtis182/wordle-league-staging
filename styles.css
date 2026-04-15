@@ -402,11 +402,18 @@ tr.highlight {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-    padding: 6px 10px 10px;
-    overflow-x: auto;
+    padding: 2px 6px 6px;
 }
 .season-table {
     table-layout: auto;
+}
+/* Tighter cells for season table so it fits without horizontal scroll */
+.season-table th,
+.season-table td {
+    padding: 7px 8px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.9rem;
 }
 .season-table th:nth-child(1),
 .season-table td:nth-child(1) {
