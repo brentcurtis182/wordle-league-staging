@@ -737,7 +737,7 @@ function openFullList() {
     html += '</div>\n'
     
     # All-Time Stats
-    html += '<div class="all-time-container">\n'
+    html += '<div class="all-time-container" style="margin-top: 36px;">\n'
     html += '<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>\n'
     html += '<table>\n'
     html += '<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>\n'

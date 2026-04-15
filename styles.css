@@ -430,6 +430,49 @@ tr.highlight {
     width: 33%;
 }
 
+/* v6 restyle — Season Winner modals (breakdown + full list + division) */
+.season-modal-overlay {
+    background: rgba(4, 4, 12, 0.78) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+.season-modal-overlay > div {
+    background: rgba(20, 20, 42, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04) inset !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+.season-modal-overlay div[style*="border-bottom:1px solid #333"],
+.season-modal-overlay div[style*="border-bottom: 1px solid #333"] {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+.season-modal-overlay span[style*="background:#2a2a2c"],
+.season-modal-overlay span[style*="background: #2a2a2c"] {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+.season-modal-overlay span[style*="background:#2a2a2c"]:hover,
+.season-modal-overlay span[style*="background: #2a2a2c"]:hover {
+    background: rgba(255, 166, 77, 0.15) !important;
+    border-color: rgba(255, 166, 77, 0.35);
+}
+.season-modal-overlay .season-table {
+    background: transparent;
+}
+.season-modal-overlay .season-table th {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.season-modal-overlay .season-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.season-modal-overlay .season-table tr:last-child td {
+    border-bottom: none;
+}
+
 @media (max-width: 768px) {
     .score-card {
         flex-direction: row;
