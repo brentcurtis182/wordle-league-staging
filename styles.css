@@ -77,30 +77,19 @@ body {
         font-size: 1rem !important;
     }
 }
-/* Floating nav — no cell, just text + pill dashboard button */
-.wpl-nav {
+/* Floating top bar — Dashboard button only, right-aligned */
+.wpl-top-bar {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 18px;
+    justify-content: flex-end;
+    padding: 14px 18px 0;
     background: transparent;
-}
-.wpl-brand {
-    color: #00E8DA;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: 0.01em;
-}
-.wpl-brand span {
-    color: #FFA64D;
 }
 .wpl-dashboard-btn {
     color: #d7dadc;
     text-decoration: none;
     font-size: 0.85rem;
     font-weight: 600;
-    padding: 7px 16px;
+    padding: 8px 18px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 100px;
@@ -114,9 +103,29 @@ body {
     color: #fff;
 }
 
+/* WordPlayLeague brand link — shimmering cyan↔orange gradient */
+.wpl-brand {
+    display: inline-block;
+    margin-top: 6px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    background: linear-gradient(135deg, #00E8DA 0%, #FFA64D 25%, #00E8DA 50%, #FFA64D 75%, #00E8DA 100%);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: wpl-shimmer 4s linear infinite;
+}
+@keyframes wpl-shimmer {
+    0% { background-position: 0% center; }
+    100% { background-position: 300% center; }
+}
+
 /* Floating header — no cell background */
 header {
-    padding: 12px 0 4px;
+    padding: 6px 0 4px;
     background: transparent;
 }
 .title {
@@ -280,18 +289,18 @@ tr.highlight {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 18px;
-    padding-top: 4px;
+    gap: 14px;
+    margin-bottom: 22px;
+    padding-top: 8px;
 }
 .tab-button {
-    padding: 9px 22px;
+    padding: 13px 28px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 100px;
     background: rgba(255, 255, 255, 0.04);
     color: #8a8aa5;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 1rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     white-space: nowrap;

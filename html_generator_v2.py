@@ -1407,13 +1407,13 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </style>
 </head>
 <body>
-<nav class="wpl-nav">
-    <a class="wpl-brand" href="https://www.wordplayleague.com">WordPlay<span>League</span></a>
+<div class="wpl-top-bar">
     <a class="wpl-dashboard-btn" href="https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/dashboard">Dashboard →</a>
-</nav>
+</div>
 <header>
 <div class="container" style="text-align: center;">
 <h1 class="title">{league_name}</h1>
+<a class="wpl-brand" href="https://www.wordplayleague.com">WordPlayLeague</a>
 </div>
 </header>
 <div class="container">
