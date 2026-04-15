@@ -15,17 +15,17 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
 
-# Color scheme matching the site
+# Color scheme matching the site (v6 glass-morphism palette)
 COLORS = {
-    'bg_dark': '#1a1a1b',
-    'bg_card': '#272729',
+    'bg_dark': '#06060e',
+    'bg_card': 'rgba(20, 20, 42, 0.85)',
     'accent': '#00E8DA',
     'accent_orange': '#FFA64D',
     'text': '#d7dadc',
-    'text_muted': '#818384',
+    'text_muted': '#8a8aa5',
     'success': '#4CAF50',
     'error': '#f44336',
-    'border': '#333',
+    'border': 'rgba(255, 255, 255, 0.1)',
 }
 
 def get_user_menu_html(user_name, user_email, show_dashboard_link=False, user_role='user'):
@@ -73,7 +73,11 @@ def get_base_styles():
         }}
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: {COLORS['bg_dark']};
+            background-color: #06060e;
+            background-image:
+                radial-gradient(ellipse 60% 40% at 10% -10%, rgba(56, 189, 248, 0.05), transparent 70%),
+                radial-gradient(ellipse 60% 40% at 90% 110%, rgba(168, 85, 247, 0.05), transparent 70%);
+            background-attachment: fixed;
             color: {COLORS['text']};
             min-height: 100vh;
         }}
@@ -84,7 +88,7 @@ def get_base_styles():
         }}
         .header {{
             padding: 20px 0;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             margin-bottom: 30px;
         }}
         .header-logo-row {{
@@ -117,19 +121,27 @@ def get_base_styles():
         .nav-link {{
             color: {COLORS['text']};
             text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: background 0.2s;
+            padding: 8px 18px;
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.25s ease;
             font-size: 0.95em;
         }}
-        .nav-link:hover {{ background: {COLORS['bg_card']}; }}
+        .nav-link:hover {{
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }}
         .nav-link.logout {{ color: {COLORS['accent_orange']}; }}
         .user-menu {{
             position: relative;
         }}
         .user-menu-btn {{
-            background: {COLORS['bg_card']};
-            border: 1px solid #444;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -137,20 +149,27 @@ def get_base_styles():
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.25s ease;
         }}
-        .user-menu-btn:hover {{ border-color: {COLORS['accent']}; background: {COLORS['bg_dark']}; }}
+        .user-menu-btn:hover {{
+            border-color: rgba(0, 232, 218, 0.4);
+            background: rgba(0, 232, 218, 0.08);
+        }}
         .user-menu-btn svg {{ width: 20px; height: 20px; fill: {COLORS['text']}; }}
         .user-dropdown {{
             display: none;
             position: absolute;
             top: 48px;
             right: 0;
-            background: {COLORS['bg_card']};
-            border: 1px solid #444;
-            border-radius: 10px;
+            background: rgba(20, 20, 42, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
             min-width: 180px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             z-index: 1000;
             overflow: hidden;
         }}
@@ -163,13 +182,13 @@ def get_base_styles():
             font-size: 0.95em;
             transition: background 0.15s;
         }}
-        .user-dropdown a:hover {{ background: {COLORS['bg_dark']}; }}
-        .user-dropdown a.logout-link {{ color: {COLORS['accent_orange']}; border-top: 1px solid #333; }}
+        .user-dropdown a:hover {{ background: rgba(255, 255, 255, 0.06); }}
+        .user-dropdown a.logout-link {{ color: {COLORS['accent_orange']}; border-top: 1px solid rgba(255, 255, 255, 0.08); }}
         .user-dropdown-name {{
             padding: 12px 20px;
             color: {COLORS['text_muted']};
             font-size: 0.85em;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }}
         .back-link {{
             color: {COLORS['accent']};
@@ -181,11 +200,14 @@ def get_base_styles():
         }}
         .back-link:hover {{ text-decoration: underline; }}
         .card {{
-            background: {COLORS['bg_card']};
+            background: rgba(16, 16, 36, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 20px;
-            border: 1px solid #333;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
         }}
         .card h2 {{
             color: {COLORS['accent']};
@@ -194,33 +216,51 @@ def get_base_styles():
         }}
         .btn {{
             display: inline-block;
-            padding: 12px 24px;
-            border-radius: 8px;
-            border: none;
+            padding: 12px 26px;
+            border-radius: 100px;
+            border: 1px solid transparent;
             cursor: pointer;
             font-size: 1em;
             font-weight: 600;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.25s ease;
         }}
         .btn-primary {{
-            background: {COLORS['accent']};
-            color: {COLORS['bg_dark']};
-        }}
-        .btn-primary:hover {{ background: #00c4b8; }}
-        .btn-secondary {{
-            background: transparent;
+            background: rgba(0, 232, 218, 0.14);
             color: {COLORS['accent']};
-            border: 2px solid {COLORS['accent']};
+            border-color: rgba(0, 232, 218, 0.35);
+            box-shadow: 0 0 24px -6px rgba(0, 232, 218, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }}
-        .btn-secondary:hover {{ background: rgba(0, 232, 218, 0.1); }}
+        .btn-primary:hover {{
+            background: rgba(0, 232, 218, 0.22);
+            border-color: rgba(0, 232, 218, 0.55);
+        }}
+        .btn-secondary {{
+            background: rgba(255, 255, 255, 0.04);
+            color: {COLORS['accent']};
+            border: 1px solid rgba(0, 232, 218, 0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }}
+        .btn-secondary:hover {{
+            background: rgba(0, 232, 218, 0.1);
+            border-color: rgba(0, 232, 218, 0.5);
+        }}
         .btn-danger {{
-            background: {COLORS['error']};
-            color: white;
+            background: rgba(244, 67, 54, 0.15);
+            color: #ff6b5e;
+            border: 1px solid rgba(244, 67, 54, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }}
-        .btn-danger:hover {{ background: #d32f2f; }}
+        .btn-danger:hover {{
+            background: rgba(244, 67, 54, 0.25);
+            border-color: rgba(244, 67, 54, 0.6);
+        }}
         .btn-small {{
-            padding: 8px 16px;
+            padding: 8px 18px;
             font-size: 0.9em;
         }}
         .form-group {{
@@ -232,18 +272,20 @@ def get_base_styles():
             color: {COLORS['text_muted']};
             font-size: 0.9em;
         }}
-        .form-group input, .form-group select {{
+        .form-group input, .form-group select, .form-group textarea {{
             width: 100%;
             padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid #444;
-            background: {COLORS['bg_dark']};
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(10, 10, 24, 0.6);
             color: {COLORS['text']};
             font-size: 1em;
+            transition: border-color 0.2s, background 0.2s;
         }}
-        .form-group input:focus {{
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {{
             outline: none;
-            border-color: {COLORS['accent']};
+            border-color: rgba(0, 232, 218, 0.5);
+            background: rgba(10, 10, 24, 0.8);
         }}
         .league-grid {{
             display: grid;
@@ -251,15 +293,19 @@ def get_base_styles():
             gap: 20px;
         }}
         .league-card {{
-            background: {COLORS['bg_card']};
-            border-radius: 12px;
+            background: rgba(16, 16, 36, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 14px;
             padding: 20px;
-            border: 2px solid {COLORS['accent']};
-            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(0, 232, 218, 0.25);
+            box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
         }}
-        .league-card:hover {{ 
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 232, 218, 0.2);
+        .league-card:hover {{
+            transform: translateY(-3px);
+            border-color: rgba(0, 232, 218, 0.5);
+            box-shadow: 0 10px 40px rgba(0, 232, 218, 0.2);
         }}
         .league-card h3 {{
             color: {COLORS['accent']};
@@ -282,8 +328,9 @@ def get_base_styles():
             justify-content: space-between;
             align-items: center;
             padding: 12px 16px;
-            background: {COLORS['bg_dark']};
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
             margin-bottom: 8px;
         }}
         .player-item .name {{ font-weight: 500; }}
@@ -291,36 +338,48 @@ def get_base_styles():
         .player-item .phone a {{ color: {COLORS['text_muted']} !important; text-decoration: none; }}
         .alert {{
             padding: 16px 20px;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 20px;
             transition: opacity 0.5s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }}
         .alert.fade-out {{
             opacity: 0;
         }}
-        .alert-success {{ background: rgba(76, 175, 80, 0.2); border: 1px solid {COLORS['success']}; }}
-        .alert-error {{ background: rgba(244, 67, 54, 0.2); border: 1px solid {COLORS['error']}; }}
+        .alert-success {{ background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.45); }}
+        .alert-error {{ background: rgba(244, 67, 54, 0.15); border: 1px solid rgba(244, 67, 54, 0.45); }}
         .tabs {{
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 22px;
+            padding-bottom: 4px;
         }}
         .tab {{
-            padding: 10px 20px;
-            background: transparent;
-            border: none;
+            padding: 11px 22px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: {COLORS['text_muted']};
             cursor: pointer;
-            border-radius: 6px 6px 0 0;
-            font-size: 1em;
+            border-radius: 100px;
+            font-size: 0.95em;
+            font-weight: 600;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.25s ease;
         }}
         .tab.active {{
             color: {COLORS['accent']};
-            background: {COLORS['bg_card']};
+            background: rgba(0, 232, 218, 0.12);
+            border-color: rgba(0, 232, 218, 0.28);
+            box-shadow: 0 0 24px -6px rgba(0, 232, 218, 0.35);
         }}
-        .tab:hover {{ color: {COLORS['text']}; }}
+        .tab:hover {{
+            color: {COLORS['text']};
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }}
         .modal-overlay {{
             display: none;
             position: fixed;
@@ -328,17 +387,23 @@ def get_base_styles():
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.7);
+            background: rgba(4, 4, 12, 0.78);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
         }}
         .modal {{
-            background: {COLORS['bg_card']};
-            border-radius: 12px;
+            background: rgba(20, 20, 42, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
             padding: 30px;
             max-width: 500px;
             width: 90%;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }}
         .modal h2 {{ margin-bottom: 20px; }}
     """
@@ -2241,18 +2306,20 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             .edit-input {{
                 padding: 10px 12px;
-                border-radius: 6px;
-                border: 1px solid #444;
-                background: {COLORS['bg_card']};
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                background: rgba(10, 10, 24, 0.6);
                 color: {COLORS['text']};
                 font-size: 16px;
                 width: 100%;
                 max-width: 100%;
                 min-width: 0;
+                transition: border-color 0.2s, background 0.2s;
             }}
             .edit-input:focus {{
                 outline: none;
-                border-color: {COLORS['accent']};
+                border-color: rgba(0, 232, 218, 0.5);
+                background: rgba(10, 10, 24, 0.8);
             }}
             @media (max-width: 600px) {{
                 .edit-fields {{
@@ -2271,7 +2338,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             .division-toggle {{
                 width: 44px;
                 height: 24px;
-                background: #555;
+                background: rgba(255, 255, 255, 0.12);
                 border-radius: 12px;
                 position: relative;
                 cursor: pointer;
@@ -2312,7 +2379,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.75);
+                background: rgba(4, 4, 12, 0.78);
+                backdrop-filter: blur(6px);
+                -webkit-backdrop-filter: blur(6px);
                 z-index: 1000;
                 align-items: center;
                 justify-content: center;
@@ -2321,12 +2390,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 display: flex;
             }}
             .modal {{
-                background: {COLORS['bg_card']};
-                border-radius: 12px;
+                background: rgba(20, 20, 42, 0.92);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 14px;
                 padding: 30px;
                 max-width: 400px;
                 width: 90%;
-                border: 1px solid #444;
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
             }}
             .modal h3 {{
                 color: {COLORS['text']};
@@ -4692,29 +4764,32 @@ def render_admin_dashboard(user, leagues):
                 color: {COLORS['accent']};
             }}
             .admin-table tbody tr:hover {{
-                background: {COLORS['bg_dark']};
+                background: rgba(255, 255, 255, 0.04);
             }}
-            /* Frozen League Name column */
+            /* Frozen League Name column — opaque so scrolling content is hidden behind */
             .frozen-col {{
                 position: sticky;
                 left: 0;
                 z-index: 2;
-                background: {COLORS['bg_card']};
+                background: rgba(14, 14, 30, 0.98);
             }}
             .admin-table tbody tr:hover .frozen-col {{
-                background: {COLORS['bg_dark']};
+                background: rgba(24, 24, 52, 0.98);
             }}
             .frozen-col-header {{
                 position: sticky;
                 left: 0;
                 z-index: 3;
-                background: {COLORS['bg_card']};
+                background: rgba(14, 14, 30, 0.98);
             }}
             .stat-card {{
-                background: {COLORS['bg_card']};
-                border-radius: 10px;
+                background: rgba(16, 16, 36, 0.7);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border-radius: 12px;
                 padding: 20px;
-                border: 1px solid {COLORS['border']};
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
                 text-align: center;
             }}
             .stat-number {{
@@ -4731,7 +4806,9 @@ def render_admin_dashboard(user, leagues):
                 display: none;
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.7);
+                background: rgba(4, 4, 12, 0.78);
+                backdrop-filter: blur(6px);
+                -webkit-backdrop-filter: blur(6px);
                 z-index: 1000;
                 align-items: center;
                 justify-content: center;
@@ -4740,12 +4817,15 @@ def render_admin_dashboard(user, leagues):
                 display: flex;
             }}
             .modal {{
-                background: {COLORS['bg_card']};
-                border-radius: 12px;
+                background: rgba(20, 20, 42, 0.92);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 14px;
                 padding: 24px;
                 max-width: 440px;
                 width: 90%;
-                border: 1px solid {COLORS['border']};
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
             }}
             .modal h3 {{
                 margin: 0 0 12px 0;
@@ -5212,7 +5292,7 @@ def render_admin_league_detail(user, league):
                 border-bottom: 2px solid {COLORS['border']};
             }}
             .admin-table tr:hover {{
-                background: {COLORS['bg_dark']};
+                background: rgba(255, 255, 255, 0.04);
             }}
         </style>
     </head>
