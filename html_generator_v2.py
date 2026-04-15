@@ -273,9 +273,9 @@ def generate_weekly_totals_html(league_data):
         html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
+    html += '</div>\n'
     html += '<p class="note" style="font-style: italic; margin-top: 20px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
     html += f'<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your <strong style="color: #00E8DA;">best {min_scores} scores</strong>. Additional scores appear in \'Thrown Out\'</p>\n'
-    html += '</div>\n'
     
     return html
 
