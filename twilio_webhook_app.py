@@ -2824,13 +2824,24 @@ def dashboard_rename_league(league_id):
         cursor.close()
         conn.close()
 
-        # If min_weekly_scores changed, re-aggregate the current week under the new threshold.
-        # Past weekly winners stay frozen — we only touch the live unsettled week.
+        # If min_weekly_scores changed, re-aggregate ONLY the current (unsettled) week.
+        # Past weekly winners stay frozen — we pass explicit week bounds so the function
+        # never touches historical weeks.
         if new_min_scores is not None and new_min_scores != prev_min_scores:
             try:
                 from update_tables_cloud import update_weekly_winners_from_db
-                update_weekly_winners_from_db(league_id)
-                logging.info(f"Re-aggregated weekly winners for league {league_id} after min_weekly_scores change {prev_min_scores} -> {new_min_scores}")
+                from league_data_adapter import get_week_start_date
+                import pytz
+                pacific = pytz.timezone('America/Los_Angeles')
+                today_pac = datetime.now(pacific).date()
+                week_start = get_week_start_date(today_pac)
+                # Reference: July 31 2025 = Wordle 1503
+                ref_date = date(2025, 7, 31)
+                ref_wordle = 1503
+                week_start_wordle = ref_wordle + (week_start - ref_date).days
+                week_end_wordle = week_start_wordle + 7
+                update_weekly_winners_from_db(league_id, week_start_wordle=week_start_wordle, week_end_wordle=week_end_wordle)
+                logging.info(f"Re-aggregated current week (wordles {week_start_wordle}-{week_end_wordle}) for league {league_id} after min_weekly_scores change {prev_min_scores} -> {new_min_scores}")
             except Exception as agg_err:
                 logging.error(f"Failed to re-aggregate after min_weekly_scores change: {agg_err}")
 
