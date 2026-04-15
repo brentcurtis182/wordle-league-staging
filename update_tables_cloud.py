@@ -249,7 +249,15 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
         for week_row in weeks:
             monday_date = week_row[0]
             week_wordle = week_row[1]
-            
+
+            # Clean slate for this week: drop any existing winner rows before
+            # recomputing. Prevents stale rows if the winner's identity changes
+            # between runs (e.g. after a settings/backfill, or a cron re-run).
+            cursor.execute(
+                "DELETE FROM weekly_winners WHERE league_id = %s AND week_wordle_number = %s",
+                (league_id, week_wordle)
+            )
+
             # Calculate week range (Monday to Sunday)
             sunday_date = monday_date + timedelta(days=6)
             
