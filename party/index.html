@@ -162,8 +162,8 @@
 </div>
 <div class="tab-content" id="weekly">
 <div style="margin-bottom: 30px;">
-<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">5 scores</strong> count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">5 scores</strong> needed to compete for the week!</p>
+<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">3 scores</strong> count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">3 scores</strong> needed to compete for the week!</p>
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
   <h3 style="color: #00E8DA; margin: 0;">DIVISION I</h3>
   <select id="score-toggle-1" onchange="toggleScoreView(1)" style="background: #2a2a2c; color: #d7dadc; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; font-size: 0.85em;">
@@ -195,7 +195,7 @@
 <tr>
     <td class="sticky-column"><strong>Jess</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">6</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">41</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">25</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -209,7 +209,7 @@
 <tr>
     <td class="sticky-column"><strong>Jason</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">8</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">41</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">26</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -223,7 +223,7 @@
 <tr>
     <td class="sticky-column"><strong>Rob</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">8</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">43</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">26</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -271,7 +271,7 @@
 <tr>
     <td class="sticky-column"><strong>Brent</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">7</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">103</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">60</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -285,7 +285,7 @@
 <tr>
     <td class="sticky-column"><strong>Dustin</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">8</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">100</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">58</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -299,7 +299,7 @@
 <tr>
     <td class="sticky-column"><strong>Meghan</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">8</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">104</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">59</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -327,7 +327,7 @@
 <tr>
     <td class="sticky-column"><strong>Patty</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">10</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">108</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">63</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -341,7 +341,7 @@
 <tr>
     <td class="sticky-column"><strong>Matt</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">11</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">102</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">62</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -357,7 +357,7 @@
 </div>
 <p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B06; Promoted Players: 1</p>
 </div>
-<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best 5 scores</strong>. Additional scores appear in 'Thrown Out'</p>
+<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best 3 scores</strong>. Additional scores appear in 'Thrown Out'</p>
 <script>
 var originalOrder = {};
 function toggleScoreView(divNum) {
@@ -417,6 +417,11 @@ function toggleScoreView(divNum) {
     <td>2</td>
     <td style="white-space: nowrap;">Mar 30 (16)<br>Apr 05 (25)</td>
 </tr>
+<tr>
+    <td><strong>Jess</strong></td>
+    <td>1</td>
+    <td style="white-space: nowrap;">Apr 12 (9)</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -436,24 +441,24 @@ function toggleScoreView(divNum) {
     <td style="white-space: nowrap;">Mar 22 (30)<br>Mar 29 (27)<br>Mar 30 (18)<br>Apr 05 (23)</td>
 </tr>
 <tr style="background-color: rgba(255, 166, 77, 0.15);">
+    <td><strong>Meghan</strong></td>
+    <td>4</td>
+    <td style="white-space: nowrap;">Mar 29 (27)<br>Mar 30 (18)<br>Apr 05 (9)<br>Apr 12 (10)</td>
+</tr>
+<tr style="background-color: rgba(255, 166, 77, 0.15);">
+    <td><strong style="color: #FFA64D;">Dani</strong></td>
+    <td>3</td>
+    <td style="white-space: nowrap;">Mar 15 (9)<br>Mar 22 (18)<br>Mar 29 (18)</td>
+</tr>
+<tr style="background-color: rgba(255, 166, 77, 0.15);">
     <td><strong>Patty</strong></td>
     <td>3</td>
     <td style="white-space: nowrap;">Mar 15 (27)<br>Mar 16 (15)<br>Mar 29 (18)</td>
 </tr>
-<tr>
-    <td><strong style="color: #FFA64D;">Dani</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 22 (18)<br>Mar 29 (18)</td>
-</tr>
-<tr>
+<tr style="background-color: rgba(255, 166, 77, 0.15);">
     <td><strong>Brent</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 29 (18)<br>Mar 30 (18)</td>
-</tr>
-<tr>
-    <td><strong>Meghan</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 29 (27)<br>Mar 30 (18)</td>
+    <td>3</td>
+    <td style="white-space: nowrap;">Mar 15 (9)<br>Mar 29 (18)<br>Mar 30 (18)</td>
 </tr>
 </tbody>
 </table>
@@ -543,7 +548,7 @@ function toggleScoreView(divNum) {
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
-<tr><td><strong>Jess</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Jess</strong></td><td style="text-align:center;">2</td></tr>
 <tr><td><strong>Rob</strong></td><td style="text-align:center;">1</td></tr>
 <tr><td><strong>Brent</strong></td><td style="text-align:center;">1</td></tr>
 </tbody>
@@ -608,7 +613,7 @@ function toggleScoreView(divNum) {
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
-<tr><td><strong>Jess</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Jess</strong></td><td style="text-align:center;">2</td></tr>
 <tr><td><strong>Rob</strong></td><td style="text-align:center;">1</td></tr>
 <tr><td><strong>Brent</strong></td><td style="text-align:center;">1</td></tr>
 </tbody>
