@@ -2130,7 +2130,36 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     
     if not players:
         player_rows = '<p style="color: #818384; padding: 20px; text-align: center;">No players in this league yet.</p>'
-    
+
+    # Pre-compute the segmented "minimum weekly scores" button row.
+    # Range 3-7, default 5. Kept out of the big f-string to avoid quote nesting.
+    _current_min_scores = int(league.get('min_weekly_scores', 5) or 5)
+    _min_scores_labels = {
+        3: 'Easy Mode',
+        4: 'Casual',
+        5: 'Default',
+        6: 'Hard Mode',
+        7: 'Elite',
+    }
+    _ms_btn_parts = []
+    for _n in range(3, 8):
+        _label = _min_scores_labels[_n]
+        _active = (_n == _current_min_scores)
+        _bg = COLORS['accent'] if _active else COLORS['bg_card']
+        _fg = '#000' if _active else COLORS['text']
+        _border = COLORS['accent'] if _active else COLORS['border']
+        _weight = '700' if _active else '500'
+        _ms_btn_parts.append(
+            f'<button type="button" data-min-scores="{_n}" onclick="selectMinScores({_n})" '
+            f'style="flex:1; padding:10px 6px; background:{_bg}; color:{_fg}; '
+            f'border:1px solid {_border}; border-radius:8px; cursor:pointer; '
+            f'font-weight:{_weight}; font-size:0.85em; transition:all 0.15s;">'
+            f'<div style="font-size:1.3em; font-weight:700;">{_n}</div>'
+            f'<div style="font-size:0.75em; opacity:0.85;">{_label}</div>'
+            f'</button>'
+        )
+    _min_scores_buttons = '<div id="minScoresButtons" style="display:flex; gap:8px; margin-top:8px;">' + ''.join(_ms_btn_parts) + '</div>'
+
     return f"""
     <!DOCTYPE html>
     <html>
@@ -2393,14 +2422,23 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 """ if channel_type == 'discord' and not league.get('discord_channel_id') else ''}
             </div>
             
-            <!-- Rename League Section -->
+            <!-- League Settings Section -->
             <div class="card section">
                 <h2>📝 League Settings</h2>
                 <div class="form-group">
                     <label>League Display Name</label>
                     <input type="text" id="leagueDisplayName" value="{league['display_name']}" required>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="showRenameModal()">Save Changes</button>
+                <div class="form-group">
+                    <label>Minimum Weekly Scores</label>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 4px 0 8px 0;">
+                        How many scores per week a player must post to compete for the weekly win.
+                        Changing this re-aggregates the current week immediately; past weeks stay frozen.
+                    </p>
+                    {_min_scores_buttons}
+                    <input type="hidden" id="leagueMinWeeklyScores" value="{_current_min_scores}">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="showLeagueSettingsModal()">Save Changes</button>
             </div>
             
             <!-- Players Section -->
@@ -2653,14 +2691,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             </div>
         </div>
         
-        <!-- Rename League Confirmation Modal -->
+        <!-- League Settings Confirmation Modal -->
         <div class="modal-overlay" id="renameModal">
             <div class="modal">
-                <h3>📝 Rename League?</h3>
-                <p id="renameModalText">Are you sure you want to rename this league?</p>
+                <h3>📝 Save League Settings?</h3>
+                <p id="renameModalText">Are you sure you want to update this league's settings?</p>
+                <div id="leagueSettingsChanges" style="margin: 16px 0; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; font-size: 0.9em;"></div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeRenameModal()">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-small" onclick="confirmRename()">Yes, Rename</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="confirmRename()">Yes, Save</button>
                 </div>
             </div>
         </div>
@@ -3134,6 +3173,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         </form>
         <form id="renameLeagueForm" method="POST" action="/dashboard/league/{league['id']}/rename" style="display:none;">
             <input type="hidden" name="display_name" id="renameDisplayName">
+            <input type="hidden" name="min_weekly_scores" id="renameMinWeeklyScores">
         </form>
         <form id="aiSettingsForm" method="POST" action="/dashboard/league/{league['id']}/ai-settings" style="display:none;">
             <input type="hidden" name="ai_perfect_score_congrats" id="aiPerfectScoreInput">
@@ -3267,30 +3307,77 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 }}
             }}
             
-            // Rename league functions
-            function showRenameModal() {{
+            // League settings functions
+            const _ORIG_LEAGUE_NAME = {repr(league['display_name'])};
+            const _ORIG_MIN_SCORES = {_current_min_scores};
+            const _MIN_SCORES_LABELS = {{ 3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Hard Mode', 7: 'Elite' }};
+
+            function selectMinScores(n) {{
+                document.getElementById('leagueMinWeeklyScores').value = n;
+                const btns = document.querySelectorAll('#minScoresButtons button[data-min-scores]');
+                btns.forEach(function(btn) {{
+                    const val = parseInt(btn.getAttribute('data-min-scores'), 10);
+                    if (val === n) {{
+                        btn.style.background = '{COLORS['accent']}';
+                        btn.style.color = '#000';
+                        btn.style.borderColor = '{COLORS['accent']}';
+                        btn.style.fontWeight = '700';
+                    }} else {{
+                        btn.style.background = '{COLORS['bg_card']}';
+                        btn.style.color = '{COLORS['text']}';
+                        btn.style.borderColor = '{COLORS['border']}';
+                        btn.style.fontWeight = '500';
+                    }}
+                }});
+            }}
+
+            function showLeagueSettingsModal() {{
                 const newName = document.getElementById('leagueDisplayName').value.trim();
                 if (!newName) {{
                     alert('Please enter a league name');
                     return;
                 }}
-                document.getElementById('renameModalText').textContent = 
-                    'Are you sure you want to rename this league to "' + newName + '"?';
+                const newMinScores = parseInt(document.getElementById('leagueMinWeeklyScores').value, 10);
+
+                const changes = [];
+                if (newName !== _ORIG_LEAGUE_NAME) {{
+                    changes.push('<div>• Display name: <strong>' + _ORIG_LEAGUE_NAME + '</strong> → <strong>' + newName + '</strong></div>');
+                }}
+                if (newMinScores !== _ORIG_MIN_SCORES) {{
+                    const oldLbl = _MIN_SCORES_LABELS[_ORIG_MIN_SCORES] || '';
+                    const newLbl = _MIN_SCORES_LABELS[newMinScores] || '';
+                    changes.push('<div>• Minimum weekly scores: <strong>' + _ORIG_MIN_SCORES + ' (' + oldLbl + ')</strong> → <strong>' + newMinScores + ' (' + newLbl + ')</strong></div>');
+                    changes.push('<div style="margin-top:8px; color:{COLORS['accent_orange']};">⚠️ This will immediately re-aggregate the current week under the new threshold. Past weekly winners stay frozen.</div>');
+                }}
+
+                if (changes.length === 0) {{
+                    alert('No changes to save.');
+                    return;
+                }}
+
+                document.getElementById('renameModalText').textContent = 'Review and confirm the changes below:';
+                document.getElementById('leagueSettingsChanges').innerHTML = changes.join('');
                 document.getElementById('renameModal').classList.add('active');
             }}
-            
+
+            // Back-compat alias — legacy onclick handlers still call showRenameModal()
+            function showRenameModal() {{
+                showLeagueSettingsModal();
+            }}
+
             function closeRenameModal() {{
                 document.getElementById('renameModal').classList.remove('active');
             }}
-            
+
             function confirmRename() {{
                 const newName = document.getElementById('leagueDisplayName').value.trim();
+                const newMinScores = document.getElementById('leagueMinWeeklyScores').value;
                 document.getElementById('renameDisplayName').value = newName;
-                
-                // Close modal and show loading
+                document.getElementById('renameMinWeeklyScores').value = newMinScores;
+
                 closeRenameModal();
-                showLoading('Renaming league...');
-                
+                showLoading('Saving league settings...');
+
                 document.getElementById('renameLeagueForm').submit();
             }}
             
@@ -4438,7 +4525,7 @@ def get_league_info(league_id):
     try:
         cursor.execute("""
             SELECT id, name, display_name, twilio_conversation_sid,
-                   ai_perfect_score_congrats, ai_failure_roast, 
+                   ai_perfect_score_congrats, ai_failure_roast,
                    ai_sunday_race_update, ai_daily_loser_roast,
                    ai_message_severity,
                    ai_perfect_score_severity, ai_failure_roast_severity, ai_daily_loser_severity,
@@ -4447,7 +4534,8 @@ def get_league_info(league_id):
                    division_mode, division_confirmed_at, division_locked,
                    COALESCE(ai_filter, FALSE),
                    COALESCE(promoted_count, 1),
-                   COALESCE(relegated_count, 1)
+                   COALESCE(relegated_count, 1),
+                   COALESCE(min_weekly_scores, 5)
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -4481,6 +4569,7 @@ def get_league_info(league_id):
                 'ai_filter': row[23] or False,
                 'promoted_count': row[24] or 1,
                 'relegated_count': row[25] or 1,
+                'min_weekly_scores': int(row[26]) if row[26] is not None else 5,
                 'channel_name': None
             }
             

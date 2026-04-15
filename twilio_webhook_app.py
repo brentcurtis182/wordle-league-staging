@@ -2770,38 +2770,78 @@ def public_league_page(slug):
 
 @app.route('/dashboard/league/<int:league_id>/rename', methods=['POST'])
 def dashboard_rename_league(league_id):
-    """Rename a league"""
+    """Update league display name and/or min_weekly_scores setting."""
     from auth import validate_session, can_manage_league
-    
+
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
-    
+
     if not user:
         return redirect('/auth/login')
-    
+
     if not can_manage_league(user['id'], league_id):
         return redirect('/dashboard?error=You do not have access to this league')
-    
+
     display_name = request.form.get('display_name', '').strip()
     if not display_name:
         return redirect(f'/dashboard/league/{league_id}?error=Display name is required')
-    
+
+    min_weekly_scores_raw = request.form.get('min_weekly_scores', '').strip()
+    new_min_scores = None
+    if min_weekly_scores_raw:
+        try:
+            parsed = int(min_weekly_scores_raw)
+            if 3 <= parsed <= 7:
+                new_min_scores = parsed
+            else:
+                return redirect(f'/dashboard/league/{league_id}?error=Minimum weekly scores must be between 3 and 7')
+        except ValueError:
+            return redirect(f'/dashboard/league/{league_id}?error=Invalid minimum weekly scores value')
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE leagues SET display_name = %s WHERE id = %s", (display_name, league_id))
+
+        cursor.execute(
+            "SELECT display_name, COALESCE(min_weekly_scores, 5) FROM leagues WHERE id = %s",
+            (league_id,)
+        )
+        prev_row = cursor.fetchone()
+        prev_min_scores = int(prev_row[1]) if prev_row else 5
+
+        if new_min_scores is not None:
+            cursor.execute(
+                "UPDATE leagues SET display_name = %s, min_weekly_scores = %s WHERE id = %s",
+                (display_name, new_min_scores, league_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE leagues SET display_name = %s WHERE id = %s",
+                (display_name, league_id)
+            )
+
         conn.commit()
         cursor.close()
         conn.close()
-        
-        # Regenerate HTML to reflect the name change
+
+        # If min_weekly_scores changed, re-aggregate the current week under the new threshold.
+        # Past weekly winners stay frozen — we only touch the live unsettled week.
+        if new_min_scores is not None and new_min_scores != prev_min_scores:
+            try:
+                from update_tables_cloud import update_weekly_winners_from_db
+                update_weekly_winners_from_db(league_id)
+                logging.info(f"Re-aggregated weekly winners for league {league_id} after min_weekly_scores change {prev_min_scores} -> {new_min_scores}")
+            except Exception as agg_err:
+                logging.error(f"Failed to re-aggregate after min_weekly_scores change: {agg_err}")
+
+        # Regenerate HTML to reflect any changes
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
-        
-        return redirect(f'/dashboard/league/{league_id}?message=League renamed successfully')
+
+        return redirect(f'/dashboard/league/{league_id}?message=League settings updated successfully')
     except Exception as e:
-        logging.error(f"Error renaming league: {e}")
-        return redirect(f'/dashboard/league/{league_id}?error=Failed to rename league')
+        logging.error(f"Error updating league settings: {e}")
+        return redirect(f'/dashboard/league/{league_id}?error=Failed to update league settings')
 
 @app.route('/dashboard/league/<int:league_id>/add-player', methods=['POST'])
 def dashboard_add_player(league_id):

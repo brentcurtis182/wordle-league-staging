@@ -179,8 +179,15 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # Per-league configurable minimum scores per week (3-7, default 5)
+        cursor.execute("SELECT COALESCE(min_weekly_scores, 5) FROM leagues WHERE id = %s", (league_id,))
+        _mws_row = cursor.fetchone()
+        league_min_scores = int(_mws_row[0]) if _mws_row and _mws_row[0] else MIN_GAMES_REQUIRED
+        if not (3 <= league_min_scores <= 7):
+            league_min_scores = MIN_GAMES_REQUIRED
+
         # Load current winners data
         winners_data = load_weekly_winners()
         
@@ -283,13 +290,13 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 
                 player_scores[player_name]['scores'].append(score)
             
-            # Calculate best 5 totals for eligible players (5+ games)
+            # Calculate best-N totals for eligible players (league_min_scores+ games)
             eligible_players = {}
             for player_name, data in player_scores.items():
                 scores = sorted(data['scores'])  # Sort ascending (best first)
-                
-                if len(scores) >= MIN_GAMES_REQUIRED:
-                    best_5_total = sum(scores[:5])
+
+                if len(scores) >= league_min_scores:
+                    best_5_total = sum(scores[:league_min_scores])
                     eligible_players[player_name] = {
                         'player_id': data['player_id'],
                         'total': best_5_total,
@@ -297,7 +304,7 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                     }
             
             if not eligible_players:
-                logging.info(f"Week {week_wordle}: No eligible players (need {MIN_GAMES_REQUIRED} games)")
+                logging.info(f"Week {week_wordle}: No eligible players (need {league_min_scores} games)")
                 continue
             
             # Check if league is in division mode

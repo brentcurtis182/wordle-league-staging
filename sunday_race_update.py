@@ -18,7 +18,7 @@ import pytz
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date, get_league_min_scores
 from season_management import get_weekly_wins_in_current_season
 from image_generator import generate_weekly_image, generate_season_image, generate_division_weekly_image, image_to_bytes
 
@@ -34,12 +34,13 @@ logging.basicConfig(
 )
 
 def get_weekly_standings(league_id, week_start_wordle):
-    """Get current weekly standings for a league - uses BEST 5 scores like weekly winner calc"""
+    """Get current weekly standings for a league - uses the league's configured best-N scores."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    MIN_GAMES_FOR_RANKING = 5  # Must have at least 5 games to be in the running
-    BEST_N_SCORES = 5  # Use best (lowest) 5 scores for ranking
+
+    # Per-league configurable minimum scores per week (3-7, default 5)
+    MIN_GAMES_FOR_RANKING = get_league_min_scores(league_id, conn=conn)
+    BEST_N_SCORES = MIN_GAMES_FOR_RANKING
     
     try:
         # Get all active players (include division assignment)
@@ -183,16 +184,16 @@ def get_catch_up_text(player_name, score_to_win, score_to_tie, current_total=Non
         return f"{player_name}{context} is mathematically eliminated"
     return None
 
-def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
+def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted, min_scores=5):
     """Calculate what score a player needs to tie or win
-    
-    Logic: If player has 5+ games, their best 5 is locked in.
-    If player has <5 games, they need more games to qualify.
-    If player has exactly 5 games and hasn't posted today, a new score could replace their worst.
+
+    Logic: If player has min_scores+ games, their best N is locked in.
+    If player has <min_scores games, they need more games to qualify.
+    If player has exactly min_scores games and hasn't posted today, a new score could replace their worst.
     """
     if player_best_5 is None:
-        # Player doesn't have 5 games yet - can't calculate
-        return {'needs_more_games': True, 'games_needed': 5 - player_days_posted}
+        # Player doesn't have min_scores games yet - can't calculate
+        return {'needs_more_games': True, 'games_needed': min_scores - player_days_posted}
     
     # Player has 5+ games - calculate what they need
     diff = player_best_5 - leader_best_5
@@ -209,30 +210,31 @@ def calculate_what_they_need(leader_best_5, player_best_5, player_days_posted):
         'to_win': diff + 1  # Need to beat by 1
     }
 
-def compute_player_scenario(player, leader_total, leader_names):
+def compute_player_scenario(player, leader_total, leader_names, min_scores=5):
     """Compute catch-up/improvement scenario for a player who hasn't posted today.
-    
+
     Handles:
     - Players behind the leader (need to catch up)
     - Players TIED with the leader (can improve via throw-out to win outright)
     - Leaders who haven't posted (can extend their lead)
-    - Ineligible players with 4 games (could qualify with 5th score)
-    
+    - Ineligible players one game short of qualifying (could qualify with next score)
+
     Returns: (text, status) where status is 'can_catch_up', 'eliminated', 'can_improve', or None
     """
     name = player['name']
     is_leader = name in leader_names
-    
+    one_short = min_scores - 1
+
     if player['eligible']:
         diff = player['best_5_total'] - leader_total
         non_fail_scores = [s for s in player['scores'].values() if s != 7]
-        sorted_scores = sorted(non_fail_scores)[:5]
-        
+        sorted_scores = sorted(non_fail_scores)[:min_scores]
+
         if not sorted_scores:
             return None, None
-        
+
         worst_best_5 = sorted_scores[-1]
-        
+
         if is_leader and diff == 0:
             # Leader who hasn't posted — can improve via throw-out
             # New score replaces worst_best_5 if it's lower
@@ -241,7 +243,7 @@ def compute_player_scenario(player, leader_total, leader_names):
             if improvement > 0 and worst_best_5 > 1:
                 return f"{name} (at {player['best_5_total']}) leads but hasn't posted — could improve by replacing a {worst_best_5}", 'can_improve'
             return None, None
-        
+
         if diff == 0:
             # Tied with leader — can win outright by improving via throw-out
             # Need new score < worst_best_5 to improve total
@@ -255,7 +257,7 @@ def compute_player_scenario(player, leader_total, leader_names):
             else:
                 # Can't improve (worst score is already a 1)
                 return None, None
-        
+
         if diff > 0:
             # Behind the leader — standard catch-up
             score_to_tie = worst_best_5 - diff
@@ -265,48 +267,48 @@ def compute_player_scenario(player, leader_total, leader_names):
                 if "eliminated" in text:
                     return text, 'eliminated'
                 return text, 'can_catch_up'
-        
+
         return None, None
-    
-    elif player['days_posted'] >= 4:
+
+    elif player['days_posted'] >= one_short:
         # Ineligible but close — could qualify with today's score
         non_fail_scores = [s for s in player['scores'].values() if s != 7]
         non_fail_count = len(non_fail_scores)
-        if non_fail_count == 4:
-            current_total = sum(sorted(non_fail_scores)[:4])
-            # For 4-game players, the 5th score ADDS to their total (not replaces)
-            # best_5_total = current_total + new_score
+        if non_fail_count == one_short:
+            current_total = sum(sorted(non_fail_scores)[:one_short])
+            # For one-short players, the next score ADDS to their total (not replaces)
+            # new_total = current_total + new_score
             # To beat leader: current_total + new_score < leader_total
             # To tie leader: current_total + new_score = leader_total
             best_possible = current_total + 1  # perfect score
             worst_possible = current_total + 6  # worst non-fail score
-            
+
             if best_possible > leader_total:
                 # Even a perfect 1 can't tie/beat the leader
-                return f"{name} (at {current_total} with 4 games) is mathematically eliminated", 'eliminated'
-            
+                return f"{name} (at {current_total} with {one_short} games) is mathematically eliminated", 'eliminated'
+
             # They CAN catch up — figure out what they need
-            # For 4-game players: new_total = current_total + new_score
+            # new_total = current_total + new_score
             # score_to_tie = leader_total - current_total (score that ties)
             # score_to_win = score_to_tie - 1 (score that beats)
             score_to_tie = leader_total - current_total
             score_to_win = score_to_tie - 1
-            
+
             # If even worst possible score (6) beats the leader, they win no matter what
             if worst_possible < leader_total:
-                return f"{name} (at {current_total} with 4 games) just needs to post today to qualify and WIN — any score beats the leader!", 'can_catch_up'
+                return f"{name} (at {current_total} with {one_short} games) just needs to post today to qualify and WIN — any score beats the leader!", 'can_catch_up'
             elif worst_possible == leader_total:
-                return f"{name} (at {current_total} with 4 games) just needs to post today to qualify and at minimum TIE the leader!", 'can_catch_up'
-            
+                return f"{name} (at {current_total} with {one_short} games) just needs to post today to qualify and at minimum TIE the leader!", 'can_catch_up'
+
             # They need a specific score range to catch up
-            text = get_catch_up_text(name, score_to_win, score_to_tie, current_total, 4)
+            text = get_catch_up_text(name, score_to_win, score_to_tie, current_total, one_short)
             if text:
                 if "eliminated" in text:
                     return text, 'eliminated'
                 return text, 'can_catch_up'
-        elif non_fail_count < 4:
+        elif non_fail_count < one_short:
             return f"{name} is mathematically eliminated", 'eliminated'
-    
+
     return None, None
 
 def upload_image_to_twilio(image_bytes, twilio_sid, twilio_token, chat_service_sid):
@@ -379,16 +381,16 @@ def is_ai_message_enabled(league_id, message_type):
 
 DIVISION_WINS_FOR_SEASON = 3  # Division seasons require 3 wins (not 4)
 
-def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current_season):
+def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current_season, min_scores=5):
     """Build scenario analysis text for a single division.
     Returns scenario text string for the AI prompt."""
     div_label = "Division I" if div_num == 1 else "Division II"
-    
+
     eligible = [s for s in div_standings if s['eligible']]
     ineligible = [s for s in div_standings if not s['eligible']]
-    
+
     if not eligible:
-        return f"{div_label}: No one has played 5 games yet to qualify for the weekly win."
+        return f"{div_label}: No one has played {min_scores} games yet to qualify for the weekly win."
     
     if len(eligible) == 1:
         winner = eligible[0]
@@ -410,7 +412,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     eliminated = []
     
     for player in not_posted_today:
-        text, status = compute_player_scenario(player, leader_total, leader_names)
+        text, status = compute_player_scenario(player, leader_total, leader_names, min_scores=min_scores)
         if text and status == 'can_catch_up':
             players_who_can_catch_up.append(player['name'])
             catch_up_scenarios.append(text)
@@ -418,7 +420,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
             leader_improve_scenarios.append(text)
         elif text and status == 'eliminated':
             eliminated.append(player['name'])
-    
+
     race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
 
     # Compute clinch candidates BEFORE incrementing pending win.
@@ -504,7 +506,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
             contenders = [name for name in potential_clinchers if name not in leader_names and name in not_posted_names]
             contenders_in_hunt = []
             for p in div_standings:
-                if p['name'] in contenders and (p['eligible'] or p['days_posted'] >= 4):
+                if p['name'] in contenders and (p['eligible'] or p['days_posted'] >= min_scores - 1):
                     contenders_in_hunt.append(p['name'])
             if contenders_in_hunt:
                 clinchers_list = " or ".join(contenders_in_hunt[:2])
@@ -554,7 +556,10 @@ def send_sunday_race_update(league_id, force_season_image=False):
         is_division_mode = league_row[4] or False
         league_slug = league_row[3] or f"league{league_id}"
         league_url = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{league_slug}"
-        
+
+        # Per-league configurable minimum scores per week (3-7, default 5)
+        min_scores = get_league_min_scores(league_id)
+
         # Get week start
         pacific = pytz.timezone('America/Los_Angeles')
         today = datetime.now(pacific).date()
@@ -596,8 +601,8 @@ def send_sunday_race_update(league_id, force_season_image=False):
             div2_season_info = get_division_season_info(league_id, 2)
             
             # Build per-division scenario text
-            div1_scenario = build_division_scenario(div1_standings, 1, div1_weekly_wins, div1_season_info['current_season'])
-            div2_scenario = build_division_scenario(div2_standings, 2, div2_weekly_wins, div2_season_info['current_season'])
+            div1_scenario = build_division_scenario(div1_standings, 1, div1_weekly_wins, div1_season_info['current_season'], min_scores=min_scores)
+            div2_scenario = build_division_scenario(div2_standings, 2, div2_weekly_wins, div2_season_info['current_season'], min_scores=min_scores)
             
             scenario_text = f"{div1_scenario}\n\n{div2_scenario}"
             logging.info(f"League {league_id} division scenarios: {scenario_text}")
@@ -607,11 +612,11 @@ def send_sunday_race_update(league_id, force_season_image=False):
                 lines = []
                 for s in div_standings:
                     if s['eligible']:
-                        lines.append(f"  {s['name']}: best-5 total = {s['best_5_total']}, games = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                        lines.append(f"  {s['name']}: best-{min_scores} total = {s['best_5_total']}, games = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
                     else:
                         non_fail = [v for v in s['scores'].values() if v != 7]
-                        current = sum(sorted(non_fail)[:5]) if non_fail else 0
-                        lines.append(f"  {s['name']}: {s['days_posted']} games (needs 5), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                        current = sum(sorted(non_fail)[:min_scores]) if non_fail else 0
+                        lines.append(f"  {s['name']}: {s['days_posted']} games (needs {min_scores}), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
                 return "\n".join(lines) if lines else "  No players"
             
             def build_div_wins_summary(div_wins):
@@ -625,7 +630,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
             div1_has_stakes = "SEASON STAKES" in div1_scenario or "SEASON CLINCH" in div1_scenario
             div2_has_stakes = "SEASON STAKES" in div2_scenario or "SEASON CLINCH" in div2_scenario
 
-            div1_block = f"""DIVISION I STANDINGS (lower is better, best 5 of 7):
+            div1_block = f"""DIVISION I STANDINGS (lower is better, best {min_scores} of 7):
 {build_div_standings_summary(div1_standings)}"""
             if div1_has_stakes:
                 div1_block += f"""
@@ -633,7 +638,7 @@ def send_sunday_race_update(league_id, force_season_image=False):
 DIVISION I SEASON {div1_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
 {build_div_wins_summary(div1_weekly_wins)}"""
 
-            div2_block = f"""DIVISION II STANDINGS (lower is better, best 5 of 7):
+            div2_block = f"""DIVISION II STANDINGS (lower is better, best {min_scores} of 7):
 {build_div_standings_summary(div2_standings)}"""
             if div2_has_stakes:
                 div2_block += f"""
@@ -695,24 +700,24 @@ IMPORTANT RULES:
         # STANDARD MODE: single league analysis (existing logic)
         # ============================================================
         else:
-            # Find eligible players (5+ games) and their leader
+            # Find eligible players (min_scores+ games) and their leader
             eligible = [s for s in standings if s['eligible']]
-            
+
             # Get current weekly wins for season clinching detection
             weekly_wins, current_season = get_weekly_wins_in_current_season(league_id)
-            
+
             # Find players who could clinch the season with a win this week (currently at 3 wins)
             potential_season_clinchers = [name for name, wins in weekly_wins.items() if wins == WINS_FOR_SEASON_VICTORY - 1]
-            
+
             # Build raw standings summary for the AI prompt
             standings_lines = []
             for s in standings:
                 if s['eligible']:
-                    standings_lines.append(f"  {s['name']}: best-5 total = {s['best_5_total']}, games played = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                    standings_lines.append(f"  {s['name']}: best-{min_scores} total = {s['best_5_total']}, games played = {s['days_posted']}, posted today = {'yes' if s['posted_today'] else 'no'}")
                 else:
                     non_fail = [v for v in s['scores'].values() if v != 7]
-                    current = sum(sorted(non_fail)[:5]) if non_fail else 0
-                    standings_lines.append(f"  {s['name']}: {s['days_posted']} games (needs 5 to qualify), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
+                    current = sum(sorted(non_fail)[:min_scores]) if non_fail else 0
+                    standings_lines.append(f"  {s['name']}: {s['days_posted']} games (needs {min_scores} to qualify), current total = {current}, posted today = {'yes' if s['posted_today'] else 'no'}")
             standings_summary = "\n".join(standings_lines)
             
             # Build season wins summary
@@ -725,18 +730,19 @@ IMPORTANT RULES:
             prompt = None
             
             if not eligible:
-                logging.info(f"No eligible players (5+ games) in league {league_id} - sending 'no winner this week' message")
-                prompt = "It's Sunday! No one has played 5 games yet this week to qualify for the weekly win. You need at least 5 scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
+                logging.info(f"No eligible players ({min_scores}+ games) in league {league_id} - sending 'no winner this week' message")
+                prompt = f"It's Sunday! No one has played {min_scores} games yet this week to qualify for the weekly win. You need at least {min_scores} scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
             elif len(eligible) == 1:
-                # Check if any ineligible player with 4 games could still qualify and beat the leader
+                # Check if any ineligible player one short of qualifying could still qualify and beat the leader
                 winner = eligible[0]
                 potential_qualifiers = []
+                one_short = min_scores - 1
                 for p in standings:
-                    if not p['eligible'] and p['days_posted'] >= 4:
+                    if not p['eligible'] and p['days_posted'] >= one_short:
                         non_fail = [s for s in p['scores'].values() if s != 7]
-                        if len(non_fail) == 4:
-                            current_total = sum(sorted(non_fail)[:4])
-                            # With a 5th score of 6 (worst non-fail), could they beat or tie the leader?
+                        if len(non_fail) == one_short:
+                            current_total = sum(sorted(non_fail)[:one_short])
+                            # With a next score of 6 (worst non-fail), could they beat or tie the leader?
                             if current_total + 6 <= winner['best_5_total']:
                                 potential_qualifiers.append(p)
                 
@@ -773,7 +779,7 @@ IMPORTANT RULES:
                 eliminated = []
                 
                 for player in not_posted_today:
-                    text, status = compute_player_scenario(player, leader_total, leader_names)
+                    text, status = compute_player_scenario(player, leader_total, leader_names, min_scores=min_scores)
                     if text and status == 'can_catch_up':
                         players_who_can_catch_up.append(player['name'])
                         catch_up_scenarios.append(text)
@@ -837,7 +843,7 @@ IMPORTANT RULES:
                     clinchers_in_contention = []
                     for player in standings:
                         if player['name'] in potential_season_clinchers:
-                            if player['eligible'] or player['days_posted'] >= 4:
+                            if player['eligible'] or player['days_posted'] >= min_scores - 1:
                                 clinchers_in_contention.append(player['name'])
                     if len(clinchers_in_contention) >= 3:
                         names_list = ", ".join(clinchers_in_contention[:-1]) + f" and {clinchers_in_contention[-1]}"
@@ -856,7 +862,7 @@ IMPORTANT RULES:
                         contenders_who_could_clinch = []
                         for player in standings:
                             if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
-                                if player['eligible'] or player['days_posted'] == 4:
+                                if player['eligible'] or player['days_posted'] == min_scores - 1:
                                     contenders_who_could_clinch.append(player['name'])
                         if contenders_who_could_clinch:
                             if len(contenders_who_could_clinch) == 1:
@@ -873,7 +879,7 @@ IMPORTANT RULES:
                 # Omit SEASON WINS entirely when there are no season stakes — prevents the AI
                 # from inventing claims about win counts that aren't relevant to today's race.
                 if season_clinch_text:
-                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
+                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
 SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
@@ -881,7 +887,7 @@ SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
 
 WEEKLY RACE ANALYSIS: {scenario_text}"""
                 else:
-                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best 5 of 7 scores):
+                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
 WEEKLY RACE ANALYSIS: {scenario_text}"""

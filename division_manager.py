@@ -10,7 +10,7 @@ import json
 import logging
 from datetime import datetime
 import pytz
-from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date, get_league_min_scores
 
 DIVISION_WINS_FOR_SEASON = 3  # Wins needed to win a division season (vs 4 for normal)
 
@@ -877,8 +877,8 @@ def check_division1_relegation(league_id):
     
     Relegation priority:
     1. Season winner is EXEMPT from relegation regardless of missed weeks.
-    2. Players with missed weeks (< 5 valid scores in a week) are relegated
-       before players with no missed weeks.
+    2. Players with missed weeks (< league's min_weekly_scores valid scores)
+       are relegated before players with no missed weeks.
     3. Among players with missed weeks, the one with MORE missed weeks is relegated.
     4. If tied on missed weeks, the player with the worst (highest) Season Total
        is relegated.
@@ -886,8 +886,9 @@ def check_division1_relegation(league_id):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
+        min_scores = get_league_min_scores(league_id, conn=conn)
         # Get the season that just ended
         cursor.execute("""
             SELECT current_season, season_start_week
@@ -958,13 +959,13 @@ def check_division1_relegation(league_id):
                     week_scores[ws] = []
                 week_scores[ws].append(sc)
             
-            # Count missed weeks (weeks with < 5 valid non-fail scores)
+            # Count missed weeks (weeks with < min_scores valid non-fail scores)
             missed = 0
             w = season_start
             while w <= season_end:
                 scores_in_week = week_scores.get(w, [])
                 valid_count = len([s for s in scores_in_week if s < 7])
-                if valid_count < 5:
+                if valid_count < min_scores:
                     missed += 1
                 w += 7
             

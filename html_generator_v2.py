@@ -188,9 +188,10 @@ def generate_weekly_totals_html(league_data):
     week_wordles = league_data['week_wordles']
     weekly_stats = league_data['weekly_stats']
     missed_weeks_data = league_data.get('missed_weeks', {})
-    
-    html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+    min_scores = league_data.get('min_weekly_scores', 5)
+
+    html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">{min_scores} scores</strong> needed to compete for the week!</p>
 <div class="table-container" style="overflow-x: auto;">
 <table>
 <thead>
@@ -210,23 +211,23 @@ def generate_weekly_totals_html(league_data):
     
     html += '</tr>\n</thead>\n<tbody>\n'
     
-    # Sort players: ELIGIBLE FIRST (5+ scores), then by score, then by games
+    # Sort players: ELIGIBLE FIRST (min_scores+), then by score, then by games
     # This matches the proven script logic exactly
     sorted_players = sorted(
         weekly_stats.items(),
         key=lambda x: (
-            x[1]['used_scores'] < 5,  # Eligible (5+) first (False sorts before True)
-            -x[1]['used_scores'] if x[1]['used_scores'] < 5 else 0,  # Non-eligible by games (desc)
+            x[1]['used_scores'] < min_scores,  # Eligible first (False sorts before True)
+            -x[1]['used_scores'] if x[1]['used_scores'] < min_scores else 0,  # Non-eligible by games (desc)
             x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999,  # Then by score (asc)
             -x[1]['games_played']  # Tie-breaker: more games played
         )
     )
-    
+
     for player_name, stats in sorted_players:
-        # Highlight players with 5+ games in green
+        # Highlight eligible players (min_scores+) with cyan background
         row_class = ''
         row_style = ''
-        if stats['used_scores'] >= 5:
+        if stats['used_scores'] >= min_scores:
             row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"'
         
         # Also highlight weekly winner
@@ -273,7 +274,7 @@ def generate_weekly_totals_html(league_data):
     
     html += '</tbody>\n</table>\n'
     html += '<p class="note" style="font-style: italic; margin-top: 20px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
-    html += '<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your best 5 scores. Additional scores appear in \'Thrown Out\'</p>\n'
+    html += f'<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your <strong style="color: #00E8DA;">best {min_scores} scores</strong>. Additional scores appear in \'Thrown Out\'</p>\n'
     html += '</div>\n'
     
     return html
@@ -766,7 +767,8 @@ def generate_division_weekly_totals_html(league_data):
     player_divisions = league_data.get('player_divisions', {})
     week_wordles = league_data['week_wordles']
     weekly_stats = league_data['weekly_stats']
-    
+    min_scores = league_data.get('min_weekly_scores', 5)
+
     html = ''
     
     for div_num in (1, 2):
@@ -786,8 +788,8 @@ def generate_division_weekly_totals_html(league_data):
         
         # Only show instructions above Division I (before the title)
         if div_num == 1:
-            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top 5 scores count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least 5 scores needed to compete for the week!</p>
+            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">{min_scores} scores</strong> needed to compete for the week!</p>
 '''
         
         html += f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">\n'
@@ -819,16 +821,16 @@ def generate_division_weekly_totals_html(league_data):
         sorted_players = sorted(
             div_stats.items(),
             key=lambda x: (
-                x[1]['used_scores'] < 5,
-                -x[1]['used_scores'] if x[1]['used_scores'] < 5 else 0,
+                x[1]['used_scores'] < min_scores,
+                -x[1]['used_scores'] if x[1]['used_scores'] < min_scores else 0,
                 x[1]['best_5_total'] if x[1]['used_scores'] > 0 else 999,
                 -x[1]['games_played']
             )
         )
-        
+
         for player_name, stats in sorted_players:
             row_style = ''
-            if stats['used_scores'] >= 5:
+            if stats['used_scores'] >= min_scores:
                 row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"' if div_num == 1 else ' style="background-color: rgba(255, 166, 77, 0.15);"'
             
             # Check immunity for season total display
@@ -914,7 +916,7 @@ def generate_division_weekly_totals_html(league_data):
         html += '</div>\n'
     
     # Footer text (shown once after both division tables)
-    html += '''<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your best 5 scores. Additional scores appear in 'Thrown Out'</p>
+    html += f'''<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best {min_scores} scores</strong>. Additional scores appear in 'Thrown Out'</p>
 '''
     
     # JavaScript for toggling Weekly Score / Season Total with sorting
