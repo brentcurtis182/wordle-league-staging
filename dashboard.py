@@ -2520,15 +2520,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         An emoji that floats above your league title on the public page. Click ✨ Generate for AI-suggested options based on your league name.
                     </p>
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-                        <button type="button" class="btn btn-secondary" style="min-width:200px;" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
+                        <button type="button" class="btn btn-secondary" style="width:220px; flex-shrink:0;" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
                         <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
                     </div>
-                    <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap;"></div>
+                    <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center;"></div>
                     <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
                 </div>
                 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-primary" style="min-width:200px;" onclick="showLeagueSettingsModal()">Save Changes</button>
-                    <button type="button" class="btn btn-secondary" style="min-width:200px;" onclick="clearMascot()">Remove Mascot</button>
+                    <button type="button" class="btn btn-primary" style="width:220px; flex-shrink:0;" onclick="showLeagueSettingsModal()">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" style="width:220px; flex-shrink:0;" onclick="clearMascot()">Remove Mascot</button>
                 </div>
             </div>
             
@@ -3438,6 +3438,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         b.onclick = function() {{ selectMascot(e); }};
                         row.appendChild(b);
                     }});
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'btn btn-secondary';
+                    cancelBtn.style.padding = '8px 18px';
+                    cancelBtn.textContent = 'Cancel';
+                    cancelBtn.onclick = cancelMascotOptions;
+                    row.appendChild(cancelBtn);
                 }} catch (err) {{
                     alert('Could not generate mascot: ' + err);
                 }} finally {{
@@ -3449,6 +3456,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             function selectMascot(emoji) {{
                 document.getElementById('leagueHeaderEmoji').value = emoji;
                 document.getElementById('mascotCurrent').textContent = emoji;
+                document.getElementById('mascotOptions').style.display = 'none';
+            }}
+
+            function cancelMascotOptions() {{
+                const row = document.getElementById('mascotOptions');
+                row.style.display = 'none';
+                row.innerHTML = '';
             }}
 
             function clearMascot() {{
