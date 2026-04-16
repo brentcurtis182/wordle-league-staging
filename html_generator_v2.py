@@ -1489,7 +1489,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
                 vx: (Math.random() - 0.5) * 0.25,
                 vy: (Math.random() - 0.5) * 0.25,
                 size: Math.random() * 1.5 + 0.5,
-                opacity: Math.random() * 0.25 + 0.03,
+                opacity: Math.random() * 0.4 + 0.25,
                 color: colors[Math.floor(Math.random() * 4)]
             }});
         }}
@@ -1516,7 +1516,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
                     ctx.beginPath();
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.025 * (1 - dist / 100)) + ')';
+                    ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.06 * (1 - dist / 100)) + ')';
                     ctx.lineWidth = 0.5;
                     ctx.stroke();
                 }}
