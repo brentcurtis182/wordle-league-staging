@@ -1,47 +1,441 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wordle League (Staging)</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="script.js" defer></script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
+<title>Warriorz - Wordle League</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+    /* Emoji pattern styles */
+    .score-display {
+        display: flex;
+        align-items: center;
+    }
+    
+    .emoji-pattern {
+        margin-left: 15px;
+        display: inline-block;
+        text-align: right;
+    }
+    
+    .emoji-row {
+        white-space: nowrap;
+        display: flex;
+        gap: 4px;
+        margin-bottom: 3px;
+    }
+    .emoji-row:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Custom branded Wordle blocks - unique 3D tiles */
+    .wl-block {
+        display: inline-block;
+        width: 23px;
+        height: 23px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        border: 1px solid rgba(0,0,0,0.2);
+    }
+    .wl-cyan {
+        background: linear-gradient(135deg, #00E8DA 0%, #00d4c8 50%, #00c4b8 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(0,232,218,0.3);
+        border-color: #00c4b8;
+    }
+    .wl-orange {
+        background: linear-gradient(135deg, #FFB366 0%, #FFA64D 50%, #e89440 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(255,166,77,0.3);
+        border-color: #e89440;
+    }
+    .wl-dark {
+        background: linear-gradient(135deg, #4a4a4c 0%, #3a3a3c 50%, #2a2a2c 100%);
+        box-shadow: inset 0 1px 1px rgba(255,255,255,0.08), inset 0 -2px 3px rgba(0,0,0,0.2);
+        border-color: #2a2a2c;
+    }
+    .wl-light {
+        background: linear-gradient(135deg, #ffffff 0%, #e8e8e8 50%, #d8d8d8 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -2px 3px rgba(0,0,0,0.1);
+        border-color: #c8c8c8;
+    }
+    
+    .emoji-container {
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-left: auto;
+    }
+    
+    .highlight {
+        background-color: rgba(0, 232, 218, 0.2);
+    }
+    
+    /* Failed attempts column styling */
+    .failed-attempts {
+        background-color: rgba(128, 58, 58, 0.2);
+        font-weight: bold;
+        color: #ff6b6b;
+    }
+</style>
 </head>
 <body>
-    <h1>Wordle League (Staging Environment)</h1>
-    <p class="date-display">Last updated: 2025-08-04</p>
-    <div class="staging-notice">
-        <strong>STAGING ENVIRONMENT</strong> - This is a test version of the Wordle League site.
+<div class="wpl-top-bar">
+    <a class="wpl-dashboard-btn" href="https://staging.wordplayleague.com/dashboard">Dashboard →</a>
+</div>
+<header>
+<div class="container" style="text-align: center;">
+<div class="header-mascot">⚔️</div>
+<h1 class="title">Warriorz</h1>
+<a class="wpl-brand" href="https://www.wordplayleague.com">WordPlayLeague</a>
+</div>
+</header>
+<div class="container">
+<div class="tab-container">
+<div class="tab-buttons tabs">
+<div class="tab-row">
+<button class="tab-button active" data-tab="latest">Latest Scores</button>
+<button class="tab-button" data-tab="weekly">Weekly Totals</button>
+</div>
+<div class="tab-row">
+<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
+</div>
+</div>
+<div class="tab-content active" id="latest">
+<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1762 - April 16, 2026</h2>
+<div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Nanna</div>
+        <div class="player-score"><span style="color: #00E8DA; background-color: rgba(0, 232, 218, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">3/6</span></div>
     </div>
-    
-    <div class="league-grid">
-        <div class="league-card">
-            <div class="league-name">Wordle Warriorz</div>
-            <div class="league-status status-active">Active</div>
-            <form action="/wordle-league-staging/warriorz/" method="get">
-                <button type="submit" class="league-button">View League</button>
-            </form>
-        </div>
-        <div class="league-card">
-            <div class="league-name">Wordle Gang</div>
-            <div class="league-status status-active">Active</div>
-            <form action="/wordle-league-staging/gang/" method="get">
-                <button type="submit" class="league-button">View League</button>
-            </form>
-        </div>
-        <div class="league-card">
-            <div class="league-name">Wordle PAL</div>
-            <div class="league-status status-active">Active</div>
-            <form action="/wordle-league-staging/pal/" method="get">
-                <button type="submit" class="league-button">View League</button>
-            </form>
-        </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Brent</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
     </div>
-    
-    <div class="footer">
-        <p>Wordle League Staging Environment</p>
-        <p><small>This is a test version of the site with identical functionality to production.</small></p>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Evan</div>
+        <div class="player-score"><span>No Score</span></div>
     </div>
-    
+    <div class="emoji-container"><div class="emoji-pattern"></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Joanna</div>
+        <div class="player-score"><span>No Score</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Malia</div>
+        <div class="player-score"><span>No Score</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"></div></div>
+</div>
+</div>
+<div class="tab-content" id="weekly">
+<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">5 scores</strong> count toward weekly total (Monday-Sunday).</p>
+<p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">5 scores</strong> needed to compete for the week!</p>
+<div class="table-container" style="overflow-x: auto;">
+<table>
+<thead>
+<tr>
+    <th class="sticky-column">Player</th>
+    <th>Weekly Score</th>
+    <th>Used Scores</th>
+    <th>Failed</th>
+    <th>Thrown Out</th>
+    <th>Wks Missed</th>
+    <th>Mon</th>
+    <th>Tue</th>
+    <th>Wed</th>
+    <th>Thu</th>
+    <th>Fri</th>
+    <th>Sat</th>
+    <th>Sun</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+    <td class="sticky-column"><strong>Nanna</strong></td>
+    <td style="font-weight: bold;">15</td>
+    <td>4</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Brent</strong></td>
+    <td style="font-weight: bold;">16</td>
+    <td>4</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Joanna</strong></td>
+    <td style="font-weight: bold;">11</td>
+    <td>3</td>
+    <td>-</td>
+    <td>-</td>
+    <td style="color: #ff5c5c; font-weight: bold;">2</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Evan</strong></td>
+    <td style="font-weight: bold;">-</td>
+    <td>0</td>
+    <td>-</td>
+    <td>-</td>
+    <td style="color: #ff5c5c; font-weight: bold;">2</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Malia</strong></td>
+    <td style="font-weight: bold;">-</td>
+    <td>0</td>
+    <td>-</td>
+    <td>-</td>
+    <td style="color: #ff5c5c; font-weight: bold;">2</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="note" style="font-style: italic; margin-top: 20px;">Failed attempts do not count towards your 'Used Scores'</p>
+<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your <strong style="color: #00E8DA;">best 5 scores</strong>. Additional scores appear in 'Thrown Out'</p>
+
+</div>
+<div class="tab-content" id="stats">
+<div class="season-container" style="margin-bottom: 30px;">
+<h3 style="margin-bottom: 10px; color: #00E8DA;">Season 7</h3>
+<table class="season-table">
+<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>
+<tbody>
+<tr>
+    <td><strong>Brent</strong></td>
+    <td>1</td>
+    <td style="white-space: nowrap;">Mar 30 (18)</td>
+</tr>
+<tr>
+    <td><strong>Nanna</strong></td>
+    <td>1</td>
+    <td style="white-space: nowrap;">Apr 06 (19)</td>
+</tr>
+</tbody>
+</table>
+<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champ!</p>
+<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; " onclick="document.getElementById('season-modal-6').style.display='flex'">Season 6 Winner: Joanna <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+<p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 10px; cursor: pointer; " onclick="document.getElementById('season-modal-5').style.display='flex'">Season 5 Winner: Joanna <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="openFullList()">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+</div>
+<div class="all-time-container" style="margin-top: 36px;">
+<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>
+<table>
+<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>
+<tbody>
+<tr class="highlight" style="background-color: rgba(0, 232, 218, 0.15);">
+    <td><strong>Joanna</strong></td>
+    <td>224</td>
+    <td>3.67</td>
+</tr>
+<tr>
+    <td><strong>Brent</strong></td>
+    <td>253</td>
+    <td>4.19</td>
+</tr>
+<tr>
+    <td><strong>Nanna</strong></td>
+    <td>247</td>
+    <td>4.38</td>
+</tr>
+<tr>
+    <td><strong>Evan</strong></td>
+    <td>34</td>
+    <td>4.44</td>
+</tr>
+<tr>
+    <td><strong>Malia</strong></td>
+    <td>141</td>
+    <td>4.56</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="season-modal-6" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#00E8DA; margin:0;">Season 6 Breakdown</h3>
+      <span onclick="document.getElementById('season-modal-6').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Nanna</strong></td><td style="text-align:center;">2</td></tr>
+</tbody>
+    </table>
+  </div>
+</div>
+<div id="season-modal-5" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#00E8DA; margin:0;">Season 5 Breakdown</h3>
+      <span onclick="document.getElementById('season-modal-5').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+</tbody>
+    </table>
+  </div>
+</div>
+<div id="season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){backToFullList();this.style.display='none'}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div id="fl-list-view">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="color:#FFA64D; margin:0;">Season Winners</h3>
+        <span onclick="backToFullList();document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+      </div>
+      <div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail(6)"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 6:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Joanna <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>
+<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail(5)"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 5:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Joanna <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>
+<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail(4)"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 4:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Joanna <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>
+<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 3:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Brent</span></div>
+<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail(2)"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 2:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Joanna <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>
+<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season 1:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Joanna</span></div>
+
+    </div>
+    <div id="fl-detail-2" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 2</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+<tr><td><strong>Malia</strong></td><td style="text-align:center;">1</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="fl-detail-4" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 4</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+<tr><td><strong>Nanna</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">3</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="fl-detail-5" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 5</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="fl-detail-6" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 6</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr style="background-color: rgba(0, 232, 218, 0.15);"><td><strong>Joanna</strong></td><td style="text-align:center;">4</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Nanna</strong></td><td style="text-align:center;">2</td></tr>
+</tbody>
+    </table>
+</div>
+
+  </div>
+</div>
+<script>
+function showSeasonDetail(sn) {
+  document.getElementById('fl-list-view').style.display = 'none';
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  var el = document.getElementById('fl-detail-' + sn);
+  if (el) el.style.display = 'block';
+}
+function backToFullList() {
+  var details = document.querySelectorAll('[id^="fl-detail-"]');
+  for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
+  document.getElementById('fl-list-view').style.display = 'block';
+}
+function openFullList() {
+  backToFullList();
+  document.getElementById('season-full-list-modal').style.display = 'flex';
+}
+</script>
+
+</div>
+</div>
+</div>
+<footer class="wpl-footer">
+<div class="container">
+<div class="footer-tiles">
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+<div class="footer-tile"></div>
+</div>
+<p>Warriorz · <a href="https://www.wordplayleague.com">WordPlayLeague</a></p>
+</div>
+</footer>
+<script>
+(function() {
+    var colors = ['t-cyan', 't-orange', 't-dark'];
+    var tiles = document.querySelectorAll('.footer-tile');
+    function pick() { return colors[Math.floor(Math.random() * colors.length)]; }
+    tiles.forEach(function(tile, i) {
+        tile.classList.add(pick());
+        tile.style.animationDelay = (i * 0.2) + 's';
+        tile.addEventListener('animationiteration', function() {
+            colors.forEach(function(c) { tile.classList.remove(c); });
+            tile.classList.add(pick());
+        });
+    });
+})();
+</script>
+<script src="script.js"></script>
+<script src="tabs.js"></script>
 </body>
 </html>
