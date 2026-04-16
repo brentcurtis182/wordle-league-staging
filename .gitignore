@@ -29,3 +29,22 @@ table_aggregation.py
 *.swp
 *.swo
 *~
+
+# Runtime / local data
+logs/
+runtime_logs/
+backups/
+automation_profile/
+dom_captures/
+website_export/
+wordle_league.db
+
+# Archives / legacy (deleted, prevent recreation)
+Cleanup_Archive_20251103/
+Wordle-League-Legacy-Scores/
+Temp_Python_scripts/
+cloud_deployment/
+staging/
+
+# Backup files
+*.backup_*
