@@ -2524,7 +2524,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
                     </div>
                     <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center;"></div>
-                    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+                    <div style="display:flex; justify-content:flex-start; margin-top:12px;">
                         <button type="button" class="btn btn-secondary" style="width:220px; flex-shrink:0;" onclick="clearMascot()">Remove Mascot</button>
                     </div>
                     <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
