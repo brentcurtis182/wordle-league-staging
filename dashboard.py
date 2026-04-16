@@ -2521,7 +2521,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <h2>➕ Add Player</h2>
                 {f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> SMS leagues are limited to 9 players (Twilio group MMS maximum). Remove a player before adding a new one.</div>' if channel_type == 'sms' and len(players) >= 9 else ''}
                 {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px; font-size: 0.9em;">Add players by name. Their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' account will be linked automatically when they post their first score.</p>' if channel_type in ('slack', 'discord') else ''}
-                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="showLoading('Adding player...')" {f'style="opacity: 0.5; pointer-events: none;"' if channel_type == 'sms' and len(players) >= 9 else ''}>
+                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if channel_type == 'sms' and len(players) >= 9 else ''}>
                     {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
                         <div class="form-group">
                             <label>Player Name</label>
@@ -3293,10 +3293,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     
                     closeEditPlayerModal();
                     showLoading('Saving changes...');
-                    document.getElementById('editPlayerForm').submit();
+                    requestAnimationFrame(function() {{
+                        requestAnimationFrame(function() {{
+                            document.getElementById('editPlayerForm').submit();
+                        }});
+                    }});
                 }}
             }}
-            
+
             function editPlayerRemove() {{
                 if (editPlayerModalId) {{
                     const pid = editPlayerModalId;
@@ -3350,11 +3354,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     // Close modal and show loading
                     closeSaveModal();
                     showLoading('Saving changes...');
-                    
-                    document.getElementById('editPlayerForm').submit();
+
+                    requestAnimationFrame(function() {{
+                        requestAnimationFrame(function() {{
+                            document.getElementById('editPlayerForm').submit();
+                        }});
+                    }});
                 }}
             }}
-            
+
             function showRemoveModal(playerId, playerName) {{
                 currentRemovePlayerId = playerId;
                 document.getElementById('removeModalText').textContent = 
@@ -3374,8 +3382,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     // Close modal and show loading
                     closeRemoveModal();
                     showLoading('Removing player...');
-                    
-                    document.getElementById('removePlayerForm').submit();
+
+                    requestAnimationFrame(function() {{
+                        requestAnimationFrame(function() {{
+                            document.getElementById('removePlayerForm').submit();
+                        }});
+                    }});
                 }}
             }}
             
@@ -3450,7 +3462,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 closeRenameModal();
                 showLoading('Saving league settings...');
 
-                document.getElementById('renameLeagueForm').submit();
+                // Double rAF so the overlay is painted before navigation begins
+                requestAnimationFrame(function() {{
+                    requestAnimationFrame(function() {{
+                        document.getElementById('renameLeagueForm').submit();
+                    }});
+                }});
             }}
             
             // Delete League functions
@@ -3711,17 +3728,21 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const action = pendingResetAction;
                 closeResetModal();
                 showLoading('Processing...');
-                
-                if (form) {{
-                    form.submit();
-                }} else if (action) {{
-                    // Create and submit a form for the action URL
-                    const newForm = document.createElement('form');
-                    newForm.method = 'POST';
-                    newForm.action = action;
-                    document.body.appendChild(newForm);
-                    newForm.submit();
-                }}
+
+                requestAnimationFrame(function() {{
+                    requestAnimationFrame(function() {{
+                        if (form) {{
+                            form.submit();
+                        }} else if (action) {{
+                            // Create and submit a form for the action URL
+                            const newForm = document.createElement('form');
+                            newForm.method = 'POST';
+                            newForm.action = action;
+                            document.body.appendChild(newForm);
+                            newForm.submit();
+                        }}
+                    }});
+                }});
             }}
             
             function resetSinglePlayer() {{
@@ -4092,7 +4113,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 closeAISettingsModal();
                 showLoading('Saving AI settings...');
-                document.getElementById('aiSettingsForm').submit();
+                requestAnimationFrame(function() {{
+                    requestAnimationFrame(function() {{
+                        document.getElementById('aiSettingsForm').submit();
+                    }});
+                }});
             }}
             
             // Close modals on escape key
