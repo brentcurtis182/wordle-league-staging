@@ -219,6 +219,7 @@ def get_base_styles():
             padding: 12px 26px;
             border-radius: 100px;
             border: 1px solid transparent;
+            text-align: center;
             cursor: pointer;
             font-size: 1em;
             font-weight: 600;
@@ -264,7 +265,7 @@ def get_base_styles():
             font-size: 0.9em;
         }}
         .form-group {{
-            margin-bottom: 20px;
+            margin-bottom: 32px;
         }}
         .form-group label {{
             display: block;
@@ -2519,15 +2520,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         An emoji that floats above your league title on the public page. Click ✨ Generate for AI-suggested options based on your league name.
                     </p>
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-                        <button type="button" class="btn btn-secondary" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
+                        <button type="button" class="btn btn-secondary" style="min-width:200px;" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
                         <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
                     </div>
                     <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap;"></div>
                     <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
                 </div>
                 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-primary" onclick="showLeagueSettingsModal()">Save Changes</button>
-                    <button type="button" class="btn btn-secondary" onclick="clearMascot()">Remove Mascot</button>
+                    <button type="button" class="btn btn-primary" style="min-width:200px;" onclick="showLeagueSettingsModal()">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" style="min-width:200px;" onclick="clearMascot()">Remove Mascot</button>
                 </div>
             </div>
             
