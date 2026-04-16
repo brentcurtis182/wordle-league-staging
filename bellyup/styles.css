@@ -499,4 +499,42 @@ tr.highlight {
         font-size: 0.5rem;
     }
 }
-        
+
+/* ─── Ambient background: particle canvas + floating orbs (v6 port) ─── */
+#wpl-particles {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+.wpl-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: -1;
+    animation: wpl-orb-float 20s ease-in-out infinite;
+}
+.wpl-orb-1 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0, 255, 136, 0.08), transparent 70%);
+    top: -10%; left: -5%;
+}
+.wpl-orb-2 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.06), transparent 70%);
+    top: 40%; right: -10%;
+    animation-delay: -7s;
+}
+.wpl-orb-3 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.05), transparent 70%);
+    bottom: 10%; left: 20%;
+    animation-delay: -14s;
+}
+@keyframes wpl-orb-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -40px) scale(1.05); }
+    50% { transform: translate(-20px, 20px) scale(0.95); }
+    75% { transform: translate(15px, 30px) scale(1.02); }
+}
