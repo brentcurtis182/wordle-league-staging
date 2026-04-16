@@ -82,12 +82,16 @@
 </style>
 </head>
 <body>
+<canvas id="wpl-particles"></canvas>
+<div class="wpl-orb wpl-orb-1"></div>
+<div class="wpl-orb wpl-orb-2"></div>
+<div class="wpl-orb wpl-orb-3"></div>
 <div class="wpl-top-bar">
     <a class="wpl-dashboard-btn" href="https://staging.wordplayleague.com/dashboard">Dashboard →</a>
 </div>
 <header>
 <div class="container" style="text-align: center;">
-<div class="header-mascot">🍔</div>
+<div class="header-mascot">🐖</div>
 <h1 class="title">Belly Up</h1>
 <a class="wpl-brand" href="https://www.wordplayleague.com">WordPlayLeague</a>
 </div>
@@ -522,6 +526,66 @@ function toggleScoreView(divNum) {
             tile.classList.add(pick());
         });
     });
+})();
+</script>
+<script>
+(function() {
+    var canvas = document.getElementById('wpl-particles');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var w, h;
+    function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+    function createParticles() {
+        particles = [];
+        var count = Math.min(60, Math.floor(w * h / 20000));
+        var colors = ['#00ff88', '#ffd700', '#a855f7', '#38bdf8'];
+        for (var i = 0; i < count; i++) {
+            particles.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                vx: (Math.random() - 0.5) * 0.25,
+                vy: (Math.random() - 0.5) * 0.25,
+                size: Math.random() * 1.5 + 0.5,
+                opacity: Math.random() * 0.25 + 0.03,
+                color: colors[Math.floor(Math.random() * 4)]
+            });
+        }
+    }
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(function(p) {
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+            if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.opacity;
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        for (var i = 0; i < particles.length; i++) {
+            for (var j = i + 1; j < particles.length; j++) {
+                var dx = particles[i].x - particles[j].x;
+                var dy = particles[i].y - particles[j].y;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 100) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.025 * (1 - dist / 100)) + ')';
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+    resize();
+    createParticles();
+    draw();
+    window.addEventListener('resize', function() { resize(); createParticles(); });
 })();
 </script>
 <script src="script.js"></script>
