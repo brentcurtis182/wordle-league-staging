@@ -2199,6 +2199,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     # Pre-compute the segmented "minimum weekly scores" button row.
     # Range 3-7, default 5. Kept out of the big f-string to avoid quote nesting.
     _current_min_scores = int(league.get('min_weekly_scores', 5) or 5)
+    _current_header_emoji = league.get('header_emoji') or ''
     _min_scores_labels = {
         3: 'Easy Mode',
         4: 'Casual',
@@ -2509,6 +2510,19 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     </p>
                     {_min_scores_buttons}
                     <input type="hidden" id="leagueMinWeeklyScores" value="{_current_min_scores}">
+                </div>
+                <div class="form-group">
+                    <label>League Mascot</label>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 4px 0 8px 0;">
+                        An emoji that floats above your league title on the public page. Click ✨ Generate for AI-suggested options based on your league name.
+                    </p>
+                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                        <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
+                        <button type="button" class="btn btn-secondary" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
+                        <button type="button" class="btn btn-secondary" onclick="clearMascot()">Remove</button>
+                    </div>
+                    <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap;"></div>
+                    <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
                 </div>
                 <button type="button" class="btn btn-primary" onclick="showLeagueSettingsModal()">Save Changes</button>
             </div>
@@ -3246,6 +3260,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         <form id="renameLeagueForm" method="POST" action="/dashboard/league/{league['id']}/rename" style="display:none;">
             <input type="hidden" name="display_name" id="renameDisplayName">
             <input type="hidden" name="min_weekly_scores" id="renameMinWeeklyScores">
+            <input type="hidden" name="header_emoji" id="renameHeaderEmoji">
         </form>
         <form id="aiSettingsForm" method="POST" action="/dashboard/league/{league['id']}/ai-settings" style="display:none;">
             <input type="hidden" name="ai_perfect_score_congrats" id="aiPerfectScoreInput">
@@ -3394,7 +3409,48 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             // League settings functions
             const _ORIG_LEAGUE_NAME = {repr(league['display_name'])};
             const _ORIG_MIN_SCORES = {_current_min_scores};
+            const _ORIG_HEADER_EMOJI = {repr(_current_header_emoji)};
             const _MIN_SCORES_LABELS = {{ 3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Hard Mode', 7: 'Elite' }};
+
+            async function generateMascot() {{
+                const btn = document.getElementById('mascotGenBtn');
+                btn.disabled = true;
+                btn.textContent = '✨ Generating...';
+                try {{
+                    const resp = await fetch('/dashboard/league/{league['id']}/generate-mascot', {{ method: 'POST' }});
+                    const data = await resp.json();
+                    if (!data.emojis) {{ alert('Could not generate mascot. Try again.'); return; }}
+                    const row = document.getElementById('mascotOptions');
+                    row.innerHTML = '';
+                    row.style.display = 'flex';
+                    data.emojis.forEach(function(e) {{
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'btn btn-secondary';
+                        b.style.fontSize = '28px';
+                        b.style.padding = '6px 14px';
+                        b.textContent = e;
+                        b.onclick = function() {{ selectMascot(e); }};
+                        row.appendChild(b);
+                    }});
+                }} catch (err) {{
+                    alert('Could not generate mascot: ' + err);
+                }} finally {{
+                    btn.disabled = false;
+                    btn.textContent = '✨ Generate Options';
+                }}
+            }}
+
+            function selectMascot(emoji) {{
+                document.getElementById('leagueHeaderEmoji').value = emoji;
+                document.getElementById('mascotCurrent').textContent = emoji;
+            }}
+
+            function clearMascot() {{
+                document.getElementById('leagueHeaderEmoji').value = '';
+                document.getElementById('mascotCurrent').textContent = '—';
+                document.getElementById('mascotOptions').style.display = 'none';
+            }}
 
             function selectMinScores(n) {{
                 document.getElementById('leagueMinWeeklyScores').value = n;
@@ -3434,6 +3490,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     changes.push('<div style="margin-top:8px; color:{COLORS['accent_orange']};">⚠️ This will immediately re-aggregate the current week under the new threshold. Past weekly winners stay frozen.</div>');
                 }}
 
+                const newHeaderEmoji = document.getElementById('leagueHeaderEmoji').value;
+                if (newHeaderEmoji !== _ORIG_HEADER_EMOJI) {{
+                    const oldLbl = _ORIG_HEADER_EMOJI || '(none)';
+                    const newLbl = newHeaderEmoji || '(none)';
+                    changes.push('<div>• Mascot: <strong>' + oldLbl + '</strong> → <strong>' + newLbl + '</strong></div>');
+                }}
+
                 if (changes.length === 0) {{
                     alert('No changes to save.');
                     return;
@@ -3458,6 +3521,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const newMinScores = document.getElementById('leagueMinWeeklyScores').value;
                 document.getElementById('renameDisplayName').value = newName;
                 document.getElementById('renameMinWeeklyScores').value = newMinScores;
+                document.getElementById('renameHeaderEmoji').value = document.getElementById('leagueHeaderEmoji').value;
 
                 closeRenameModal();
                 showLoading('Saving league settings...');
@@ -4632,7 +4696,8 @@ def get_league_info(league_id):
                    COALESCE(ai_filter, FALSE),
                    COALESCE(promoted_count, 1),
                    COALESCE(relegated_count, 1),
-                   COALESCE(min_weekly_scores, 5)
+                   COALESCE(min_weekly_scores, 5),
+                   header_emoji
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -4667,6 +4732,7 @@ def get_league_info(league_id):
                 'promoted_count': row[24] or 1,
                 'relegated_count': row[25] or 1,
                 'min_weekly_scores': int(row[26]) if row[26] is not None else 5,
+                'header_emoji': row[27] if row[27] is not None else None,
                 'channel_name': None
             }
             

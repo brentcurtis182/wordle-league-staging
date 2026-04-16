@@ -1412,6 +1412,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </div>
 <header>
 <div class="container" style="text-align: center;">
+{f'<div class="header-mascot">{league_data["header_emoji"]}</div>' if league_data.get("header_emoji") else ''}
 <h1 class="title">{league_name}</h1>
 <a class="wpl-brand" href="https://www.wordplayleague.com">WordPlayLeague</a>
 </div>

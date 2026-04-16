@@ -328,6 +328,13 @@ def get_complete_league_data(league_id):
         # Per-league configurable minimum weekly scores (3-7, default 5)
         min_scores = get_league_min_scores(league_id, conn=conn)
 
+        # Per-league header mascot emoji (NULL = none)
+        _cur = conn.cursor()
+        _cur.execute("SELECT header_emoji FROM leagues WHERE id = %s", (league_id,))
+        _row = _cur.fetchone()
+        header_emoji = _row[0] if _row and _row[0] else None
+        _cur.close()
+
         # Get latest scores for display
         latest_scores, today_wordle = get_latest_scores_for_display(league_id, conn=conn)
 
@@ -476,6 +483,7 @@ def get_complete_league_data(league_id):
         'promoted_count': promoted_count,
         'relegated_count': relegated_count,
         'min_weekly_scores': min_scores,
+        'header_emoji': header_emoji,
         'timestamp': datetime.now()
     }
 

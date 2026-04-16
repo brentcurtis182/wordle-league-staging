@@ -2798,27 +2798,37 @@ def dashboard_rename_league(league_id):
         except ValueError:
             return redirect(f'/dashboard/league/{league_id}?error=Invalid minimum weekly scores value')
 
+    # header_emoji: empty string means "clear it"; missing field means "don't touch"
+    header_emoji_field_present = 'header_emoji' in request.form
+    header_emoji_raw = request.form.get('header_emoji', '').strip()
+    # Cap to 16 chars to match DB column; None = clear
+    new_header_emoji = header_emoji_raw[:16] if header_emoji_raw else None
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT display_name, COALESCE(min_weekly_scores, 5) FROM leagues WHERE id = %s",
+            "SELECT display_name, COALESCE(min_weekly_scores, 5), header_emoji FROM leagues WHERE id = %s",
             (league_id,)
         )
         prev_row = cursor.fetchone()
         prev_min_scores = int(prev_row[1]) if prev_row else 5
 
+        set_clauses = ["display_name = %s"]
+        params = [display_name]
         if new_min_scores is not None:
-            cursor.execute(
-                "UPDATE leagues SET display_name = %s, min_weekly_scores = %s WHERE id = %s",
-                (display_name, new_min_scores, league_id)
-            )
-        else:
-            cursor.execute(
-                "UPDATE leagues SET display_name = %s WHERE id = %s",
-                (display_name, league_id)
-            )
+            set_clauses.append("min_weekly_scores = %s")
+            params.append(new_min_scores)
+        if header_emoji_field_present:
+            set_clauses.append("header_emoji = %s")
+            params.append(new_header_emoji)
+        params.append(league_id)
+
+        cursor.execute(
+            f"UPDATE leagues SET {', '.join(set_clauses)} WHERE id = %s",
+            params
+        )
 
         conn.commit()
         cursor.close()
@@ -2840,6 +2850,55 @@ def dashboard_rename_league(league_id):
     except Exception as e:
         logging.error(f"Error updating league settings: {e}")
         return redirect(f'/dashboard/league/{league_id}?error=Failed to update league settings')
+
+@app.route('/dashboard/league/<int:league_id>/generate-mascot', methods=['POST'])
+def dashboard_generate_mascot(league_id):
+    """Generate 3 emoji mascot suggestions for a league based on its display name."""
+    from auth import validate_session, can_manage_league
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'error': 'Not authenticated'}), 401
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'error': 'No access'}), 403
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT display_name FROM leagues WHERE id = %s", (league_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            return jsonify({'error': 'League not found'}), 404
+        league_name = row[0]
+
+        from openai import OpenAI
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You suggest fun emoji mascots for Wordle leagues. Reply with exactly 3 single-character emojis separated by spaces. No other text, no punctuation, no explanations."},
+                {"role": "user", "content": f"Suggest 3 fun emoji mascots that match the vibe of a Wordle league named '{league_name}'."}
+            ],
+            max_tokens=20,
+            temperature=0.9,
+        )
+
+        text = (response.choices[0].message.content or '').strip()
+        tokens = [t for t in text.split() if t]
+        emojis = tokens[:3]
+        # Fallback if the model returned fewer than 3
+        while len(emojis) < 3:
+            emojis.append(['🎯', '🔥', '✨'][len(emojis)])
+
+        logging.info(f"[Mascot] Generated for league {league_id} ({league_name!r}): {emojis}")
+        return jsonify({'emojis': emojis})
+    except Exception as e:
+        logging.error(f"[Mascot] Error generating mascot for league {league_id}: {e}")
+        return jsonify({'error': 'Failed to generate mascot'}), 500
 
 @app.route('/dashboard/league/<int:league_id>/add-player', methods=['POST'])
 def dashboard_add_player(league_id):

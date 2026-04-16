@@ -128,6 +128,18 @@ header {
     padding: 6px 0 4px;
     background: transparent;
 }
+.header-mascot {
+    font-size: 40px;
+    display: inline-block;
+    line-height: 1;
+    margin-bottom: 4px;
+    animation: mascot-float 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.25));
+}
+@keyframes mascot-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
 .title {
     margin: 0 auto;
     color: #00E8DA;
