@@ -269,8 +269,10 @@ def get_base_styles():
         .form-group label {{
             display: block;
             margin-bottom: 8px;
-            color: {COLORS['text_muted']};
-            font-size: 0.9em;
+            color: {COLORS['text']};
+            font-size: 1.05em;
+            font-weight: 600;
+            letter-spacing: 0.01em;
         }}
         .form-group input, .form-group select, .form-group textarea {{
             width: 100%;
@@ -2516,15 +2518,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 4px 0 8px 0;">
                         An emoji that floats above your league title on the public page. Click ✨ Generate for AI-suggested options based on your league name.
                     </p>
-                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                        <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
                         <button type="button" class="btn btn-secondary" onclick="generateMascot()" id="mascotGenBtn">✨ Generate Options</button>
-                        <button type="button" class="btn btn-secondary" onclick="clearMascot()">Remove</button>
+                        <div id="mascotCurrent" style="font-size:40px; min-width:48px; text-align:center; line-height:1;">{_current_header_emoji or '—'}</div>
                     </div>
                     <div id="mascotOptions" style="display:none; gap:8px; margin-top:12px; flex-wrap:wrap;"></div>
                     <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
                 </div>
-                <button type="button" class="btn btn-primary" onclick="showLeagueSettingsModal()">Save Changes</button>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-primary" onclick="showLeagueSettingsModal()">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearMascot()">Remove Mascot</button>
+                </div>
             </div>
             
             <!-- Players Section -->
