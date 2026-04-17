@@ -11,7 +11,8 @@ import requests
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')  # Legacy fallback
 FROM_EMAIL = os.environ.get('FROM_EMAIL', 'WordPlayLeague <noreply@wordplayleague.com>')
 APP_URL = os.environ.get('APP_URL', 'https://app.wordplayleague.com')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'Wordplayleague@gmail.com')
@@ -82,38 +83,72 @@ f'{body_html}'
 
 
 def _send_email_sync(to_email, subject, html_content):
-    """Send an HTML email via SendGrid HTTP API (synchronous)"""
-    try:
-        response = requests.post(
-            'https://api.sendgrid.com/v3/mail/send',
-            headers={
-                'Authorization': f'Bearer {SENDGRID_API_KEY}',
-                'Content-Type': 'application/json'
-            },
-            json={
-                'personalizations': [{'to': [{'email': to_email}]}],
-                'from': {'email': FROM_EMAIL.split('<')[-1].rstrip('>') if '<' in FROM_EMAIL else FROM_EMAIL,
-                         'name': FROM_EMAIL.split('<')[0].strip() if '<' in FROM_EMAIL else 'WordPlayLeague'},
-                'subject': subject,
-                'content': [{'type': 'text/html', 'value': html_content}]
-            },
-            timeout=10
-        )
-        
-        if response.status_code in (200, 202):
-            logging.info(f"Email sent to {to_email}: {subject}")
-        else:
-            logging.error(f"SendGrid API error ({response.status_code}): {response.text}")
-    except Exception as e:
-        logging.error(f"Failed to send email to {to_email}: {e}")
+    """Send an HTML email via Resend API (synchronous), with SendGrid fallback"""
+    from_email = FROM_EMAIL.split('<')[-1].rstrip('>') if '<' in FROM_EMAIL else FROM_EMAIL
+    from_name = FROM_EMAIL.split('<')[0].strip() if '<' in FROM_EMAIL else 'WordPlayLeague'
+
+    # Primary: Resend API
+    if RESEND_API_KEY:
+        try:
+            response = requests.post(
+                'https://api.resend.com/emails',
+                headers={
+                    'Authorization': f'Bearer {RESEND_API_KEY}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'from': f'{from_name} <{from_email}>',
+                    'to': [to_email],
+                    'subject': subject,
+                    'html': html_content
+                },
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                logging.info(f"Email sent via Resend to {to_email}: {subject}")
+                return
+            else:
+                logging.error(f"Resend API error ({response.status_code}): {response.text}")
+                # Fall through to SendGrid if available
+        except Exception as e:
+            logging.error(f"Resend failed for {to_email}: {e}")
+
+    # Fallback: SendGrid API
+    if SENDGRID_API_KEY:
+        try:
+            response = requests.post(
+                'https://api.sendgrid.com/v3/mail/send',
+                headers={
+                    'Authorization': f'Bearer {SENDGRID_API_KEY}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'personalizations': [{'to': [{'email': to_email}]}],
+                    'from': {'email': from_email, 'name': from_name},
+                    'subject': subject,
+                    'content': [{'type': 'text/html', 'value': html_content}]
+                },
+                timeout=10
+            )
+
+            if response.status_code in (200, 202):
+                logging.info(f"Email sent via SendGrid to {to_email}: {subject}")
+            else:
+                logging.error(f"SendGrid API error ({response.status_code}): {response.text}")
+            return
+        except Exception as e:
+            logging.error(f"SendGrid failed for {to_email}: {e}")
+
+    logging.error(f"No email provider available — could not send to {to_email}")
 
 
 def _send_email(to_email, subject, html_content):
-    """Send an HTML email via SendGrid (non-blocking, runs in background thread)"""
-    if not SENDGRID_API_KEY:
-        logging.error("SENDGRID_API_KEY not set, cannot send email")
+    """Send an HTML email (non-blocking, runs in background thread)"""
+    if not RESEND_API_KEY and not SENDGRID_API_KEY:
+        logging.error("No email API key set (RESEND_API_KEY or SENDGRID_API_KEY), cannot send email")
         return False
-    
+
     thread = threading.Thread(target=_send_email_sync, args=(to_email, subject, html_content))
     thread.daemon = True
     thread.start()
