@@ -3543,6 +3543,38 @@ def admin_toggle_ai_filter(league_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/admin/league/<int:league_id>/clear-pending', methods=['POST'])
+def admin_clear_pending(league_id):
+    """Admin-only: clear pending_activation for all players in a league.
+    Useful for staging or when players were added via DB copy without re-linking."""
+    from auth import validate_session
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+
+    if not user or user.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE players SET pending_activation = FALSE
+            WHERE league_id = %s AND pending_activation = TRUE
+        """, (league_id,))
+        updated = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logging.info(f"Admin cleared pending_activation for {updated} player(s) in league {league_id}")
+        return jsonify({'success': True, 'cleared': updated})
+
+    except Exception as e:
+        logging.error(f"Error clearing pending_activation: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/admin/league/<int:league_id>')
 def admin_league_detail(league_id):
     """Admin league detail view - all info about a specific league"""
