@@ -4967,7 +4967,10 @@ def render_admin_dashboard(user, leagues):
                         <h2 style="color: {COLORS['accent_orange']}; margin-bottom: 4px;">&#9881; Admin Dashboard</h2>
                         <p style="color: {COLORS['text_muted']}; margin: 0;">Monitor all leagues across every account.</p>
                     </div>
-                    <a href="/admin/newsletter" style="background: {COLORS['accent_orange']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="/admin/newsletter" style="background: {COLORS['accent_orange']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
+                        <a href="/admin/twilio-reports" style="background: {COLORS['accent']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📊 Twilio Monthly Reports</a>
+                    </div>
                 </div>
             </div>
             
@@ -5689,6 +5692,127 @@ def render_admin_newsletter(user, templates, recipients, selected_template='', s
             document.addEventListener('keydown', function(e) {{
                 if (e.key === 'Escape') hideModal();
             }});
+        </script>
+    </body>
+    </html>
+    """
+
+
+def render_admin_twilio_reports(user, monthly_data):
+    """Render the Twilio Monthly Reports page showing month-by-month cost totals"""
+
+    # Build month rows (newest first)
+    month_rows = ''
+    running_total = 0.0
+    for m in monthly_data:
+        mms_cost = m.get('mms_messages', 0)
+        carrier_cost = m.get('carrier_fees', 0)
+        a2p_cost = m.get('a2p_registration', 0)
+        phone_cost = m.get('phone_numbers', 0)
+        total = m.get('total', 0)
+        running_total += total
+
+        month_rows += f'''
+            <tr>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; font-weight: 600; color: {COLORS['text']}; white-space: nowrap;">{m['month']}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text']}; text-align: center;">{m.get('inbound', 0)}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text']}; text-align: center;">{m.get('outbound', 0)}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; text-align: right;">${mms_cost:.2f}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; text-align: right;">${carrier_cost:.2f}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; text-align: right;">${a2p_cost:.2f}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; text-align: right;">${phone_cost:.2f}</td>
+                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['accent_orange']}; text-align: right; font-weight: 600; font-size: 1.05em;">${total:.2f}</td>
+            </tr>
+        '''
+
+    grand_total = running_total
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Twilio Monthly Reports - Admin - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            {get_base_styles()}
+            .reports-table {{
+                width: 100%;
+                border-collapse: collapse;
+                min-width: 700px;
+            }}
+            .reports-table th {{
+                text-align: left;
+                padding: 12px 18px;
+                color: {COLORS['text_muted']};
+                font-size: 0.82em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 2px solid {COLORS['border']};
+                white-space: nowrap;
+            }}
+            .reports-table tbody tr:hover {{
+                background: rgba(255, 255, 255, 0.04);
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-logo-row">
+                    <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                </div>
+                <div class="header-nav-row">
+                    {get_user_menu_html(user['name'], user['email'], show_dashboard_link=True, user_role=user.get('role', 'user'))}
+                </div>
+            </div>
+
+            <a href="/admin/dashboard" class="back-link">&larr; Back to Admin Dashboard</a>
+
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="color: {COLORS['accent']}; margin-bottom: 4px;">📊 Twilio Monthly Reports</h2>
+                        <p style="color: {COLORS['text_muted']}; margin: 0;">Month-by-month cost breakdown from Twilio Usage API.</p>
+                    </div>
+                    <div style="background: rgba(255, 166, 77, 0.12); border: 1px solid {COLORS['accent_orange']}; border-radius: 10px; padding: 14px 22px; text-align: center;">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px;">All-Time Total</div>
+                        <div style="color: {COLORS['accent_orange']}; font-size: 1.8em; font-weight: 700;">${grand_total:.2f}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div style="overflow-x: auto;">
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th style="text-align: center;">MMS In</th>
+                                <th style="text-align: center;">MMS Out</th>
+                                <th style="text-align: right;">MMS Cost</th>
+                                <th style="text-align: right;">Carrier Fees</th>
+                                <th style="text-align: right;">A2P Fees</th>
+                                <th style="text-align: right;">Phone #s</th>
+                                <th style="text-align: right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {month_rows if month_rows else f'<tr><td colspan="8" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No usage data found</td></tr>'}
+                        </tbody>
+                        <tfoot>
+                            <tr style="border-top: 2px solid {COLORS['accent']};">
+                                <td colspan="7" style="padding: 14px 18px; font-weight: 700; color: {COLORS['text']}; text-align: right;">Grand Total</td>
+                                <td style="padding: 14px 18px; font-weight: 700; color: {COLORS['accent_orange']}; text-align: right; font-size: 1.1em;">${grand_total:.2f}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            {get_user_menu_script()}
         </script>
     </body>
     </html>

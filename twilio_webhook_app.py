@@ -7370,6 +7370,111 @@ def admin_twilio_usage():
 
 
 # ============================================================
+# Twilio Monthly Reports (Admin Only)
+# ============================================================
+
+@app.route('/admin/twilio-reports')
+def admin_twilio_reports():
+    """Twilio Monthly Reports - show month-by-month cost totals from Twilio Usage API"""
+    from auth import validate_session
+    from dashboard import render_admin_twilio_reports
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+
+    if not user:
+        return redirect('/auth/login')
+    if user.get('role') != 'admin':
+        return redirect('/dashboard')
+
+    try:
+        import requests as http_requests
+
+        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        base_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records/Monthly.json"
+
+        # Fetch all monthly records for each category we care about
+        categories = ['mms-inbound', 'mms-outbound', 'mms-messages-carrierfees',
+                      'a2p-registration-fees', 'phonenumbers']
+
+        # Collect raw data per category
+        cat_records = {}
+        for cat in categories:
+            try:
+                url = f"{base_url}?Category={cat}&PageSize=100"
+                resp = http_requests.get(url, auth=auth, timeout=15)
+                if resp.status_code == 200:
+                    cat_records[cat] = resp.json().get('usage_records', [])
+                else:
+                    cat_records[cat] = []
+            except Exception as e:
+                logging.warning(f"Twilio monthly report fetch failed for {cat}: {e}")
+                cat_records[cat] = []
+
+        # Build month-keyed data: { "2025-07": { ... }, ... }
+        months = {}
+        for cat, records in cat_records.items():
+            for r in records:
+                start = r.get('start_date', '')[:7]  # "YYYY-MM"
+                if not start:
+                    continue
+                if start not in months:
+                    months[start] = {
+                        'mms_in_count': 0, 'mms_out_count': 0,
+                        'mms_in_price': 0.0, 'mms_out_price': 0.0,
+                        'carrier_fees': 0.0, 'a2p_registration': 0.0,
+                        'phone_numbers': 0.0, 'phone_numbers_count': 0,
+                    }
+                count = int(r.get('count', 0))
+                price = float(r.get('price', 0))
+                if cat == 'mms-inbound':
+                    months[start]['mms_in_count'] += count
+                    months[start]['mms_in_price'] += price
+                elif cat == 'mms-outbound':
+                    months[start]['mms_out_count'] += count
+                    months[start]['mms_out_price'] += price
+                elif cat == 'mms-messages-carrierfees':
+                    months[start]['carrier_fees'] += price
+                elif cat == 'a2p-registration-fees':
+                    months[start]['a2p_registration'] += price
+                elif cat == 'phonenumbers':
+                    months[start]['phone_numbers'] += price
+                    months[start]['phone_numbers_count'] += count
+
+        # Convert to sorted list (newest first)
+        monthly_data = []
+        for month_key in sorted(months.keys(), reverse=True):
+            d = months[month_key]
+            mms_cost = d['mms_in_price'] + d['mms_out_price']
+            total = mms_cost + d['carrier_fees'] + d['a2p_registration'] + d['phone_numbers']
+
+            # Format month label: "2025-07" -> "July 2025"
+            try:
+                month_label = datetime.strptime(month_key, '%Y-%m').strftime('%B %Y')
+            except:
+                month_label = month_key
+
+            monthly_data.append({
+                'month': month_label,
+                'inbound': d['mms_in_count'],
+                'outbound': d['mms_out_count'],
+                'mms_messages': round(mms_cost, 2),
+                'carrier_fees': round(d['carrier_fees'], 2),
+                'a2p_registration': round(d['a2p_registration'], 2),
+                'phone_numbers': round(d['phone_numbers'], 2),
+                'total': round(total, 2),
+            })
+
+        return render_admin_twilio_reports(user, monthly_data)
+
+    except Exception as e:
+        logging.error(f"Twilio monthly reports error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return "Error loading Twilio monthly reports", 500
+
+
+# ============================================================
 # Newsletter Routes (Admin Only)
 # ============================================================
 
