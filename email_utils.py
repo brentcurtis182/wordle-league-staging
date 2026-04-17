@@ -11,6 +11,7 @@ import requests
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')  # Legacy fallback
 FROM_EMAIL = os.environ.get('FROM_EMAIL', 'WordPlayLeague <noreply@wordplayleague.com>')
@@ -83,11 +84,38 @@ f'{body_html}'
 
 
 def _send_email_sync(to_email, subject, html_content):
-    """Send an HTML email via Resend API (synchronous), with SendGrid fallback"""
+    """Send an HTML email via Brevo (primary), Resend, or SendGrid (fallbacks)"""
     from_email = FROM_EMAIL.split('<')[-1].rstrip('>') if '<' in FROM_EMAIL else FROM_EMAIL
     from_name = FROM_EMAIL.split('<')[0].strip() if '<' in FROM_EMAIL else 'WordPlayLeague'
 
-    # Primary: Resend API
+    # Primary: Brevo API
+    if BREVO_API_KEY:
+        try:
+            response = requests.post(
+                'https://api.brevo.com/v3/smtp/email',
+                headers={
+                    'api-key': BREVO_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'sender': {'name': from_name, 'email': from_email},
+                    'to': [{'email': to_email}],
+                    'subject': subject,
+                    'htmlContent': html_content
+                },
+                timeout=10
+            )
+
+            if response.status_code in (200, 201):
+                logging.info(f"Email sent via Brevo to {to_email}: {subject}")
+                return
+            else:
+                logging.error(f"Brevo API error ({response.status_code}): {response.text}")
+                # Fall through to Resend/SendGrid if available
+        except Exception as e:
+            logging.error(f"Brevo failed for {to_email}: {e}")
+
+    # Fallback 1: Resend API
     if RESEND_API_KEY:
         try:
             response = requests.post(
@@ -114,7 +142,7 @@ def _send_email_sync(to_email, subject, html_content):
         except Exception as e:
             logging.error(f"Resend failed for {to_email}: {e}")
 
-    # Fallback: SendGrid API
+    # Fallback 2: SendGrid API
     if SENDGRID_API_KEY:
         try:
             response = requests.post(
@@ -145,8 +173,8 @@ def _send_email_sync(to_email, subject, html_content):
 
 def _send_email(to_email, subject, html_content):
     """Send an HTML email (non-blocking, runs in background thread)"""
-    if not RESEND_API_KEY and not SENDGRID_API_KEY:
-        logging.error("No email API key set (RESEND_API_KEY or SENDGRID_API_KEY), cannot send email")
+    if not BREVO_API_KEY and not RESEND_API_KEY and not SENDGRID_API_KEY:
+        logging.error("No email API key set (BREVO_API_KEY, RESEND_API_KEY, or SENDGRID_API_KEY), cannot send email")
         return False
 
     thread = threading.Thread(target=_send_email_sync, args=(to_email, subject, html_content))
