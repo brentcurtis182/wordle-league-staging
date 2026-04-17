@@ -5714,7 +5714,7 @@ def render_admin_twilio_reports(user, monthly_data):
 
         month_rows += f'''
             <tr>
-                <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; font-weight: 600; color: {COLORS['text']}; white-space: nowrap;">{m['month']}</td>
+                <td class="frozen-col" style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; font-weight: 600; color: {COLORS['text']}; white-space: nowrap;">{m['month']}</td>
                 <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text']}; text-align: center;">{m.get('inbound', 0)}</td>
                 <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text']}; text-align: center;">{m.get('outbound', 0)}</td>
                 <td style="padding: 14px 18px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; text-align: right;">${mms_cost:.2f}</td>
@@ -5754,6 +5754,22 @@ def render_admin_twilio_reports(user, monthly_data):
             .reports-table tbody tr:hover {{
                 background: rgba(255, 255, 255, 0.04);
             }}
+            .reports-table .frozen-col {{
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                background: rgba(14, 14, 30, 0.98);
+            }}
+            .reports-table tbody tr:hover .frozen-col {{
+                background: rgba(24, 24, 52, 0.98);
+            }}
+            .reports-table tfoot .frozen-col {{
+                background: rgba(14, 14, 30, 0.98);
+            }}
+            .reports-table thead .frozen-col {{
+                z-index: 3;
+                background: rgba(14, 14, 30, 0.98);
+            }}
         </style>
     </head>
     <body>
@@ -5787,7 +5803,7 @@ def render_admin_twilio_reports(user, monthly_data):
                     <table class="reports-table">
                         <thead>
                             <tr>
-                                <th>Month</th>
+                                <th class="frozen-col">Month</th>
                                 <th style="text-align: center;">MMS In</th>
                                 <th style="text-align: center;">MMS Out</th>
                                 <th style="text-align: right;">MMS Cost</th>
