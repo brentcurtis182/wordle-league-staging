@@ -1894,8 +1894,8 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     opt_in_header = ''
     if channel_type == 'sms' and not division_mode:
         opt_in_header = f'''
-        <div style="position: relative; padding: 0 16px 6px 16px; margin-bottom: 2px; height: 16px;">
-            <span style="position: absolute; right: 56px; font-size: 0.7em; font-weight: 600; color: {COLORS['text_muted']}; text-transform: uppercase; letter-spacing: 0.5px;">Opt-In</span>
+        <div style="display: flex; justify-content: flex-end; padding: 0 16px 6px 16px; margin-bottom: 2px;">
+            <span style="font-size: 0.7em; font-weight: 600; color: {COLORS['text_muted']}; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 40px;">Opt-In</span>
         </div>'''
 
     # Player content: either division view or normal view
@@ -2190,15 +2190,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             player_rows += f"""
             <div class="player-item" id="player-{player['id']}">
                 <!-- Read-only view -->
-                <div class="player-view" id="view-{player['id']}" style="position: relative; padding-right: 90px;">
+                <div class="player-view" id="view-{player['id']}">
                     <div class="player-info">
                         <div class="name">{player['name']}{pending_badge}</div>
                         <div class="phone">{identifier_display}</div>
                     </div>
-                    <span style="position: absolute; right: 40px; top: 50%; transform: translateY(-50%);">{opt_in_label}</span>
-                    <button type="button" class="btn-icon" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%);" onclick="enterEditMode({player['id']})" title="Edit player">
-                        ✏️
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0; margin-left: auto;">
+                        {opt_in_label}
+                        <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
+                            ✏️
+                        </button>
+                    </div>
                 </div>
                 <!-- Edit mode (hidden by default) -->
                 <div class="player-edit" id="edit-{player['id']}" style="display: none;">
