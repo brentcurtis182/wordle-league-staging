@@ -1265,7 +1265,8 @@ def webhook():
                             body = (
                                 f"🎉 Success! This group is now connected to {league_name}.\n\n"
                                 f"Welcome, {names_text}! To get started, each player please type OPT IN "
-                                f"to have your Wordle scores auto-collected and posted to the league page.\n\n"
+                                f"to have your Wordle scores auto-collected and posted to the league page. "
+                                f"You can type OPT OUT at any time to stop.\n\n"
                                 f"📊 View your league standings: {league_url}"
                             )
                             cursor.execute("UPDATE leagues SET opt_in_welcome_sent = TRUE WHERE id = %s", (league_id,))
@@ -3057,7 +3058,7 @@ def _send_opt_in_welcome_for_player(league_id, player_name):
             from message_router import send_league_message
             send_league_message(
                 league_id,
-                f"Welcome, {player_name}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page: {league_url}",
+                f"Welcome, {player_name}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page. You can type OPT OUT at any time to stop.\n\n📊 {league_url}",
                 db_connection=conn
             )
             logging.info(f"[OPT] Sent targeted opt-in welcome for {player_name} in league {league_id}")
