@@ -2964,9 +2964,9 @@ def dashboard_add_player(league_id):
             # Reactivate the previously removed player
             if channel_type == 'sms' and identifier:
                 id_value = re.sub(r'\D', '', identifier)
-                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, phone_number = %s WHERE id = %s", (id_value, inactive_player[0]))
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, pending_removal = FALSE, phone_number = %s WHERE id = %s", (id_value, inactive_player[0]))
             else:
-                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE WHERE id = %s", (inactive_player[0],))
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, pending_removal = FALSE WHERE id = %s", (inactive_player[0],))
             
             # Auto-assign to a division if league is in division mode
             div_suffix = ""
@@ -3026,6 +3026,24 @@ def dashboard_add_player(league_id):
                 cursor.close()
                 conn.close()
                 return redirect(f'/dashboard/league/{league_id}?error=This phone number already exists in this league')
+            
+            # Check if an inactive player with this phone exists (re-add with different name)
+            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number IN %s AND active = FALSE", (league_id, tuple(phone_variants)))
+            inactive_by_phone = cursor.fetchone()
+            if inactive_by_phone:
+                # Reactivate with new name, clear removal flag
+                cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = FALSE, pending_removal = FALSE WHERE id = %s",
+                               (name, id_value, inactive_by_phone[0]))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                _phone_mappings_cache_time = None
+                from update_pipeline import run_update_pipeline
+                run_update_pipeline(league_id)
+                
+                logging.info(f"Reactivated player (phone match) as {name} in league {league_id}")
+                return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!')
             
             cursor.execute("""
                 INSERT INTO players (name, phone_number, league_id, active, pending_activation)
