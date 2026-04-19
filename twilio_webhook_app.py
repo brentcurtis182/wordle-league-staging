@@ -3028,12 +3028,17 @@ def dashboard_add_player(league_id):
                 return redirect(f'/dashboard/league/{league_id}?error=This phone number already exists in this league')
             
             # Check if an inactive player with this phone exists (re-add with different name)
-            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number IN %s AND active = FALSE", (league_id, tuple(phone_variants)))
-            inactive_by_phone = cursor.fetchone()
-            if inactive_by_phone:
-                # Reactivate with new name, clear removal flag
+            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number IN %s AND active = FALSE ORDER BY id DESC", (league_id, tuple(phone_variants)))
+            inactive_rows = cursor.fetchall()
+            if inactive_rows:
+                # Reactivate the most recent record, delete any duplicates
+                reactivate_id = inactive_rows[0][0]
                 cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = FALSE, pending_removal = FALSE WHERE id = %s",
-                               (name, id_value, inactive_by_phone[0]))
+                               (name, id_value, reactivate_id))
+                if len(inactive_rows) > 1:
+                    dup_ids = [r[0] for r in inactive_rows[1:]]
+                    cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
+                    logging.info(f"Cleaned up {len(dup_ids)} duplicate inactive record(s) for phone in league {league_id}")
                 conn.commit()
                 cursor.close()
                 conn.close()
