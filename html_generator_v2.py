@@ -200,7 +200,7 @@ def generate_weekly_totals_html(league_data):
     <th>Weekly Score</th>
     <th>Used Scores</th>
     <th>Failed</th>
-    <th>Thrown Out</th>
+    <th style="min-width: 130px;">Thrown Out</th>
     <th>Wks Missed</th>
 '''
     
@@ -251,7 +251,7 @@ def generate_weekly_totals_html(league_data):
         # Thrown Out column - show actual scores, not count
         if stats["thrown_out"] and len(stats["thrown_out"]) > 0:
             thrown_out_display = ', '.join(str(s) for s in stats["thrown_out"])
-            html += f'    <td>{thrown_out_display}</td>\n'
+            html += f'    <td style="white-space: nowrap;">{thrown_out_display}</td>\n'
         else:
             html += f'    <td>-</td>\n'
         
@@ -808,7 +808,7 @@ def generate_division_weekly_totals_html(league_data):
     <th class="score-col-season-{div_num}" style="display:none;">Season Total</th>
     <th>Used Scores</th>
     <th>Failed</th>
-    <th>Thrown Out</th>
+    <th style="min-width: 130px;">Thrown Out</th>
     <th>Wks Missed</th>
 '''
         for wordle_num in week_wordles:
@@ -859,7 +859,7 @@ def generate_division_weekly_totals_html(league_data):
             
             if stats["thrown_out"] and len(stats["thrown_out"]) > 0:
                 thrown_out_display = ', '.join(str(s) for s in stats["thrown_out"])
-                html += f'    <td>{thrown_out_display}</td>\n'
+                html += f'    <td style="white-space: nowrap;">{thrown_out_display}</td>\n'
             else:
                 html += f'    <td>-</td>\n'
             
