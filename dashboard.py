@@ -2213,6 +2213,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     _ms_btn_parts = []
     for _n in range(3, 8):
         _label = _min_scores_labels[_n]
+        _label_words = _label.split(' ')
+        _word1 = _label_words[0]
+        _word2_html = f'<div style="font-size:0.75em; opacity:0.85; min-height:1em;">{_label_words[1]}</div>' if len(_label_words) > 1 else '<div style="font-size:0.75em; min-height:1em;">&nbsp;</div>'
         _active = (_n == _current_min_scores)
         _bg = COLORS['accent'] if _active else COLORS['bg_card']
         _fg = '#000' if _active else COLORS['text']
@@ -2222,12 +2225,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             f'<button type="button" data-min-scores="{_n}" onclick="selectMinScores({_n})" '
             f'style="flex:1; padding:10px 6px; background:{_bg}; color:{_fg}; '
             f'border:1px solid {_border}; border-radius:8px; cursor:pointer; '
-            f'font-weight:{_weight}; font-size:0.85em; transition:all 0.15s;">'
+            f'font-weight:{_weight}; font-size:0.85em; transition:all 0.15s; '
+            f'display:flex; flex-direction:column; align-items:center; justify-content:flex-start;">'
             f'<div style="font-size:1.3em; font-weight:700;">{_n}</div>'
-            f'<div style="font-size:0.75em; opacity:0.85;">{_label}</div>'
+            f'<div style="font-size:0.75em; opacity:0.85;">{_word1}</div>'
+            f'{_word2_html}'
             f'</button>'
         )
-    _min_scores_buttons = '<div id="minScoresButtons" style="display:flex; gap:8px; margin-top:8px;">' + ''.join(_ms_btn_parts) + '</div>'
+    _min_scores_buttons = '<div id="minScoresButtons" style="display:flex; gap:8px; margin-top:8px; align-items:stretch;">' + ''.join(_ms_btn_parts) + '</div>'
 
     return f"""
     <!DOCTYPE html>
