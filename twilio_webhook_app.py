@@ -1255,7 +1255,40 @@ def webhook():
                         logging.info(f"Sent confirmation message to conversation {conv_sid}")
                     except Exception as e:
                         logging.error(f"Error sending confirmation message: {e}")
-                    
+
+                    # Send opt-in welcome to any WAITING players (one-time per activation cycle)
+                    try:
+                        cursor.execute("SELECT COALESCE(opt_in_welcome_sent, FALSE) FROM leagues WHERE id = %s", (league_id,))
+                        welcome_already = cursor.fetchone()
+                        welcome_already = welcome_already[0] if welcome_already else False
+
+                        cursor.execute("""
+                            SELECT name FROM players
+                            WHERE league_id = %s AND active = TRUE AND sms_opt_in_status = 'WAITING'
+                        """, (league_id,))
+                        waiting_names = [r[0] for r in cursor.fetchall()]
+
+                        if waiting_names and not welcome_already:
+                            if len(waiting_names) == 1:
+                                names_text = waiting_names[0]
+                            elif len(waiting_names) == 2:
+                                names_text = f"{waiting_names[0]} and {waiting_names[1]}"
+                            else:
+                                names_text = ', '.join(waiting_names[:-1]) + f', and {waiting_names[-1]}'
+
+                            from message_router import send_league_message
+                            send_league_message(
+                                league_id,
+                                f"Welcome, {names_text}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page: {league_url}",
+                                db_connection=conn
+                            )
+
+                            cursor.execute("UPDATE leagues SET opt_in_welcome_sent = TRUE WHERE id = %s", (league_id,))
+                            conn.commit()
+                            logging.info(f"[OPT] Sent opt-in welcome to {len(waiting_names)} WAITING players in league {league_id}")
+                    except Exception as e:
+                        logging.error(f"[OPT] Error sending opt-in welcome: {e}")
+
                     cursor.close()
                     conn.close()
                     return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
@@ -1263,6 +1296,72 @@ def webhook():
                 cursor.close()
                 conn.close()
         
+        # --- OPT IN / OPT OUT keyword handling (SMS consent) ---
+        stripped_upper = message_body.strip().upper()
+        if stripped_upper in ('OPT IN', 'OPT OUT'):
+            conv_sid_opt = None
+            if request.is_json:
+                conv_sid_opt = request.get_json().get('ConversationSid')
+            else:
+                conv_sid_opt = request.form.get('ConversationSid')
+
+            if conv_sid_opt:
+                try:
+                    conn_opt = get_db_connection()
+                    cursor_opt = conn_opt.cursor()
+
+                    cursor_opt.execute("SELECT id, slug FROM leagues WHERE twilio_conversation_sid = %s", (conv_sid_opt,))
+                    league_row_opt = cursor_opt.fetchone()
+
+                    if league_row_opt:
+                        opt_league_id, opt_league_slug = league_row_opt
+                        opt_league_slug = opt_league_slug or str(opt_league_id)
+
+                        digits = ''.join(c for c in from_number if c.isdigit())
+                        digits_10 = digits[1:] if len(digits) == 11 and digits[0] == '1' else digits
+                        digits_11 = '1' + digits if len(digits) == 10 else digits
+
+                        cursor_opt.execute("""
+                            SELECT id, name, sms_opt_in_status FROM players
+                            WHERE league_id = %s AND active = TRUE
+                              AND (phone_number = %s OR phone_number = %s
+                                   OR phone_number = %s OR phone_number = %s)
+                        """, (opt_league_id, digits, digits_10, digits_11, '+1' + digits_10))
+                        player_row_opt = cursor_opt.fetchone()
+
+                        if player_row_opt:
+                            player_id_opt, player_name_opt, current_status = player_row_opt
+                            new_status = 'IN' if stripped_upper == 'OPT IN' else 'OUT'
+
+                            cursor_opt.execute(
+                                "UPDATE players SET sms_opt_in_status = %s WHERE id = %s",
+                                (new_status, player_id_opt)
+                            )
+                            conn_opt.commit()
+                            logging.info(f"[OPT] {player_name_opt} (player {player_id_opt}) -> {new_status} in league {opt_league_id}")
+
+                            from message_router import send_league_message
+                            if new_status == 'IN':
+                                league_url = f"{APP_BASE_URL}/leagues/{opt_league_slug}"
+                                send_league_message(
+                                    opt_league_id,
+                                    f"You're opted in, {player_name_opt}! Your scores will be recorded and posted here: {league_url}",
+                                    db_connection=conn_opt
+                                )
+                            else:
+                                send_league_message(
+                                    opt_league_id,
+                                    f"{player_name_opt} has opted out of score tracking.",
+                                    db_connection=conn_opt
+                                )
+
+                    cursor_opt.close()
+                    conn_opt.close()
+                except Exception as e:
+                    logging.error(f"[OPT] Error handling OPT IN/OUT: {e}")
+
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+
         # CRITICAL: Reject messages that don't start with "Wordle" (after stripping whitespace)
         # Legitimate submissions from NYT app always start with "Wordle"
         # Anything before "Wordle" is a reaction/comment
@@ -1320,7 +1419,55 @@ def webhook():
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
         logging.info(f"✅ Player identified: {player_name} (phone: {from_number}, league: {league_id})")
-        
+
+        # --- Check SMS opt-in status before recording score ---
+        try:
+            conn_opt_check = get_db_connection()
+            cursor_opt_check = conn_opt_check.cursor()
+            digits_oc = ''.join(c for c in from_number if c.isdigit())
+            digits_10_oc = digits_oc[1:] if len(digits_oc) == 11 and digits_oc[0] == '1' else digits_oc
+            digits_11_oc = '1' + digits_oc if len(digits_oc) == 10 else digits_oc
+
+            cursor_opt_check.execute("""
+                SELECT sms_opt_in_status, opt_in_nudge_sent, id FROM players
+                WHERE league_id = %s AND active = TRUE
+                  AND (phone_number = %s OR phone_number = %s
+                       OR phone_number = %s OR phone_number = %s)
+            """, (league_id, digits_oc, digits_10_oc, digits_11_oc, '+1' + digits_10_oc))
+            opt_row = cursor_opt_check.fetchone()
+
+            if opt_row:
+                opt_status, nudge_sent, player_db_id = opt_row
+
+                if opt_status == 'OUT':
+                    logging.info(f"[OPT] {player_name} is OPTED OUT — ignoring score")
+                    cursor_opt_check.close()
+                    conn_opt_check.close()
+                    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+
+                if opt_status == 'WAITING':
+                    logging.info(f"[OPT] {player_name} has WAITING status — not recording score")
+                    if not nudge_sent:
+                        cursor_opt_check.execute(
+                            "UPDATE players SET opt_in_nudge_sent = TRUE WHERE id = %s",
+                            (player_db_id,)
+                        )
+                        conn_opt_check.commit()
+                        from message_router import send_league_message
+                        send_league_message(
+                            league_id,
+                            f"Hey {player_name}! Type OPT IN to have your scores recorded and posted to the league page.",
+                            db_connection=conn_opt_check
+                        )
+                    cursor_opt_check.close()
+                    conn_opt_check.close()
+                    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+
+            cursor_opt_check.close()
+            conn_opt_check.close()
+        except Exception as e:
+            logging.error(f"[OPT] Error checking opt-in status: {e}")
+
         # Save to database
         conn = get_db_connection()
         if not conn:
@@ -2978,7 +3125,8 @@ def dashboard_add_player(league_id):
             
             if channel_type == 'sms' and identifier:
                 id_value = re.sub(r'\D', '', identifier)
-                cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE, phone_number = %s WHERE id = %s", (reactivate_pending, id_value, inactive_player[0]))
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE, phone_number = %s, sms_opt_in_status = 'WAITING', opt_in_nudge_sent = FALSE WHERE id = %s", (reactivate_pending, id_value, inactive_player[0]))
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
             else:
                 cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE WHERE id = %s", (reactivate_pending, inactive_player[0],))
             
@@ -3050,8 +3198,9 @@ def dashboard_add_player(league_id):
                 reactivate_id = inactive_rows[0][0]
                 was_pending_removal = inactive_rows[0][1]
                 needs_pending = is_active_league and not was_pending_removal
-                cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = %s, pending_removal = FALSE WHERE id = %s",
+                cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = %s, pending_removal = FALSE, sms_opt_in_status = 'WAITING', opt_in_nudge_sent = FALSE WHERE id = %s",
                                (name, id_value, needs_pending, reactivate_id))
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
                 if len(inactive_rows) > 1:
                     dup_ids = [r[0] for r in inactive_rows[1:]]
                     cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
@@ -3068,10 +3217,15 @@ def dashboard_add_player(league_id):
                 return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!')
             
             cursor.execute("""
-                INSERT INTO players (name, phone_number, league_id, active, pending_activation)
-                VALUES (%s, %s, %s, TRUE, %s)
-            """, (name, id_value, league_id, is_active_league))
-        
+                INSERT INTO players (name, phone_number, league_id, active, pending_activation, sms_opt_in_status)
+                VALUES (%s, %s, %s, TRUE, %s, %s)
+            """, (name, id_value, league_id, is_active_league,
+                  'WAITING' if channel_type == 'sms' else 'IN'))
+
+            # Reset welcome flag so opt-in message fires on next activation
+            if channel_type == 'sms':
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
+
         conn.commit()
         
         # If league is in division mode, auto-assign new player to the division with fewer players

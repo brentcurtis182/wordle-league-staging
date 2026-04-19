@@ -2145,7 +2145,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     is_chat_platform = channel_type in ('slack', 'discord')
     for player in players:
         pending_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">PENDING</span>' if player.get('pending_activation') else ''
-        
+
+        opt_in_badge = ''
+        if channel_type == 'sms':
+            _opt_status = player.get('sms_opt_in_status', 'IN')
+            if _opt_status == 'IN':
+                opt_in_badge = f'<span style="background: #2ECC71; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">OPTED IN</span>'
+            elif _opt_status == 'OUT':
+                opt_in_badge = f'<span style="background: #E74C3C; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">OPTED OUT</span>'
+            elif _opt_status == 'WAITING':
+                opt_in_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">AWAITING OPT-IN</span>'
+
         # Get the appropriate identifier based on channel type
         if channel_type == 'slack':
             identifier_value = player.get('slack_user_id') or ''
@@ -2161,7 +2171,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         if is_chat_platform:
             player_rows += f"""
             <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;" id="player-{player['id']}">
-                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
+                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}{opt_in_badge}</span>
                 <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px; margin-right: 4px;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
             </div>
             """
@@ -2171,7 +2181,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <!-- Read-only view -->
                 <div class="player-view" id="view-{player['id']}">
                     <div class="player-info">
-                        <div class="name">{player['name']}{pending_badge}</div>
+                        <div class="name">{player['name']}{pending_badge}{opt_in_badge}</div>
                         <div class="phone">{identifier_display}</div>
                     </div>
                     <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
@@ -2203,6 +2213,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     # Range 3-7, default 5. Kept out of the big f-string to avoid quote nesting.
     _current_min_scores = int(league.get('min_weekly_scores', 5) or 5)
     _current_header_emoji = league.get('header_emoji') or ''
+    _waiting_opt_in_count = len([p for p in players if p.get('sms_opt_in_status') == 'WAITING']) if channel_type == 'sms' else 0
     _min_scores_labels = {
         3: 'Easy Mode',
         4: 'Casual',
@@ -2499,6 +2510,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
                     </span>
+                    {f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">⏳ {_waiting_opt_in_count} Waiting OPT-IN</span>' if _waiting_opt_in_count > 0 else ''}
                     {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">{'Activate' if channel_type == 'sms' else 'Connect Channel'}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
@@ -4667,12 +4679,13 @@ def get_league_players(league_id):
         cursor.execute("""
             SELECT id, name, phone_number, COALESCE(pending_activation, FALSE),
                    slack_user_id, discord_user_id,
-                   division, division_immunity, division_joined_week
+                   division, division_immunity, division_joined_week,
+                   COALESCE(sms_opt_in_status, 'IN')
             FROM players
             WHERE league_id = %s AND active = TRUE
             ORDER BY name
         """, (league_id,))
-        
+
         players = []
         for row in cursor.fetchall():
             players.append({
@@ -4684,7 +4697,8 @@ def get_league_players(league_id):
                 'discord_user_id': row[5],
                 'division': row[6],
                 'division_immunity': row[7] or False,
-                'division_joined_week': row[8]
+                'division_joined_week': row[8],
+                'sms_opt_in_status': row[9]
             })
         return players
     finally:
