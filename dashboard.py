@@ -2315,6 +2315,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                width: 100%;
             }}
             .player-info {{
                 flex: 1;
