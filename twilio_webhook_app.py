@@ -3188,8 +3188,8 @@ def dashboard_remove_player(league_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get player name for message
-        cursor.execute("SELECT name FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
+        # Get player name and pending status
+        cursor.execute("SELECT name, COALESCE(pending_activation, FALSE) FROM players WHERE id = %s AND league_id = %s", (player_id, league_id))
         result = cursor.fetchone()
         if not result:
             cursor.close()
@@ -3197,6 +3197,7 @@ def dashboard_remove_player(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=Player not found')
         
         player_name = result[0]
+        was_pending = result[1]
         
         # Check if league is currently active (has a linked group chat)
         cursor.execute("""
@@ -3214,9 +3215,11 @@ def dashboard_remove_player(league_id):
             elif ch_type == 'discord':
                 is_active = league_row[3] is not None
         
-        # Soft delete - set active to FALSE; flag pending_removal if league is active
-        cursor.execute("UPDATE players SET active = FALSE, pending_removal = %s WHERE id = %s AND league_id = %s", 
-                       (is_active, player_id, league_id))
+        # Soft delete - only flag pending_removal if league is active AND player wasn't pending
+        # (pending players were never in the group chat, so no re-link needed)
+        needs_removal_banner = is_active and not was_pending
+        cursor.execute("UPDATE players SET active = FALSE, pending_activation = FALSE, pending_removal = %s WHERE id = %s AND league_id = %s", 
+                       (needs_removal_banner, player_id, league_id))
         conn.commit()
         cursor.close()
         conn.close()
