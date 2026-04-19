@@ -3277,10 +3277,11 @@ def dashboard_delete_league(league_id):
         # 4. Delete latest scores  
         cursor.execute("DELETE FROM latest_scores WHERE league_id = %s", (league_id,))
         
-        # 5. Delete scores (via player_ids since scores table doesn't have league_id)
+        # 5. Delete scores and AI settings (via player_ids since these tables don't have league_id)
         if player_ids:
+            cursor.execute("DELETE FROM ai_player_settings WHERE player_id = ANY(%s)", (player_ids,))
             cursor.execute("DELETE FROM scores WHERE player_id = ANY(%s)", (player_ids,))
-        
+
         # 6. Delete players
         cursor.execute("DELETE FROM players WHERE league_id = %s", (league_id,))
         
