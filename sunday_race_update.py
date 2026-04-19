@@ -838,38 +838,48 @@ IMPORTANT RULES:
                 # Season clinch detection
                 season_clinch_text = ""
                 leaders_who_could_clinch = [name for name in leader_names if name in potential_season_clinchers]
-                
-                if len(potential_season_clinchers) >= 2:
-                    clinchers_in_contention = []
-                    for player in standings:
-                        if player['name'] in potential_season_clinchers:
-                            if player['eligible'] or player['days_posted'] >= min_scores - 1:
-                                clinchers_in_contention.append(player['name'])
-                    if len(clinchers_in_contention) >= 3:
-                        names_list = ", ".join(clinchers_in_contention[:-1]) + f" and {clinchers_in_contention[-1]}"
-                        season_clinch_text = f" EPIC SEASON STAKES: {names_list} ALL have 3 wins (one win away from the season)! A tie this week could mean SHARED Season {current_season} champions!"
-                    elif len(clinchers_in_contention) == 2:
-                        season_clinch_text = f" SEASON STAKES: {clinchers_in_contention[0]} and {clinchers_in_contention[1]} both have 3 wins (one win away) - winner takes Season {current_season}, or they could share it!"
-                
-                if not season_clinch_text:
+
+                if all_players_posted or race_is_decided:
+                    # Race is over — if a potential clincher won, they've clinched the season
                     if leaders_who_could_clinch:
                         if len(leaders_who_could_clinch) == 1:
-                            season_clinch_text = f" SEASON STAKES: {leaders_who_could_clinch[0]} has 3 wins (one win away from the season)! If they win this week, they clinch Season {current_season}!"
+                            season_clinch_text = f" SEASON CLINCH: {leaders_who_could_clinch[0]} clinches Season {current_season} with their {WINS_FOR_SEASON_VICTORY}th win!"
                         else:
-                            clinchers_list = " or ".join(leaders_who_could_clinch)
-                            season_clinch_text = f" SEASON STAKES: {clinchers_list} each have 3 wins (one win away)! If either wins this week, they clinch Season {current_season}!"
-                    else:
-                        contenders_who_could_clinch = []
+                            clinchers_list = " and ".join(leaders_who_could_clinch)
+                            season_clinch_text = f" SEASON CLINCH: {clinchers_list} clinch Season {current_season}!"
+                else:
+                    # Race still live — use SEASON STAKES language
+                    if len(potential_season_clinchers) >= 2:
+                        clinchers_in_contention = []
                         for player in standings:
-                            if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
-                                if player['eligible'] or player['days_posted'] == min_scores - 1:
-                                    contenders_who_could_clinch.append(player['name'])
-                        if contenders_who_could_clinch:
-                            if len(contenders_who_could_clinch) == 1:
-                                season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} has 3 wins (one win away from the season) and could clinch Season {current_season} with a win!"
+                            if player['name'] in potential_season_clinchers:
+                                if player['eligible'] or player['days_posted'] >= min_scores - 1:
+                                    clinchers_in_contention.append(player['name'])
+                        if len(clinchers_in_contention) >= 3:
+                            names_list = ", ".join(clinchers_in_contention[:-1]) + f" and {clinchers_in_contention[-1]}"
+                            season_clinch_text = f" EPIC SEASON STAKES: {names_list} ALL have {WINS_FOR_SEASON_VICTORY - 1} wins (one win away from the season)! A tie this week could mean SHARED Season {current_season} champions!"
+                        elif len(clinchers_in_contention) == 2:
+                            season_clinch_text = f" SEASON STAKES: {clinchers_in_contention[0]} and {clinchers_in_contention[1]} both have {WINS_FOR_SEASON_VICTORY - 1} wins (one win away) - winner takes Season {current_season}, or they could share it!"
+
+                    if not season_clinch_text:
+                        if leaders_who_could_clinch:
+                            if len(leaders_who_could_clinch) == 1:
+                                season_clinch_text = f" SEASON STAKES: {leaders_who_could_clinch[0]} has {WINS_FOR_SEASON_VICTORY - 1} wins (one win away from the season)! If they win this week, they clinch Season {current_season}!"
                             else:
-                                clinchers_list = " or ".join(contenders_who_could_clinch[:2])
-                                season_clinch_text = f" SEASON STAKES: {clinchers_list} each have 3 wins (one win away) and could clinch Season {current_season} with a win!"
+                                clinchers_list = " or ".join(leaders_who_could_clinch)
+                                season_clinch_text = f" SEASON STAKES: {clinchers_list} each have {WINS_FOR_SEASON_VICTORY - 1} wins (one win away)! If either wins this week, they clinch Season {current_season}!"
+                        else:
+                            contenders_who_could_clinch = []
+                            for player in standings:
+                                if player['name'] in potential_season_clinchers and player['name'] not in leader_names:
+                                    if player['eligible'] or player['days_posted'] == min_scores - 1:
+                                        contenders_who_could_clinch.append(player['name'])
+                            if contenders_who_could_clinch:
+                                if len(contenders_who_could_clinch) == 1:
+                                    season_clinch_text = f" SEASON STAKES: {contenders_who_could_clinch[0]} has {WINS_FOR_SEASON_VICTORY - 1} wins (one win away from the season) and could clinch Season {current_season} with a win!"
+                                else:
+                                    clinchers_list = " or ".join(contenders_who_could_clinch[:2])
+                                    season_clinch_text = f" SEASON STAKES: {clinchers_list} each have {WINS_FOR_SEASON_VICTORY - 1} wins (one win away) and could clinch Season {current_season} with a win!"
                 
                 scenario_text = " ".join(scenarios) + season_clinch_text
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
@@ -952,7 +962,7 @@ IMPORTANT RULES:
                 if player['days_posted'] > 0:
                     score_values = [s for s in player['scores'].values() if s != 7]
                     sorted_scores = sorted(score_values)
-                    num_to_use = min(len(sorted_scores), 5)
+                    num_to_use = min(len(sorted_scores), min_scores)
                     current_score = sum(sorted_scores[:num_to_use]) if sorted_scores else 0
                 else:
                     current_score = None
