@@ -2093,7 +2093,7 @@ def _render_division_players(league, players, is_chat_platform):
     '''
 
 
-def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None):
+def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None, removed_players=None):
     """Render the league management page"""
     
     if player_ai_settings is None:
@@ -2233,6 +2233,28 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             f'</button>'
         )
     _min_scores_buttons = '<div id="minScoresButtons" style="display:flex; gap:8px; margin-top:8px; align-items:stretch;">' + ''.join(_ms_btn_parts) + '</div>'
+
+    # Build removed-players banner (outside f-string to avoid backslash issues)
+    _removed_banner = ''
+    if removed_players:
+        _rp_names = ', '.join(p['name'] for p in removed_players)
+        _rp_plural = len(removed_players) > 1
+        _rp_label = 'Removed Players' if _rp_plural else 'Removed Player'
+        _rp_verb = 'have' if _rp_plural else 'has'
+        _rp_pronoun = 'their' if _rp_plural else "this player's"
+        _rp_obj = 'them' if _rp_plural else 'this player'
+        _removed_banner = (
+            f'<div class="alert" style="background: #ff5c5c20; border: 1px solid #ff5c5c; color: {COLORS["text"]};">'
+            f'<strong>\U0001f5d1\ufe0f {_rp_label}:</strong> '
+            f'<strong style="color: #ff5c5c;">{_rp_names}</strong> '
+            f'{_rp_verb} been removed. '
+            f'Your current group chat will continue to work, but {_rp_pronoun} scores will no longer be recorded or posted.'
+            f'<div style="margin-top: 8px;">'
+            f'<strong>Next steps:</strong> Remove {_rp_obj} from your group chat, then re-link to update the connection.'
+            f'<button type="button" class="btn btn-small" style="background: #ff5c5c; color: #000; margin-left: 12px;" onclick="showActivateModal()">Re-link Group Chat</button>'
+            f'</div>'
+            f'</div>'
+        )
 
     return f"""
     <!DOCTYPE html>
@@ -2464,6 +2486,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 They won't receive messages until you add them to your group and re-link.
                 <button type="button" class="btn btn-small" style="background: {COLORS['accent_orange']}; color: #000; margin-left: 12px;" onclick="showActivateModal()">Re-link Group Chat</button>
             </div>''' if any(p.get('pending_activation') for p in players) else ''}
+            
+            {_removed_banner}
             
             <div class="card">
                 <h2>⚙️ {league['display_name']}</h2>
@@ -4663,6 +4687,25 @@ def get_league_players(league_id):
                 'division_joined_week': row[8]
             })
         return players
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_pending_removal_players(league_id):
+    """Get players that were removed from an active league but group chat hasn't been re-linked yet"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, name
+            FROM players
+            WHERE league_id = %s AND active = FALSE AND COALESCE(pending_removal, FALSE) = TRUE
+            ORDER BY name
+        """, (league_id,))
+        
+        return [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
     finally:
         cursor.close()
         conn.close()

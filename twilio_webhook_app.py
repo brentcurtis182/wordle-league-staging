@@ -1209,10 +1209,10 @@ def webhook():
                         WHERE id = %s
                     """, (conv_sid, league_id))
 
-                    # Clear pending_activation flag for all players in this league
+                    # Clear pending_activation and pending_removal flags for all players in this league
                     cursor.execute("""
                         UPDATE players
-                        SET pending_activation = FALSE
+                        SET pending_activation = FALSE, pending_removal = FALSE
                         WHERE league_id = %s
                     """, (league_id,))
 
@@ -2677,7 +2677,7 @@ def dashboard_create_league():
 def dashboard_league(league_id):
     """League management page"""
     from auth import validate_session, can_manage_league
-    from dashboard import render_league_management, get_league_players, get_league_info
+    from dashboard import render_league_management, get_league_players, get_league_info, get_pending_removal_players
     
     session_token = request.cookies.get('session_token')
     logging.info(f"League page: session_token present: {bool(session_token)}")
@@ -2696,11 +2696,12 @@ def dashboard_league(league_id):
         return redirect('/dashboard?error=League not found')
     
     players = get_league_players(league_id)
+    removed_players = get_pending_removal_players(league_id)
     player_ai_settings = get_all_player_ai_settings(league_id)
     message = request.args.get('message')
     error = request.args.get('error')
     
-    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error)
+    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players)
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
@@ -3197,8 +3198,25 @@ def dashboard_remove_player(league_id):
         
         player_name = result[0]
         
-        # Soft delete - set active to FALSE
-        cursor.execute("UPDATE players SET active = FALSE WHERE id = %s AND league_id = %s", (player_id, league_id))
+        # Check if league is currently active (has a linked group chat)
+        cursor.execute("""
+            SELECT channel_type, twilio_conversation_sid, slack_channel_id, discord_channel_id 
+            FROM leagues WHERE id = %s
+        """, (league_id,))
+        league_row = cursor.fetchone()
+        ch_type = (league_row[0] or 'sms') if league_row else 'sms'
+        is_active = False
+        if league_row:
+            if ch_type == 'sms':
+                is_active = league_row[1] is not None
+            elif ch_type == 'slack':
+                is_active = league_row[2] is not None
+            elif ch_type == 'discord':
+                is_active = league_row[3] is not None
+        
+        # Soft delete - set active to FALSE; flag pending_removal if league is active
+        cursor.execute("UPDATE players SET active = FALSE, pending_removal = %s WHERE id = %s AND league_id = %s", 
+                       (is_active, player_id, league_id))
         conn.commit()
         cursor.close()
         conn.close()
@@ -3403,10 +3421,10 @@ def dashboard_check_status(league_id):
         else:
             active = False
         
-        # If league is active but still has pending players, treat as not yet re-linked
+        # If league is active but still has pending players (added or removed), treat as not yet re-linked
         # This prevents the modal from auto-closing during a re-link flow
         if active:
-            cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND pending_activation = TRUE", (league_id,))
+            cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND (pending_activation = TRUE OR pending_removal = TRUE)", (league_id,))
             pending_count = cursor.fetchone()[0]
             if pending_count > 0:
                 active = False
@@ -3820,6 +3838,27 @@ def setup_pending_activation_column():
         return jsonify({'success': True, 'message': 'pending_activation column added to players'})
     except Exception as e:
         logging.error(f"Error adding pending_activation column: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/setup-pending-removal-column', methods=['POST'])
+def setup_pending_removal_column():
+    """One-time migration to add pending_removal column to players table"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            ALTER TABLE players 
+            ADD COLUMN IF NOT EXISTS pending_removal BOOLEAN DEFAULT FALSE
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'pending_removal column added to players'})
+    except Exception as e:
+        logging.error(f"Error adding pending_removal column: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup-ai-messaging-columns', methods=['POST'])
