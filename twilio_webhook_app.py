@@ -2957,13 +2957,17 @@ def dashboard_add_player(league_id):
             return redirect(f'/dashboard/league/{league_id}?error=A player with this name already exists in this league')
         
         # Check if player was previously removed (inactive) - reactivate them
-        cursor.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = FALSE", (league_id, name))
+        cursor.execute("SELECT id, COALESCE(pending_removal, FALSE) FROM players WHERE league_id = %s AND name = %s AND active = FALSE", (league_id, name))
         inactive_player = cursor.fetchone()
         
         if inactive_player:
             # Reactivate the previously removed player
-            # Check if league is active - if so, player needs pending_activation since they're not in the current group chat
-            if channel_type == 'sms':
+            # If player had pending_removal=TRUE, they're still in the current group chat SID - no re-link needed
+            # Only set pending_activation if league is active AND player was NOT pending removal (i.e. was already re-linked out)
+            was_pending_removal = inactive_player[1]
+            if was_pending_removal:
+                reactivate_pending = False
+            elif channel_type == 'sms':
                 reactivate_pending = league_result[1] is not None
             elif channel_type == 'slack':
                 reactivate_pending = league_result[2] is not None
@@ -3038,14 +3042,16 @@ def dashboard_add_player(league_id):
                 return redirect(f'/dashboard/league/{league_id}?error=This phone number already exists in this league')
             
             # Check if an inactive player with this phone exists (re-add with different name)
-            cursor.execute("SELECT id FROM players WHERE league_id = %s AND phone_number IN %s AND active = FALSE ORDER BY id DESC", (league_id, tuple(phone_variants)))
+            cursor.execute("SELECT id, COALESCE(pending_removal, FALSE) FROM players WHERE league_id = %s AND phone_number IN %s AND active = FALSE ORDER BY id DESC", (league_id, tuple(phone_variants)))
             inactive_rows = cursor.fetchall()
             if inactive_rows:
                 # Reactivate the most recent record, delete any duplicates
-                # Set pending_activation if league is active (player not in current group chat SID)
+                # If player had pending_removal, they're still in the current SID - no pending_activation needed
                 reactivate_id = inactive_rows[0][0]
+                was_pending_removal = inactive_rows[0][1]
+                needs_pending = is_active_league and not was_pending_removal
                 cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = %s, pending_removal = FALSE WHERE id = %s",
-                               (name, id_value, is_active_league, reactivate_id))
+                               (name, id_value, needs_pending, reactivate_id))
                 if len(inactive_rows) > 1:
                     dup_ids = [r[0] for r in inactive_rows[1:]]
                     cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
