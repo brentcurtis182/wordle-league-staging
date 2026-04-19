@@ -3045,6 +3045,28 @@ def dashboard_generate_mascot(league_id):
         logging.error(f"[Mascot] Error generating mascot for league {league_id}: {e}")
         return jsonify({'error': 'Failed to generate mascot'}), 500
 
+def _send_opt_in_welcome_for_player(league_id, player_name):
+    """Send a targeted opt-in welcome to a single new player in an already-linked league."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT slug FROM leagues WHERE id = %s", (league_id,))
+        row = cur.fetchone()
+        if row:
+            league_url = f"{APP_BASE_URL}/leagues/{row[0]}"
+            from message_router import send_league_message
+            send_league_message(
+                league_id,
+                f"Welcome, {player_name}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page: {league_url}",
+                db_connection=conn
+            )
+            logging.info(f"[OPT] Sent targeted opt-in welcome for {player_name} in league {league_id}")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logging.error(f"[OPT] Error sending targeted opt-in welcome: {e}")
+
+
 @app.route('/dashboard/league/<int:league_id>/add-player', methods=['POST'])
 def dashboard_add_player(league_id):
     """Add a player to a league"""
@@ -3123,7 +3145,6 @@ def dashboard_add_player(league_id):
             if channel_type == 'sms' and identifier:
                 id_value = re.sub(r'\D', '', identifier)
                 cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE, phone_number = %s, sms_opt_in_status = 'WAITING', opt_in_nudge_sent = FALSE WHERE id = %s", (reactivate_pending, id_value, inactive_player[0]))
-                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
             else:
                 cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE WHERE id = %s", (reactivate_pending, inactive_player[0],))
             
@@ -3143,14 +3164,18 @@ def dashboard_add_player(league_id):
                 div_suffix = f" (assigned to Division {'I' if td == 1 else 'II'})"
             
             conn.commit()
+
+            if channel_type == 'sms' and not reactivate_pending:
+                _send_opt_in_welcome_for_player(league_id, name)
+
             cursor.close()
             conn.close()
-            
+
             _phone_mappings_cache_time = None
-            
+
             from update_pipeline import run_update_pipeline
             run_update_pipeline(league_id)
-            
+
             logging.info(f"Reactivated player {name} in league {league_id} (channel={channel_type}) - HTML regenerated")
             return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!{div_suffix}')
         
@@ -3197,19 +3222,22 @@ def dashboard_add_player(league_id):
                 needs_pending = is_active_league and not was_pending_removal
                 cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = %s, pending_removal = FALSE, sms_opt_in_status = 'WAITING', opt_in_nudge_sent = FALSE WHERE id = %s",
                                (name, id_value, needs_pending, reactivate_id))
-                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
                 if len(inactive_rows) > 1:
                     dup_ids = [r[0] for r in inactive_rows[1:]]
                     cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
                     logging.info(f"Cleaned up {len(dup_ids)} duplicate inactive record(s) for phone in league {league_id}")
                 conn.commit()
+
+                if not needs_pending:
+                    _send_opt_in_welcome_for_player(league_id, name)
+
                 cursor.close()
                 conn.close()
-                
+
                 _phone_mappings_cache_time = None
                 from update_pipeline import run_update_pipeline
                 run_update_pipeline(league_id)
-                
+
                 logging.info(f"Reactivated player (phone match) as {name} in league {league_id}")
                 return redirect(f'/dashboard/league/{league_id}?message=Player {name} has been re-added to the league!')
             
@@ -3218,10 +3246,6 @@ def dashboard_add_player(league_id):
                 VALUES (%s, %s, %s, TRUE, %s, %s)
             """, (name, id_value, league_id, is_active_league,
                   'WAITING' if channel_type == 'sms' else 'IN'))
-
-            # Reset welcome flag so opt-in message fires on next activation
-            if channel_type == 'sms':
-                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
 
         conn.commit()
         
@@ -3262,8 +3286,11 @@ def dashboard_add_player(league_id):
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
         
+        if channel_type == 'sms' and is_active_league:
+            _send_opt_in_welcome_for_player(league_id, name)
+
         logging.info(f"Added player {name} to league {league_id} (channel={channel_type}) - HTML regenerated")
-        
+
         if channel_type in ('slack', 'discord'):
             return redirect(f'/dashboard/league/{league_id}?message=Player {name} added{division_msg_suffix}! Their account will be linked when they post their first score.')
         elif is_active_league:
