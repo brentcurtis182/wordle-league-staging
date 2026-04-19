@@ -2962,11 +2962,21 @@ def dashboard_add_player(league_id):
         
         if inactive_player:
             # Reactivate the previously removed player
+            # Check if league is active - if so, player needs pending_activation since they're not in the current group chat
+            if channel_type == 'sms':
+                reactivate_pending = league_result[1] is not None
+            elif channel_type == 'slack':
+                reactivate_pending = league_result[2] is not None
+            elif channel_type == 'discord':
+                reactivate_pending = league_result[3] is not None
+            else:
+                reactivate_pending = False
+            
             if channel_type == 'sms' and identifier:
                 id_value = re.sub(r'\D', '', identifier)
-                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, pending_removal = FALSE, phone_number = %s WHERE id = %s", (id_value, inactive_player[0]))
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE, phone_number = %s WHERE id = %s", (reactivate_pending, id_value, inactive_player[0]))
             else:
-                cursor.execute("UPDATE players SET active = TRUE, pending_activation = FALSE, pending_removal = FALSE WHERE id = %s", (inactive_player[0],))
+                cursor.execute("UPDATE players SET active = TRUE, pending_activation = %s, pending_removal = FALSE WHERE id = %s", (reactivate_pending, inactive_player[0],))
             
             # Auto-assign to a division if league is in division mode
             div_suffix = ""
@@ -3032,9 +3042,10 @@ def dashboard_add_player(league_id):
             inactive_rows = cursor.fetchall()
             if inactive_rows:
                 # Reactivate the most recent record, delete any duplicates
+                # Set pending_activation if league is active (player not in current group chat SID)
                 reactivate_id = inactive_rows[0][0]
-                cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = FALSE, pending_removal = FALSE WHERE id = %s",
-                               (name, id_value, reactivate_id))
+                cursor.execute("UPDATE players SET active = TRUE, name = %s, phone_number = %s, pending_activation = %s, pending_removal = FALSE WHERE id = %s",
+                               (name, id_value, is_active_league, reactivate_id))
                 if len(inactive_rows) > 1:
                     dup_ids = [r[0] for r in inactive_rows[1:]]
                     cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
