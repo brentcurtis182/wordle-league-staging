@@ -7655,6 +7655,23 @@ def admin_newsletter_preview(template_key):
         </div>
         """
         html = _get_email_template(template['subject'], preview_body)
+        # Inject a fixed "Back to Newsletter" button at the top of the preview
+        back_btn = (
+            '<div style="position:fixed;top:0;left:0;width:100%;z-index:9999;background:#1a1a2e;border-bottom:1px solid #333;padding:10px 20px;display:flex;align-items:center;gap:12px;">'
+            '<a href="/admin/newsletter" style="background:#00e8da;color:#000;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.9em;">&larr; Back to Newsletter</a>'
+            '<span style="color:#888;font-size:0.85em;">Template Preview</span>'
+            '</div>'
+            '<div style="height:50px;"></div>'
+        )
+        html = html.replace('<body', '<body') 
+        # Insert after <body> tag
+        html = html.replace('<body>', '<body>' + back_btn, 1)
+        if '<body>' not in html:
+            html = html.replace('<body ', '<body ').split('>', 1)
+            if len(html) > 1:
+                html = html[0] + '>' + back_btn + html[1]
+            else:
+                html = back_btn + html[0]
         return html
     except Exception as e:
         logging.error(f"Error previewing newsletter: {e}")

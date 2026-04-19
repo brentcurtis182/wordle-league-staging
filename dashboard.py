@@ -5586,7 +5586,7 @@ def render_admin_newsletter(user, templates, recipients, selected_template='', s
                     <p style="color: {COLORS['text_muted']}; margin: 0 0 4px; font-size: 0.9em;">Subject: <strong style="color: {COLORS['text']};">{tmpl['subject']}</strong></p>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <a href="/admin/newsletter/preview/{key}" target="_blank" 
+                    <a href="/admin/newsletter/preview/{key}" 
                        style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85em; font-weight: 600; border: 1px solid {COLORS['border']};">
                         👁 Preview
                     </a>
