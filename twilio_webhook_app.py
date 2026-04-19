@@ -1243,24 +1243,10 @@ def webhook():
                     except Exception as e:
                         logging.error(f"Error naming conversation (non-fatal): {e}")
                     
-                    # Send confirmation message to the group (separate try so it always attempts)
+                    # Send combined confirmation + opt-in welcome message
                     try:
                         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
-                        # Build the public league URL
                         league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
-                        twilio_client.conversations.v1.conversations(conv_sid).messages.create(
-                            body=f"🎉 Success! This group is now connected to {league_name}. Share your Wordle scores here and I'll track them automatically!\n\n📊 View your league standings: {league_url}",
-                            author=twilio_phone
-                        )
-                        logging.info(f"Sent confirmation message to conversation {conv_sid}")
-                    except Exception as e:
-                        logging.error(f"Error sending confirmation message: {e}")
-
-                    # Send opt-in welcome to any WAITING players (one-time per activation cycle)
-                    try:
-                        cursor.execute("SELECT COALESCE(opt_in_welcome_sent, FALSE) FROM leagues WHERE id = %s", (league_id,))
-                        welcome_already = cursor.fetchone()
-                        welcome_already = welcome_already[0] if welcome_already else False
 
                         cursor.execute("""
                             SELECT name FROM players
@@ -1268,7 +1254,7 @@ def webhook():
                         """, (league_id,))
                         waiting_names = [r[0] for r in cursor.fetchall()]
 
-                        if waiting_names and not welcome_already:
+                        if waiting_names:
                             if len(waiting_names) == 1:
                                 names_text = waiting_names[0]
                             elif len(waiting_names) == 2:
@@ -1276,18 +1262,29 @@ def webhook():
                             else:
                                 names_text = ', '.join(waiting_names[:-1]) + f', and {waiting_names[-1]}'
 
-                            from message_router import send_league_message
-                            send_league_message(
-                                league_id,
-                                f"Welcome, {names_text}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page: {league_url}",
-                                db_connection=conn
+                            body = (
+                                f"🎉 Success! This group is now connected to {league_name}.\n\n"
+                                f"Welcome, {names_text}! To get started, each player please type OPT IN "
+                                f"to have your Wordle scores auto-collected and posted to the league page.\n\n"
+                                f"📊 View your league standings: {league_url}"
                             )
-
                             cursor.execute("UPDATE leagues SET opt_in_welcome_sent = TRUE WHERE id = %s", (league_id,))
                             conn.commit()
-                            logging.info(f"[OPT] Sent opt-in welcome to {len(waiting_names)} WAITING players in league {league_id}")
+                            logging.info(f"[OPT] Combined activation + opt-in welcome for {len(waiting_names)} WAITING players in league {league_id}")
+                        else:
+                            body = (
+                                f"🎉 Success! This group is now connected to {league_name}. "
+                                f"Share your Wordle scores here and I'll track them automatically!\n\n"
+                                f"📊 View your league standings: {league_url}"
+                            )
+
+                        twilio_client.conversations.v1.conversations(conv_sid).messages.create(
+                            body=body,
+                            author=twilio_phone
+                        )
+                        logging.info(f"Sent activation message to conversation {conv_sid}")
                     except Exception as e:
-                        logging.error(f"[OPT] Error sending opt-in welcome: {e}")
+                        logging.error(f"Error sending activation message: {e}")
 
                     cursor.close()
                     conn.close()

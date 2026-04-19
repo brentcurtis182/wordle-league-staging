@@ -1890,11 +1890,19 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     
     toggle_class = "division-toggle active" if division_mode else "division-toggle"
     
+    # Column header for SMS opt-in status
+    opt_in_header = ''
+    if channel_type == 'sms' and not division_mode:
+        opt_in_header = f'''
+        <div style="display: flex; justify-content: flex-end; padding: 0 16px 6px 0; margin-bottom: 2px;">
+            <span style="font-size: 0.75em; font-weight: 600; color: {COLORS['text_muted']}; text-transform: uppercase; letter-spacing: 0.5px;">Opt-In Status</span>
+        </div>'''
+
     # Player content: either division view or normal view
     if division_mode:
         player_content = _render_division_players(league, players, is_chat_platform)
     else:
-        player_content = f'<div class="player-list">{player_rows}</div>'
+        player_content = f'{opt_in_header}<div class="player-list">{player_rows}</div>'
     
     return f'''
     <div class="card section">
@@ -2146,15 +2154,15 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     for player in players:
         pending_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">PENDING</span>' if player.get('pending_activation') else ''
 
-        opt_in_badge = ''
+        opt_in_label = ''
         if channel_type == 'sms':
             _opt_status = player.get('sms_opt_in_status', 'IN')
             if _opt_status == 'IN':
-                opt_in_badge = f'<span style="background: #2ECC71; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">OPTED IN</span>'
+                opt_in_label = f'<span style="color: #2ECC71; font-size: 0.8em; font-weight: 600;">IN</span>'
             elif _opt_status == 'OUT':
-                opt_in_badge = f'<span style="background: #E74C3C; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">OPTED OUT</span>'
+                opt_in_label = f'<span style="color: #E74C3C; font-size: 0.8em; font-weight: 600;">OUT</span>'
             elif _opt_status == 'WAITING':
-                opt_in_badge = f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; margin-left: 8px;">AWAITING OPT-IN</span>'
+                opt_in_label = f'<span style="color: {COLORS["accent_orange"]}; font-size: 0.8em; font-weight: 600;">WAITING</span>'
 
         # Get the appropriate identifier based on channel type
         if channel_type == 'slack':
@@ -2171,8 +2179,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         if is_chat_platform:
             player_rows += f"""
             <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;" id="player-{player['id']}">
-                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}{opt_in_badge}</span>
-                <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px; margin-right: 4px;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
+                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    {opt_in_label}
+                    <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
+                </div>
             </div>
             """
         else:
@@ -2180,13 +2191,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="player-item" id="player-{player['id']}">
                 <!-- Read-only view -->
                 <div class="player-view" id="view-{player['id']}">
-                    <div class="player-info">
-                        <div class="name">{player['name']}{pending_badge}{opt_in_badge}</div>
+                    <div class="player-info" style="flex: 1;">
+                        <div class="name">{player['name']}{pending_badge}</div>
                         <div class="phone">{identifier_display}</div>
                     </div>
-                    <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
-                        ✏️
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        {opt_in_label}
+                        <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player">
+                            ✏️
+                        </button>
+                    </div>
                 </div>
                 <!-- Edit mode (hidden by default) -->
                 <div class="player-edit" id="edit-{player['id']}" style="display: none;">
