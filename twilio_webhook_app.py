@@ -7782,13 +7782,54 @@ def _ensure_twilio_snapshots_table():
             player_count INTEGER NOT NULL DEFAULT 0,
             inbound INTEGER NOT NULL DEFAULT 0,
             outbound_billed INTEGER NOT NULL DEFAULT 0,
+            carrier_fees_total NUMERIC(10,2) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(month_key, league_id)
         )
     """)
+    # Add carrier_fees_total if table already exists without it
+    try:
+        cursor.execute("""
+            ALTER TABLE twilio_monthly_snapshots
+            ADD COLUMN IF NOT EXISTS carrier_fees_total NUMERIC(10,2) NOT NULL DEFAULT 0
+        """)
+    except Exception:
+        pass
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def _get_carrier_fees_for_month(target_year=None, target_month=None):
+    """Fetch carrier fees from Twilio Usage API for a specific month."""
+    import requests as http_requests
+    import pytz
+
+    pacific = pytz.timezone('America/Los_Angeles')
+    now = datetime.now(pacific)
+    if target_year and target_month:
+        year, mon = target_year, target_month
+    else:
+        year, mon = now.year, now.month
+
+    start_date = f"{year:04d}-{mon:02d}-01"
+    if mon == 12:
+        end_date = f"{year+1:04d}-01-01"
+    else:
+        end_date = f"{year:04d}-{mon+1:02d}-01"
+
+    auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    base_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json"
+    url = f"{base_url}?Category=mms-messages-carrierfees&StartDate={start_date}&EndDate={end_date}"
+
+    try:
+        resp = http_requests.get(url, auth=auth, timeout=10)
+        if resp.status_code == 200:
+            records = resp.json().get('usage_records', [])
+            return round(sum(float(r.get('price', 0)) for r in records), 2)
+    except Exception as e:
+        logging.warning(f"Failed to fetch carrier fees for {year}-{mon}: {e}")
+    return 0.0
 
 
 def _get_live_league_usage(target_year=None, target_month=None):
@@ -7918,6 +7959,7 @@ def admin_twilio_usage_month():
         if is_current_month:
             # Live data from Conversations API (same as admin page)
             live_leagues = _get_live_league_usage()
+            carrier_fees = _get_carrier_fees_for_month()
             leagues = []
             for lg in live_leagues:
                 leagues.append({
@@ -7927,13 +7969,13 @@ def admin_twilio_usage_month():
                     'outbound_billed': lg['outbound_billed']
                 })
             leagues.sort(key=lambda x: x['outbound_billed'], reverse=True)
-            return jsonify({'month': month_key, 'source': 'live', 'leagues': leagues})
+            return jsonify({'month': month_key, 'source': 'live', 'carrier_fees': carrier_fees, 'leagues': leagues})
         else:
             # Pull from snapshot table
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT league_name, player_count, inbound, outbound_billed
+                SELECT league_name, player_count, inbound, outbound_billed, carrier_fees_total
                 FROM twilio_monthly_snapshots
                 WHERE month_key = %s
                 ORDER BY outbound_billed DESC
@@ -7946,15 +7988,17 @@ def admin_twilio_usage_month():
                 return jsonify({'month': month_key, 'source': 'none', 'leagues': [],
                                'message': 'No snapshot data saved for this month. Snapshots are captured at end of each month going forward.'})
 
+            # carrier_fees_total is stored per-row but is the same for all rows in a month
+            carrier_fees = float(rows[0][4]) if rows else 0.0
             leagues = []
-            for league_name, player_count, inbound, outbound_billed in rows:
+            for league_name, player_count, inbound, outbound_billed, _ in rows:
                 leagues.append({
                     'name': league_name,
                     'players': player_count,
                     'inbound': inbound,
                     'outbound_billed': outbound_billed
                 })
-            return jsonify({'month': month_key, 'source': 'snapshot', 'leagues': leagues})
+            return jsonify({'month': month_key, 'source': 'snapshot', 'carrier_fees': carrier_fees, 'leagues': leagues})
 
     except Exception as e:
         logging.error(f"Twilio usage month drilldown error: {e}")
@@ -7983,8 +8027,9 @@ def admin_twilio_snapshot_save():
 
         _ensure_twilio_snapshots_table()
 
-        # Get live data
+        # Get live data + carrier fees
         live_leagues = _get_live_league_usage()
+        carrier_fees = _get_carrier_fees_for_month()
 
         if not live_leagues:
             return jsonify({'error': 'No league data to save'}), 400
@@ -7996,22 +8041,23 @@ def admin_twilio_snapshot_save():
         for lg in live_leagues:
             # Upsert: update if already exists for this month+league
             cursor.execute("""
-                INSERT INTO twilio_monthly_snapshots (month_key, league_id, league_name, player_count, inbound, outbound_billed)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO twilio_monthly_snapshots (month_key, league_id, league_name, player_count, inbound, outbound_billed, carrier_fees_total)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (month_key, league_id)
                 DO UPDATE SET league_name = EXCLUDED.league_name,
                               player_count = EXCLUDED.player_count,
                               inbound = EXCLUDED.inbound,
                               outbound_billed = EXCLUDED.outbound_billed,
+                              carrier_fees_total = EXCLUDED.carrier_fees_total,
                               created_at = CURRENT_TIMESTAMP
-            """, (month_key, lg['league_id'], lg['name'], lg['players'], lg['inbound'], lg['outbound_billed']))
+            """, (month_key, lg['league_id'], lg['name'], lg['players'], lg['inbound'], lg['outbound_billed'], carrier_fees))
             saved += 1
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        logging.info(f"Twilio snapshot saved for {month_key}: {saved} leagues")
+        logging.info(f"Twilio snapshot saved for {month_key}: {saved} leagues (carrier fees: ${carrier_fees})")
         return jsonify({'success': True, 'month': month_key, 'leagues_saved': saved})
 
     except Exception as e:

@@ -587,6 +587,7 @@ def run_monday_recaps():
 
 def _save_snapshot_for_month(target_year, target_month):
     """Save per-league Twilio usage for a specific month via Conversations API.
+    Also fetches carrier fees from the Twilio Usage API.
     Returns the number of leagues saved."""
     import requests as http_requests
     from datetime import timezone as dt_timezone
@@ -611,6 +612,23 @@ def _save_snapshot_for_month(target_year, target_month):
     month_start_utc = month_start.astimezone(dt_timezone.utc)
     month_end_utc = month_end.astimezone(dt_timezone.utc)
 
+    # Fetch carrier fees from Twilio Usage API
+    carrier_fees = 0.0
+    try:
+        start_date = f"{target_year:04d}-{target_month:02d}-01"
+        if target_month == 12:
+            end_date = f"{target_year+1:04d}-01-01"
+        else:
+            end_date = f"{target_year:04d}-{target_month+1:02d}-01"
+        base_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json"
+        cf_url = f"{base_url}?Category=mms-messages-carrierfees&StartDate={start_date}&EndDate={end_date}"
+        cf_resp = http_requests.get(cf_url, auth=auth, timeout=10)
+        if cf_resp.status_code == 200:
+            records = cf_resp.json().get('usage_records', [])
+            carrier_fees = round(sum(float(r.get('price', 0)) for r in records), 2)
+    except Exception as e:
+        logging.warning(f"Snapshot: carrier fees fetch failed for {month_key}: {e}")
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -624,10 +642,18 @@ def _save_snapshot_for_month(target_year, target_month):
             player_count INTEGER NOT NULL DEFAULT 0,
             inbound INTEGER NOT NULL DEFAULT 0,
             outbound_billed INTEGER NOT NULL DEFAULT 0,
+            carrier_fees_total NUMERIC(10,2) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(month_key, league_id)
         )
     """)
+    try:
+        cursor.execute("""
+            ALTER TABLE twilio_monthly_snapshots
+            ADD COLUMN IF NOT EXISTS carrier_fees_total NUMERIC(10,2) NOT NULL DEFAULT 0
+        """)
+    except Exception:
+        pass
     conn.commit()
 
     # Get all SMS leagues with conversation SIDs
@@ -684,15 +710,16 @@ def _save_snapshot_for_month(target_year, target_month):
         outbound_billed = outbound * num_players
 
         cursor.execute("""
-            INSERT INTO twilio_monthly_snapshots (month_key, league_id, league_name, player_count, inbound, outbound_billed)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO twilio_monthly_snapshots (month_key, league_id, league_name, player_count, inbound, outbound_billed, carrier_fees_total)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (month_key, league_id)
             DO UPDATE SET league_name = EXCLUDED.league_name,
                           player_count = EXCLUDED.player_count,
                           inbound = EXCLUDED.inbound,
                           outbound_billed = EXCLUDED.outbound_billed,
+                          carrier_fees_total = EXCLUDED.carrier_fees_total,
                           created_at = CURRENT_TIMESTAMP
-        """, (month_key, league_id, league_name, num_players, inbound, outbound_billed))
+        """, (month_key, league_id, league_name, num_players, inbound, outbound_billed, carrier_fees))
         saved += 1
 
     conn.commit()

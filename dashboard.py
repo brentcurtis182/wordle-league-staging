@@ -5954,6 +5954,19 @@ def render_admin_twilio_reports(user, monthly_data):
                             return;
                         }}
                         var source = data.source || 'unknown';
+                        var carrierTotal = data.carrier_fees || 0;
+                        // Two-pass: first collect MMS counts, then distribute carrier fees (same as Admin page)
+                        var leagueCalc = [];
+                        var totalMms = 0;
+                        for (var i = 0; i < leagues.length; i++) {{
+                            var lg = leagues[i];
+                            var lgIn = lg.inbound || 0;
+                            var lgOut = lg.outbound_billed || 0;
+                            var mmsCount = lgIn + lgOut;
+                            var mmsCost = (lgIn * 0.0165) + (lgOut * 0.022);
+                            totalMms += mmsCount;
+                            leagueCalc.push({{ lg: lg, lgIn: lgIn, lgOut: lgOut, mmsCount: mmsCount, mmsCost: mmsCost }});
+                        }}
                         var html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
                         html += '<thead><tr>';
                         html += '<th style="text-align: left; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid {COLORS["border"]}; position: sticky; left: 0; z-index: 3; background: rgba(14, 14, 30, 0.98);">League</th>';
@@ -5963,20 +5976,19 @@ def render_admin_twilio_reports(user, monthly_data):
                         html += '<th style="text-align: right; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Est. Cost</th>';
                         html += '</tr></thead><tbody>';
                         var totalIn = 0, totalOut = 0, totalCost = 0;
-                        for (var i = 0; i < leagues.length; i++) {{
-                            var lg = leagues[i];
-                            var lgIn = lg.inbound || 0;
-                            var lgOut = lg.outbound_billed || 0;
-                            var lgCost = lgIn * 0.01 + lgOut * 0.017;
-                            totalIn += lgIn;
-                            totalOut += lgOut;
+                        for (var i = 0; i < leagueCalc.length; i++) {{
+                            var lc = leagueCalc[i];
+                            var carrierShare = totalMms > 0 ? (lc.mmsCount / totalMms) * carrierTotal : 0;
+                            var lgCost = lc.mmsCost + carrierShare;
+                            totalIn += lc.lgIn;
+                            totalOut += lc.lgOut;
                             totalCost += lgCost;
                             html += '<tr style="border-bottom: 1px solid {COLORS["border"]}22;">';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500; position: sticky; left: 0; z-index: 2; background: rgba(14, 14, 30, 0.98);">' + lg.name + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.players + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lgIn + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lgOut + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["accent_orange"]}; text-align: right; font-weight: 600;">$' + lgCost.toFixed(2) + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500; position: sticky; left: 0; z-index: 2; background: rgba(14, 14, 30, 0.98);">' + lc.lg.name + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lc.lg.players + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lc.lgIn + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lc.lgOut + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["accent_orange"]}; text-align: right; font-weight: 600;">$' + lgCost.toFixed(2) + '<br><span style="font-size:0.75em;color:#888;">(+$' + carrierShare.toFixed(2) + ' carrier)</span></td>';
                             html += '</tr>';
                         }}
                         html += '</tbody>';
@@ -5988,9 +6000,9 @@ def render_admin_twilio_reports(user, monthly_data):
                         html += '<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: {COLORS["accent_orange"]};">$' + totalCost.toFixed(2) + '</td>';
                         html += '</tr></tfoot></table>';
                         if (source === 'live') {{
-                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Live data from Twilio Conversations API (matches Admin page).</div>';
+                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Live data from Twilio Conversations API (matches Admin page). Cost: $0.0165/in + $0.022/out + proportional carrier fees.</div>';
                         }} else {{
-                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Saved snapshot data.</div>';
+                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Saved snapshot data. Cost: $0.0165/in + $0.022/out + proportional carrier fees.</div>';
                         }}
                         container.innerHTML = html;
                     }})
