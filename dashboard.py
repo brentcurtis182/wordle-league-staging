@@ -5956,29 +5956,36 @@ def render_admin_twilio_reports(user, monthly_data):
                         var source = data.source || 'unknown';
                         var html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
                         html += '<thead><tr>';
-                        html += '<th style="text-align: left; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid {COLORS["border"]};">League</th>';
+                        html += '<th style="text-align: left; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid {COLORS["border"]}; position: sticky; left: 0; z-index: 3; background: rgba(14, 14, 30, 0.98);">League</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Players</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Inbound</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Outbound</th>';
+                        html += '<th style="text-align: right; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Est. Cost</th>';
                         html += '</tr></thead><tbody>';
-                        var totalIn = 0, totalOut = 0;
+                        var totalIn = 0, totalOut = 0, totalCost = 0;
                         for (var i = 0; i < leagues.length; i++) {{
                             var lg = leagues[i];
-                            totalIn += lg.inbound || 0;
-                            totalOut += lg.outbound_billed || 0;
+                            var lgIn = lg.inbound || 0;
+                            var lgOut = lg.outbound_billed || 0;
+                            var lgCost = lgIn * 0.01 + lgOut * 0.017;
+                            totalIn += lgIn;
+                            totalOut += lgOut;
+                            totalCost += lgCost;
                             html += '<tr style="border-bottom: 1px solid {COLORS["border"]}22;">';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500;">' + lg.name + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500; position: sticky; left: 0; z-index: 2; background: rgba(14, 14, 30, 0.98);">' + lg.name + '</td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.players + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.inbound + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lg.outbound_billed + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lgIn + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lgOut + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["accent_orange"]}; text-align: right; font-weight: 600;">$' + lgCost.toFixed(2) + '</td>';
                             html += '</tr>';
                         }}
                         html += '</tbody>';
                         html += '<tfoot><tr style="border-top: 1px solid {COLORS["accent"]};">';
-                        html += '<td style="padding: 8px 12px; font-weight: 600; color: {COLORS["text"]};">Total</td>';
+                        html += '<td style="padding: 8px 12px; font-weight: 600; color: {COLORS["text"]}; position: sticky; left: 0; z-index: 2; background: rgba(14, 14, 30, 0.98);">Total</td>';
                         html += '<td style="padding: 8px 12px; text-align: center;"></td>';
                         html += '<td style="padding: 8px 12px; text-align: center; font-weight: 600; color: {COLORS["text"]};">' + totalIn + '</td>';
-                        html += '<td style="padding: 8px 12px; text-align: center; font-weight: 700; color: {COLORS["accent_orange"]};">' + totalOut + '</td>';
+                        html += '<td style="padding: 8px 12px; text-align: center; font-weight: 700; color: {COLORS["text"]};">' + totalOut + '</td>';
+                        html += '<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: {COLORS["accent_orange"]};">$' + totalCost.toFixed(2) + '</td>';
                         html += '</tr></tfoot></table>';
                         if (source === 'live') {{
                             html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Live data from Twilio Conversations API (matches Admin page).</div>';
