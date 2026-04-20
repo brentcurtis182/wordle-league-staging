@@ -585,10 +585,9 @@ def run_monday_recaps():
     return all_success
 
 
-def save_twilio_monthly_snapshot():
-    """Save current month's per-league Twilio usage data as a snapshot.
-    Uses the Conversations API to get actual inbound/outbound per league.
-    Called automatically every Monday to keep snapshots fresh."""
+def _save_snapshot_for_month(target_year, target_month):
+    """Save per-league Twilio usage for a specific month via Conversations API.
+    Returns the number of leagues saved."""
     import requests as http_requests
     from datetime import timezone as dt_timezone
 
@@ -598,14 +597,19 @@ def save_twilio_monthly_snapshot():
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         logging.warning("Twilio credentials not set, skipping snapshot save")
-        return
+        return 0
 
     auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     pacific = pytz.timezone('America/Los_Angeles')
-    now = datetime.now(pacific)
-    month_key = now.strftime('%Y-%m')
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_key = f"{target_year:04d}-{target_month:02d}"
+
+    month_start = pacific.localize(datetime(target_year, target_month, 1))
+    if target_month == 12:
+        month_end = pacific.localize(datetime(target_year + 1, 1, 1))
+    else:
+        month_end = pacific.localize(datetime(target_year, target_month + 1, 1))
     month_start_utc = month_start.astimezone(dt_timezone.utc)
+    month_end_utc = month_end.astimezone(dt_timezone.utc)
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -657,6 +661,8 @@ def save_twilio_monthly_snapshot():
                     date_str = msg.get('date_created', '')
                     if date_str:
                         msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        if msg_date >= month_end_utc:
+                            continue
                         if msg_date < month_start_utc:
                             done = True
                             break
@@ -669,7 +675,7 @@ def save_twilio_monthly_snapshot():
                 next_url = meta.get('next_page_url')
                 url = next_url if next_url and not done else None
         except Exception as e:
-            logging.warning(f"Snapshot: conv fetch failed for league {league_id}: {e}")
+            logging.warning(f"Snapshot: conv fetch failed for league {league_id} ({month_key}): {e}")
             continue
 
         if inbound == 0 and outbound == 0:
@@ -692,9 +698,31 @@ def save_twilio_monthly_snapshot():
     conn.commit()
     cursor.close()
     conn.close()
+    return saved
 
-    logging.info(f"Twilio monthly snapshot saved for {month_key}: {saved} leagues")
-    print(f"Twilio snapshot: saved {saved} leagues for {month_key}")
+
+def save_twilio_monthly_snapshot():
+    """Save Twilio usage snapshots. Always saves the current month.
+    In the first 3 days of a new month, also saves the previous month
+    to capture any remaining days that weren't covered by weekly saves."""
+    pacific = pytz.timezone('America/Los_Angeles')
+    now = datetime.now(pacific)
+
+    # Always save current month
+    saved = _save_snapshot_for_month(now.year, now.month)
+    logging.info(f"Twilio snapshot saved for {now.strftime('%Y-%m')}: {saved} leagues")
+    print(f"Twilio snapshot: saved {saved} leagues for {now.strftime('%Y-%m')}")
+
+    # In the first 3 days of a month, also finalize the previous month
+    if now.day <= 3:
+        if now.month == 1:
+            prev_year, prev_month = now.year - 1, 12
+        else:
+            prev_year, prev_month = now.year, now.month - 1
+        prev_key = f"{prev_year:04d}-{prev_month:02d}"
+        prev_saved = _save_snapshot_for_month(prev_year, prev_month)
+        logging.info(f"Twilio snapshot (prev month) saved for {prev_key}: {prev_saved} leagues")
+        print(f"Twilio snapshot (prev month): saved {prev_saved} leagues for {prev_key}")
 
 
 if __name__ == "__main__":

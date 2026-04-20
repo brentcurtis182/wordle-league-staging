@@ -192,11 +192,42 @@ def run_all_leagues_daily_reset():
     
     return all_success
 
+def save_twilio_daily_snapshot():
+    """Save Twilio monthly snapshot as part of daily task.
+    Always saves current month. In the first 3 days of a new month,
+    also finalizes the previous month's snapshot."""
+    from monday_recap import _save_snapshot_for_month
+
+    pacific = pytz.timezone('America/Los_Angeles')
+    now = datetime.now(pacific)
+
+    # Always save current month
+    saved = _save_snapshot_for_month(now.year, now.month)
+    logging.info(f"Daily Twilio snapshot for {now.strftime('%Y-%m')}: {saved} leagues")
+
+    # In the first 3 days of a month, also finalize the previous month
+    if now.day <= 3:
+        if now.month == 1:
+            prev_year, prev_month = now.year - 1, 12
+        else:
+            prev_year, prev_month = now.year, now.month - 1
+        prev_key = f"{prev_year:04d}-{prev_month:02d}"
+        prev_saved = _save_snapshot_for_month(prev_year, prev_month)
+        logging.info(f"Daily Twilio snapshot (prev month) for {prev_key}: {prev_saved} leagues")
+
+
 if __name__ == "__main__":
     # This script should be run daily at 12:01 AM Pacific
     # Can be run via Railway cron job or external scheduler
     print("Starting daily reset...")
     success = run_all_leagues_daily_reset()
+    
+    # Save Twilio monthly snapshot daily
+    try:
+        save_twilio_daily_snapshot()
+    except Exception as e:
+        logging.error(f"Twilio daily snapshot failed: {e}")
+    
     if success:
         print("Daily reset completed successfully!")
         sys.exit(0)

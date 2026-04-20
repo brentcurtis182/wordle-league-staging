@@ -7791,8 +7791,9 @@ def _ensure_twilio_snapshots_table():
     conn.close()
 
 
-def _get_live_league_usage():
-    """Get current month per-league Twilio usage via Conversations API.
+def _get_live_league_usage(target_year=None, target_month=None):
+    """Get per-league Twilio usage via Conversations API for a given month.
+    If target_year/target_month not specified, uses the current month.
     Same logic as /admin/api/twilio-usage — returns list of league dicts."""
     import requests as http_requests
     import pytz
@@ -7803,8 +7804,19 @@ def _get_live_league_usage():
 
     pacific = pytz.timezone('America/Los_Angeles')
     now = datetime.now(pacific)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if target_year and target_month:
+        year, mon = target_year, target_month
+    else:
+        year, mon = now.year, now.month
+
+    month_start = pacific.localize(datetime(year, mon, 1))
+    if mon == 12:
+        month_end = pacific.localize(datetime(year + 1, 1, 1))
+    else:
+        month_end = pacific.localize(datetime(year, mon + 1, 1))
     month_start_utc = month_start.astimezone(dt_timezone.utc)
+    month_end_utc = month_end.astimezone(dt_timezone.utc)
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -7840,6 +7852,10 @@ def _get_live_league_usage():
                     date_str = msg.get('date_created', '')
                     if date_str:
                         msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        # Skip messages after this month's end
+                        if msg_date >= month_end_utc:
+                            continue
+                        # Stop when we hit messages before this month
                         if msg_date < month_start_utc:
                             done = True
                             break
