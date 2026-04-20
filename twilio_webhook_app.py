@@ -7750,6 +7750,7 @@ def admin_twilio_reports():
 
             monthly_data.append({
                 'month': month_label,
+                'month_key': month_key,
                 'inbound': d['mms_in_count'],
                 'outbound': d['mms_out_count'],
                 'mms_messages': round(mms_cost, 2),
@@ -7766,6 +7767,105 @@ def admin_twilio_reports():
         import traceback
         logging.error(traceback.format_exc())
         return "Error loading Twilio monthly reports", 500
+
+
+@app.route('/admin/api/twilio-usage-month')
+def admin_twilio_usage_month():
+    """Per-league usage breakdown for a given month (YYYY-MM).
+    Uses scores table for inbound counts and estimates outbound based on player count."""
+    from auth import validate_session
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or user.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    month_key = request.args.get('month', '')  # e.g. "2026-04"
+    if not month_key or len(month_key) != 7:
+        return jsonify({'error': 'Invalid month parameter'}), 400
+
+    try:
+        year, mon = int(month_key[:4]), int(month_key[5:7])
+        start_date = date(year, mon, 1)
+        if mon == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, mon + 1, 1)
+    except Exception:
+        return jsonify({'error': 'Invalid month format'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get per-league score counts for the month
+        cursor.execute("""
+            SELECT l.id, l.name, l.channel_type,
+                   COUNT(s.id) AS score_count,
+                   COUNT(DISTINCT s.player_id) AS active_scorers,
+                   (SELECT COUNT(*) FROM players p2 WHERE p2.league_id = l.id AND p2.active = TRUE) AS current_players
+            FROM leagues l
+            JOIN players p ON p.league_id = l.id
+            JOIN scores s ON s.player_id = p.id
+            WHERE s.date >= %s AND s.date < %s
+            GROUP BY l.id, l.name, l.channel_type
+            ORDER BY score_count DESC
+        """, (start_date, end_date))
+
+        leagues = []
+        for row in cursor.fetchall():
+            league_id, league_name, channel_type, score_count, active_scorers, current_players = row
+            channel_type = channel_type or 'sms'
+
+            # Only SMS leagues have Twilio costs
+            if channel_type != 'sms':
+                leagues.append({
+                    'id': league_id,
+                    'name': league_name,
+                    'channel_type': channel_type,
+                    'scores': score_count,
+                    'active_scorers': active_scorers,
+                    'players': current_players,
+                    'inbound_mms': 0,
+                    'outbound_mms': 0,
+                    'est_cost': 0
+                })
+                continue
+
+            # Inbound: each score = 1 inbound MMS
+            inbound = score_count
+
+            # Outbound estimate: each score triggers a confirmation broadcast to all participants
+            # Plus AI messages (perfect score, daily loser, etc.) — estimate ~1.3x multiplier
+            # Each outbound logical message = N billed MMS (one per participant)
+            num_players = max(current_players, active_scorers, 1)
+            # Estimate outbound logical messages: ~1 per score (confirmation) + ~0.3 for AI/misc
+            est_outbound_logical = int(score_count * 1.3)
+            est_outbound_billed = est_outbound_logical * num_players
+
+            # Twilio MMS cost estimate: ~$0.01 inbound + ~$0.01 outbound + carrier fees (~$0.007)
+            est_cost = round(inbound * 0.01 + est_outbound_billed * 0.017, 2)
+
+            leagues.append({
+                'id': league_id,
+                'name': league_name,
+                'channel_type': channel_type,
+                'scores': score_count,
+                'active_scorers': active_scorers,
+                'players': num_players,
+                'inbound_mms': inbound,
+                'outbound_mms': est_outbound_billed,
+                'est_cost': est_cost
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'month': month_key, 'leagues': leagues})
+
+    except Exception as e:
+        logging.error(f"Twilio usage month drilldown error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================
