@@ -5874,11 +5874,14 @@ def render_admin_twilio_reports(user, monthly_data):
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <div>
                         <h2 style="color: {COLORS['accent']}; margin-bottom: 4px;">📊 Twilio Monthly Reports</h2>
-                        <p style="color: {COLORS['text_muted']}; margin: 0;">Month-by-month cost breakdown from Twilio Usage API.</p>
+                        <p style="color: {COLORS['text_muted']}; margin: 0;">Month-by-month cost breakdown from Twilio Usage API. Click a month to see per-league breakdown.</p>
                     </div>
-                    <div style="background: rgba(255, 166, 77, 0.12); border: 1px solid {COLORS['accent_orange']}; border-radius: 10px; padding: 14px 22px; text-align: center;">
-                        <div style="color: {COLORS['text_muted']}; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px;">All-Time Total</div>
-                        <div style="color: {COLORS['accent_orange']}; font-size: 1.8em; font-weight: 700;">${grand_total:.2f}</div>
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <button onclick="saveSnapshot()" id="snapshot-btn" style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 10px 16px; border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer; white-space: nowrap;">💾 Save This Month</button>
+                        <div style="background: rgba(255, 166, 77, 0.12); border: 1px solid {COLORS['accent_orange']}; border-radius: 10px; padding: 14px 22px; text-align: center;">
+                            <div style="color: {COLORS['text_muted']}; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px;">All-Time Total</div>
+                            <div style="color: {COLORS['accent_orange']}; font-size: 1.8em; font-weight: 700;">${grand_total:.2f}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5946,46 +5949,73 @@ def render_admin_twilio_reports(user, monthly_data):
                         }}
                         var leagues = data.leagues || [];
                         if (leagues.length === 0) {{
-                            container.innerHTML = '<div style="color: {COLORS["text_muted"]}; padding: 12px;">No league activity this month.</div>';
+                            var msg = data.message || 'No per-league data available for this month.';
+                            container.innerHTML = '<div style="color: {COLORS["text_muted"]}; padding: 16px; font-style: italic;">' + msg + '</div>';
                             return;
                         }}
+                        var source = data.source || 'unknown';
                         var html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
                         html += '<thead><tr>';
                         html += '<th style="text-align: left; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid {COLORS["border"]};">League</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Type</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Players</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">MMS In</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Out (logical)</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Out (billed)</th>';
-                        html += '<th style="text-align: right; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Est. Cost</th>';
+                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Inbound</th>';
+                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Outbound</th>';
                         html += '</tr></thead><tbody>';
-                        var totalCost = 0;
+                        var totalIn = 0, totalOut = 0;
                         for (var i = 0; i < leagues.length; i++) {{
                             var lg = leagues[i];
-                            totalCost += lg.est_cost || 0;
-                            var typeColors = {{'sms': '#4CAF50', 'slack': '#E01E5A', 'discord': '#5865F2'}};
-                            var tc = typeColors[lg.channel_type] || '{COLORS["text_muted"]}';
+                            totalIn += lg.inbound || 0;
+                            totalOut += lg.outbound_billed || 0;
                             html += '<tr style="border-bottom: 1px solid {COLORS["border"]}22;">';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500;">' + lg.name + '</td>';
-                            html += '<td style="padding: 8px 12px; text-align: center;"><span style="background: ' + tc + '20; color: ' + tc + '; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: 600;">' + lg.channel_type.toUpperCase() + '</span></td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.players + '</td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.inbound + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.outbound + '</td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lg.outbound_billed + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["accent_orange"]}; text-align: right; font-weight: 600;">$' + (lg.est_cost || 0).toFixed(2) + '</td>';
                             html += '</tr>';
                         }}
                         html += '</tbody>';
                         html += '<tfoot><tr style="border-top: 1px solid {COLORS["accent"]};">';
-                        html += '<td colspan="6" style="padding: 8px 12px; text-align: right; font-weight: 600; color: {COLORS["text"]};">Total</td>';
-                        html += '<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: {COLORS["accent_orange"]};">$' + totalCost.toFixed(2) + '</td>';
+                        html += '<td style="padding: 8px 12px; font-weight: 600; color: {COLORS["text"]};">Total</td>';
+                        html += '<td style="padding: 8px 12px; text-align: center;"></td>';
+                        html += '<td style="padding: 8px 12px; text-align: center; font-weight: 600; color: {COLORS["text"]};">' + totalIn + '</td>';
+                        html += '<td style="padding: 8px 12px; text-align: center; font-weight: 700; color: {COLORS["accent_orange"]};">' + totalOut + '</td>';
                         html += '</tr></tfoot></table>';
-                        html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Data from Twilio Conversations API. Out (billed) = outbound messages \\u00d7 players. Cost: $0.01/in + $0.017/out billed (incl. carrier fees).</div>';
+                        if (source === 'live') {{
+                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Live data from Twilio Conversations API (matches Admin page).</div>';
+                        }} else {{
+                            html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Saved snapshot data.</div>';
+                        }}
                         container.innerHTML = html;
                     }})
                     .catch(function(err) {{
                         var container = document.getElementById('detail-content-' + monthKey);
                         if (container) container.innerHTML = '<div style="color: #ff5c5c; padding: 12px;">Failed to load data.</div>';
+                    }});
+            }}
+            
+            function saveSnapshot() {{
+                var btn = document.getElementById('snapshot-btn');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+                fetch('/admin/api/twilio-snapshot-save', {{method: 'POST'}})
+                    .then(function(r) {{ return r.json(); }})
+                    .then(function(data) {{
+                        if (data.success) {{
+                            btn.textContent = '\\u2705 Saved ' + data.leagues_saved + ' leagues';
+                            btn.style.borderColor = '{COLORS["success"]}';
+                        }} else {{
+                            btn.textContent = '\\u274c ' + (data.error || 'Failed');
+                            btn.style.borderColor = '{COLORS["error"]}';
+                        }}
+                        setTimeout(function() {{
+                            btn.textContent = '\\ud83d\\udcbe Save This Month';
+                            btn.style.borderColor = '{COLORS["border"]}';
+                            btn.disabled = false;
+                        }}, 3000);
+                    }})
+                    .catch(function() {{
+                        btn.textContent = '\\u274c Failed';
+                        btn.disabled = false;
                     }});
             }}
         </script>

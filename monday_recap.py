@@ -585,6 +585,118 @@ def run_monday_recaps():
     return all_success
 
 
+def save_twilio_monthly_snapshot():
+    """Save current month's per-league Twilio usage data as a snapshot.
+    Uses the Conversations API to get actual inbound/outbound per league.
+    Called automatically every Monday to keep snapshots fresh."""
+    import requests as http_requests
+    from datetime import timezone as dt_timezone
+
+    TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
+    TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
+
+    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+        logging.warning("Twilio credentials not set, skipping snapshot save")
+        return
+
+    auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    pacific = pytz.timezone('America/Los_Angeles')
+    now = datetime.now(pacific)
+    month_key = now.strftime('%Y-%m')
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start_utc = month_start.astimezone(dt_timezone.utc)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Create table if needed
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS twilio_monthly_snapshots (
+            id SERIAL PRIMARY KEY,
+            month_key VARCHAR(7) NOT NULL,
+            league_id INTEGER NOT NULL,
+            league_name VARCHAR(255) NOT NULL,
+            player_count INTEGER NOT NULL DEFAULT 0,
+            inbound INTEGER NOT NULL DEFAULT 0,
+            outbound_billed INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(month_key, league_id)
+        )
+    """)
+    conn.commit()
+
+    # Get all SMS leagues with conversation SIDs
+    cursor.execute("""
+        SELECT l.id, l.name, l.twilio_conversation_sid,
+               (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
+        FROM leagues l
+        WHERE l.twilio_conversation_sid IS NOT NULL
+    """)
+    sms_leagues = cursor.fetchall()
+
+    saved = 0
+    for league_id, league_name, conv_sid, player_count in sms_leagues:
+        if not conv_sid:
+            continue
+        num_players = max(player_count or 1, 1)
+        inbound = 0
+        outbound = 0
+        try:
+            url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
+            done = False
+            while url and not done:
+                resp = http_requests.get(url, auth=auth, timeout=5)
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                messages = data.get('messages', [])
+                if not messages:
+                    break
+                for msg in messages:
+                    date_str = msg.get('date_created', '')
+                    if date_str:
+                        msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        if msg_date < month_start_utc:
+                            done = True
+                            break
+                        author = msg.get('author', '')
+                        if author == twilio_phone:
+                            outbound += 1
+                        else:
+                            inbound += 1
+                meta = data.get('meta', {})
+                next_url = meta.get('next_page_url')
+                url = next_url if next_url and not done else None
+        except Exception as e:
+            logging.warning(f"Snapshot: conv fetch failed for league {league_id}: {e}")
+            continue
+
+        if inbound == 0 and outbound == 0:
+            continue
+
+        outbound_billed = outbound * num_players
+
+        cursor.execute("""
+            INSERT INTO twilio_monthly_snapshots (month_key, league_id, league_name, player_count, inbound, outbound_billed)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (month_key, league_id)
+            DO UPDATE SET league_name = EXCLUDED.league_name,
+                          player_count = EXCLUDED.player_count,
+                          inbound = EXCLUDED.inbound,
+                          outbound_billed = EXCLUDED.outbound_billed,
+                          created_at = CURRENT_TIMESTAMP
+        """, (month_key, league_id, league_name, num_players, inbound, outbound_billed))
+        saved += 1
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    logging.info(f"Twilio monthly snapshot saved for {month_key}: {saved} leagues")
+    print(f"Twilio snapshot: saved {saved} leagues for {month_key}")
+
+
 if __name__ == "__main__":
     # This script should be run at 10:00 AM Pacific on Mondays
     pacific = pytz.timezone('America/Los_Angeles')
@@ -603,6 +715,13 @@ if __name__ == "__main__":
     
     print("Starting Monday morning recap...")
     success = run_monday_recaps()
+    
+    # Auto-save Twilio monthly snapshot (runs every Monday to keep data fresh)
+    try:
+        save_twilio_monthly_snapshot()
+    except Exception as e:
+        logging.error(f"Twilio snapshot auto-save failed: {e}")
+    
     if success:
         print("Monday recap completed successfully!")
         sys.exit(0)
