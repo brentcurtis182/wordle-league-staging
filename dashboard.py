@@ -5953,10 +5953,10 @@ def render_admin_twilio_reports(user, monthly_data):
                         html += '<thead><tr>';
                         html += '<th style="text-align: left; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid {COLORS["border"]};">League</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Type</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Scores</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Players</th>';
                         html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">MMS In</th>';
-                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">MMS Out (est)</th>';
+                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Out (logical)</th>';
+                        html += '<th style="text-align: center; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Out (billed)</th>';
                         html += '<th style="text-align: right; padding: 8px 12px; color: {COLORS["text_muted"]}; font-size: 0.82em; text-transform: uppercase; border-bottom: 1px solid {COLORS["border"]};">Est. Cost</th>';
                         html += '</tr></thead><tbody>';
                         var totalCost = 0;
@@ -5968,19 +5968,19 @@ def render_admin_twilio_reports(user, monthly_data):
                             html += '<tr style="border-bottom: 1px solid {COLORS["border"]}22;">';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; font-weight: 500;">' + lg.name + '</td>';
                             html += '<td style="padding: 8px 12px; text-align: center;"><span style="background: ' + tc + '20; color: ' + tc + '; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: 600;">' + lg.channel_type.toUpperCase() + '</span></td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center;">' + lg.scores + '</td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.players + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.inbound_mms + '</td>';
-                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.outbound_mms + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.inbound + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text_muted"]}; text-align: center;">' + lg.outbound + '</td>';
+                            html += '<td style="padding: 8px 12px; color: {COLORS["text"]}; text-align: center; font-weight: 500;">' + lg.outbound_billed + '</td>';
                             html += '<td style="padding: 8px 12px; color: {COLORS["accent_orange"]}; text-align: right; font-weight: 600;">$' + (lg.est_cost || 0).toFixed(2) + '</td>';
                             html += '</tr>';
                         }}
                         html += '</tbody>';
                         html += '<tfoot><tr style="border-top: 1px solid {COLORS["accent"]};">';
-                        html += '<td colspan="6" style="padding: 8px 12px; text-align: right; font-weight: 600; color: {COLORS["text"]};">Estimated Total</td>';
+                        html += '<td colspan="6" style="padding: 8px 12px; text-align: right; font-weight: 600; color: {COLORS["text"]};">Total</td>';
                         html += '<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: {COLORS["accent_orange"]};">$' + totalCost.toFixed(2) + '</td>';
                         html += '</tr></tfoot></table>';
-                        html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Estimates based on score counts. Outbound = scores \\u00d7 1.3 (AI messages) \\u00d7 players. Rates: $0.01/in + $0.017/out (incl. carrier fees).</div>';
+                        html += '<div style="color: {COLORS["text_muted"]}; font-size: 0.75em; margin-top: 8px; font-style: italic;">Data from Twilio Conversations API. Out (billed) = outbound messages \\u00d7 players. Cost: $0.01/in + $0.017/out billed (incl. carrier fees).</div>';
                         container.innerHTML = html;
                     }})
                     .catch(function(err) {{

@@ -7772,8 +7772,12 @@ def admin_twilio_reports():
 @app.route('/admin/api/twilio-usage-month')
 def admin_twilio_usage_month():
     """Per-league usage breakdown for a given month (YYYY-MM).
-    Uses scores table for inbound counts and estimates outbound based on player count."""
+    Uses the Twilio Conversations API to get actual inbound/outbound counts per league,
+    same approach as the main admin dashboard's current-month view."""
     from auth import validate_session
+    import requests as http_requests
+    import pytz
+    from datetime import timezone as dt_timezone
 
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
@@ -7786,85 +7790,140 @@ def admin_twilio_usage_month():
 
     try:
         year, mon = int(month_key[:4]), int(month_key[5:7])
-        start_date = date(year, mon, 1)
+        # Month boundaries in UTC for comparison with Twilio message timestamps
+        pacific = pytz.timezone('America/Los_Angeles')
+        month_start = pacific.localize(datetime(year, mon, 1))
         if mon == 12:
-            end_date = date(year + 1, 1, 1)
+            month_end = pacific.localize(datetime(year + 1, 1, 1))
         else:
-            end_date = date(year, mon + 1, 1)
+            month_end = pacific.localize(datetime(year, mon + 1, 1))
+        month_start_utc = month_start.astimezone(dt_timezone.utc)
+        month_end_utc = month_end.astimezone(dt_timezone.utc)
     except Exception:
         return jsonify({'error': 'Invalid month format'}), 400
 
     try:
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
+        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Get per-league score counts for the month
+        # Get all SMS leagues with their conversation SIDs
         cursor.execute("""
-            SELECT l.id, l.name, l.channel_type,
-                   COUNT(s.id) AS score_count,
-                   COUNT(DISTINCT s.player_id) AS active_scorers,
-                   (SELECT COUNT(*) FROM players p2 WHERE p2.league_id = l.id AND p2.active = TRUE) AS current_players
+            SELECT l.id, l.name, l.twilio_conversation_sid,
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count
+            FROM leagues l
+            WHERE l.channel_type = 'sms' OR l.channel_type IS NULL
+        """)
+        sms_leagues = cursor.fetchall()
+
+        # Also get non-SMS leagues that had scores this month for completeness
+        score_start = date(year, mon, 1)
+        score_end = date(year + 1, 1, 1) if mon == 12 else date(year, mon + 1, 1)
+        cursor.execute("""
+            SELECT DISTINCT l.id, l.name, l.channel_type, COUNT(s.id) as score_count
             FROM leagues l
             JOIN players p ON p.league_id = l.id
             JOIN scores s ON s.player_id = p.id
-            WHERE s.date >= %s AND s.date < %s
+            WHERE l.channel_type IN ('slack', 'discord')
+              AND s.date >= %s AND s.date < %s
             GROUP BY l.id, l.name, l.channel_type
-            ORDER BY score_count DESC
-        """, (start_date, end_date))
+        """, (score_start, score_end))
+        non_sms_leagues = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
 
         leagues = []
-        for row in cursor.fetchall():
-            league_id, league_name, channel_type, score_count, active_scorers, current_players = row
-            channel_type = channel_type or 'sms'
 
-            # Only SMS leagues have Twilio costs
-            if channel_type != 'sms':
-                leagues.append({
-                    'id': league_id,
-                    'name': league_name,
-                    'channel_type': channel_type,
-                    'scores': score_count,
-                    'active_scorers': active_scorers,
-                    'players': current_players,
-                    'inbound_mms': 0,
-                    'outbound_mms': 0,
-                    'est_cost': 0
-                })
+        # Process SMS leagues via Conversations API
+        for league_id, league_name, conv_sid, player_count in sms_leagues:
+            if not conv_sid:
                 continue
 
-            # Inbound: each score = 1 inbound MMS
-            inbound = score_count
+            num_players = max(player_count or 1, 1)
+            inbound = 0
+            outbound = 0
 
-            # Outbound estimate: each score triggers a confirmation broadcast to all participants
-            # Plus AI messages (perfect score, daily loser, etc.) — estimate ~1.3x multiplier
-            # Each outbound logical message = N billed MMS (one per participant)
-            num_players = max(current_players, active_scorers, 1)
-            # Estimate outbound logical messages: ~1 per score (confirmation) + ~0.3 for AI/misc
-            est_outbound_logical = int(score_count * 1.3)
-            est_outbound_billed = est_outbound_logical * num_players
+            try:
+                url = f"https://conversations.twilio.com/v1/Conversations/{conv_sid}/Messages?PageSize=100&Order=desc"
+                done = False
+                while url and not done:
+                    resp = http_requests.get(url, auth=auth, timeout=10)
+                    if resp.status_code != 200:
+                        break
+                    data = resp.json()
+                    messages = data.get('messages', [])
+                    if not messages:
+                        break
+                    for msg in messages:
+                        date_str = msg.get('date_created', '')
+                        if not date_str:
+                            continue
+                        msg_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        # Skip messages after this month
+                        if msg_date >= month_end_utc:
+                            continue
+                        # Stop when we hit messages before this month
+                        if msg_date < month_start_utc:
+                            done = True
+                            break
+                        author = msg.get('author', '')
+                        if author == twilio_phone:
+                            outbound += 1
+                        else:
+                            inbound += 1
+                    meta = data.get('meta', {})
+                    next_url = meta.get('next_page_url')
+                    url = next_url if next_url and not done else None
+            except Exception as e:
+                logging.warning(f"Twilio conv fetch for league {league_id} month {month_key}: {e}")
 
-            # Twilio MMS cost estimate: ~$0.01 inbound + ~$0.01 outbound + carrier fees (~$0.007)
-            est_cost = round(inbound * 0.01 + est_outbound_billed * 0.017, 2)
+            # Skip leagues with no activity this month
+            if inbound == 0 and outbound == 0:
+                continue
+
+            # Billed outbound = outbound logical messages × number of participants
+            outbound_billed = outbound * num_players
+
+            # Calculate cost using same approach as account totals:
+            # Inbound MMS: ~$0.01 each, Outbound billed MMS: ~$0.01 each + carrier fees ~$0.007 each
+            est_cost = round(inbound * 0.01 + outbound_billed * 0.017, 2)
 
             leagues.append({
                 'id': league_id,
                 'name': league_name,
-                'channel_type': channel_type,
-                'scores': score_count,
-                'active_scorers': active_scorers,
+                'channel_type': 'sms',
                 'players': num_players,
-                'inbound_mms': inbound,
-                'outbound_mms': est_outbound_billed,
+                'inbound': inbound,
+                'outbound': outbound,
+                'outbound_billed': outbound_billed,
                 'est_cost': est_cost
             })
 
-        cursor.close()
-        conn.close()
+        # Add non-SMS leagues (no Twilio cost)
+        for league_id, league_name, channel_type, score_count in non_sms_leagues:
+            leagues.append({
+                'id': league_id,
+                'name': league_name,
+                'channel_type': channel_type,
+                'players': 0,
+                'inbound': score_count,
+                'outbound': 0,
+                'outbound_billed': 0,
+                'est_cost': 0
+            })
+
+        # Sort by estimated cost descending
+        leagues.sort(key=lambda x: x['est_cost'], reverse=True)
 
         return jsonify({'month': month_key, 'leagues': leagues})
 
     except Exception as e:
         logging.error(f"Twilio usage month drilldown error: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 
