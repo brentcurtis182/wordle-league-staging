@@ -1445,26 +1445,41 @@ def generate_rules_html(league_data):
     current_tone_color = tone_colors.get(ai.get('severity', 2), '#E67E22')
 
     msg_types = [
-        ('🎯', 'Perfect Score', 'Celebrates when a player gets a perfect score (1/6 or 2/6).', ai.get('perfect_score', False)),
-        ('💀', 'Daily Worst Score', 'Playfully roasts the player with the worst score each day.', ai.get('daily_loser', False)),
-        ('😬', 'Failed Attempt', 'Sends a message when a player fails a Wordle (X/6).', ai.get('failure_roast', False)),
-        ('🏁', 'Sunday Race Update', 'Posts a weekly race update every Sunday with standings and AI commentary.', ai.get('sunday_race', False)),
-        ('📊', 'Monday Recap', 'Delivers a full weekly recap every Monday with winners and highlights.', ai.get('monday_recap', False)),
+        ('🎯', 'Perfect Score', 'Celebrates when a player gets a perfect score (1/6 or 2/6).',
+         ai.get('perfect_score', False),
+         '"🔥 NO WAY! Sarah just nailed a 2/6! That\'s absolutely elite. The rest of you might want to take notes — this is what perfection looks like! 🎯"'),
+        ('💀', 'Daily Worst Score', 'Playfully roasts the player with the worst score each day.',
+         ai.get('daily_loser', False),
+         '"😬 Mike... a 6/6? Buddy, the letters were RIGHT THERE. Even my autocorrect could\'ve done better. Tomorrow\'s a new day though! 💀"'),
+        ('😬', 'Failed Attempt', 'Sends a message when a player fails a Wordle (X/6).',
+         ai.get('failure_roast', False),
+         '"Oh no, Alex! An X/6?! The Wordle gods were NOT on your side today. Don\'t worry, we\'ve all been there... some of us more than others. 😅"'),
+        ('🏁', 'Sunday Race Update', 'Posts a weekly race update every Sunday with standings and AI commentary.',
+         ai.get('sunday_race', False),
+         '"🏁 SUNDAY RACE UPDATE! With 6 of 7 players reporting in, Sarah leads with a total of 14. Mike is right on her heels at 15. One day left — this is anyone\'s week! 🔥"'),
+        ('📊', 'Monday Recap', 'Delivers a full weekly recap every Monday with winners and highlights.',
+         ai.get('monday_recap', False),
+         '"🏆 WEEKLY RECAP! Sarah takes the crown with a stellar best-5 total of 16! That gives her 3 weekly wins — just ONE more for the season championship! The pressure is ON! 🎉"'),
     ]
 
+    example_style = 'margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;'
+
     msg_rows = ''
-    for emoji, name, desc, is_on in msg_types:
+    for emoji, name, desc, is_on, example in msg_types:
         status_color = '#2ECC71' if is_on else '#E74C3C'
         status_text = 'ON' if is_on else 'OFF'
-        msg_rows += f'''<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">{emoji}</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">{name}</strong>
-      <span style="background:{status_color}; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">{status_text}</span>
+        msg_rows += f'''<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">{emoji}</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">{name}</strong>
+        <span style="background:{status_color}; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">{status_text}</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">{desc}</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">{desc}</p>
   </div>
+  <div style="{example_style}">{example}</div>
 </div>
 '''
 
