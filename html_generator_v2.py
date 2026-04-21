@@ -763,7 +763,7 @@ function openFullList() {
     
     # All-Time Stats
     html += '<div class="all-time-container" style="margin-top: 36px;">\n'
-    html += '<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>\n'
+    html += '<h2 style="margin-top: 30px; margin-bottom: 10px;">All-Time Stats</h2>\n'
     html += '<table>\n'
     html += '<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>\n'
     html += '<tbody>\n'
@@ -1336,7 +1336,7 @@ function divFlChangePage(dir) {{ divFlShowPage(divFlCurrentPage + dir); }}
     
     # All-Time Stats (unchanged - shows all players regardless of division)
     html += '<div class="all-time-container">\n'
-    html += '<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>\n'
+    html += '<h2 style="margin-top: 30px; margin-bottom: 10px;">All-Time Stats</h2>\n'
     html += '<table>\n'
     html += '<thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>\n'
     html += '<tbody>\n'
