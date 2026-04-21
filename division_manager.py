@@ -756,7 +756,13 @@ def check_division_season_transition(league_id, division):
                     VALUES (%s, %s, %s, %s, CURRENT_DATE, %s)
                     ON CONFLICT (league_id, season_number, player_id) DO NOTHING
                 """, (league_id, player_result[0], current_season, win_count, division))
-        
+
+                try:
+                    from twilio_webhook_app import forward_season_winner_to_staging
+                    forward_season_winner_to_staging(league_id, winner_name, current_season, win_count, division)
+                except Exception:
+                    pass
+
         # Create next season
         new_season = current_season + 1
         next_start = last_week + 7

@@ -54,6 +54,42 @@ def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoj
         logging.warning(f"Staging forward failed (non-fatal): {e}")
 
 
+def forward_weekly_winner_to_staging(league_id, player_name, week_wordle_number, score, division=None):
+    """Forward a weekly winner to staging environment (fire-and-forget)"""
+    if not STAGING_URL or 'staging' in APP_BASE_URL:
+        return
+    try:
+        import requests as req
+        req.post(f"{STAGING_URL}/api/forward-weekly-winner", json={
+            'league_id': league_id,
+            'player_name': player_name,
+            'week_wordle_number': week_wordle_number,
+            'score': score,
+            'division': division,
+        }, timeout=5)
+        logging.info(f"Forwarded weekly winner to staging: {player_name}, league {league_id}, week {week_wordle_number}")
+    except Exception as e:
+        logging.warning(f"Staging weekly winner forward failed (non-fatal): {e}")
+
+
+def forward_season_winner_to_staging(league_id, player_name, season_number, wins, division=None):
+    """Forward a season winner to staging environment (fire-and-forget)"""
+    if not STAGING_URL or 'staging' in APP_BASE_URL:
+        return
+    try:
+        import requests as req
+        req.post(f"{STAGING_URL}/api/forward-season-winner", json={
+            'league_id': league_id,
+            'player_name': player_name,
+            'season_number': season_number,
+            'wins': wins,
+            'division': division,
+        }, timeout=5)
+        logging.info(f"Forwarded season winner to staging: {player_name}, league {league_id}, season {season_number}")
+    except Exception as e:
+        logging.warning(f"Staging season winner forward failed (non-fatal): {e}")
+
+
 def run_pipeline_with_retry(league_id, max_retries=3):
     """Run the update pipeline with retry logic and exponential backoff"""
     import time
@@ -7504,6 +7540,100 @@ def receive_forwarded_score():
         return jsonify({'success': True}), 200
     except Exception as e:
         logging.error(f"Error receiving forwarded score: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forward-weekly-winner', methods=['POST'])
+def receive_forwarded_weekly_winner():
+    """Receive a weekly winner forwarded from production (used by staging)."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        league_id = data['league_id']
+        player_name = data['player_name']
+        week_wordle = data['week_wordle_number']
+        score = data['score']
+        division = data.get('division')
+
+        cursor.execute("SELECT id FROM players WHERE name = %s AND league_id = %s AND active = TRUE", (player_name, league_id))
+        row = cursor.fetchone()
+        if not row:
+            cursor.close(); conn.close()
+            return jsonify({'error': 'no matching player'}), 404
+        local_player_id = row[0]
+
+        cursor.execute("""
+            INSERT INTO weekly_winners (league_id, player_id, week_wordle_number, player_name, score, division)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (league_id, week_wordle_number, player_id) DO UPDATE
+            SET player_name = EXCLUDED.player_name, score = EXCLUDED.score, division = EXCLUDED.division
+        """, (league_id, local_player_id, week_wordle, player_name, score, division))
+
+        conn.commit()
+        cursor.close(); conn.close()
+        logging.info(f"Received forwarded weekly winner: {player_name}, league {league_id}, week {week_wordle}")
+
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.error(f"Error receiving forwarded weekly winner: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forward-season-winner', methods=['POST'])
+def receive_forwarded_season_winner():
+    """Receive a season winner forwarded from production (used by staging)."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        league_id = data['league_id']
+        player_name = data['player_name']
+        season_number = data['season_number']
+        wins = data['wins']
+        division = data.get('division')
+
+        cursor.execute("SELECT id FROM players WHERE name = %s AND league_id = %s AND active = TRUE", (player_name, league_id))
+        row = cursor.fetchone()
+        if not row:
+            cursor.close(); conn.close()
+            return jsonify({'error': 'no matching player'}), 404
+        local_player_id = row[0]
+
+        cursor.execute("""
+            INSERT INTO season_winners (league_id, player_id, season_number, wins, completed_date, division)
+            VALUES (%s, %s, %s, %s, CURRENT_DATE, %s)
+            ON CONFLICT (league_id, season_number, player_id) DO NOTHING
+        """, (league_id, local_player_id, season_number, wins, division))
+
+        # Advance the season counter on staging too
+        new_season = season_number + 1
+        cursor.execute("""
+            UPDATE league_seasons SET current_season = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE league_id = %s AND current_season < %s
+        """, (new_season, league_id, new_season))
+
+        conn.commit()
+        cursor.close(); conn.close()
+        logging.info(f"Received forwarded season winner: {player_name}, league {league_id}, season {season_number}")
+
+        from update_pipeline import run_update_pipeline
+        run_update_pipeline(league_id)
+
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.error(f"Error receiving forwarded season winner: {e}")
         return jsonify({'error': str(e)}), 500
 
 

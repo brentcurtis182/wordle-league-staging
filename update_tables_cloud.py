@@ -356,7 +356,14 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                     
                     winner_names = ', '.join([w['name'] for w in div_winners])
                     logging.info(f"Week {week_wordle} Div {div_num}: Winner(s) = {winner_names} with total {min_total}")
-                
+
+                    for winner in div_winners:
+                        try:
+                            from twilio_webhook_app import forward_weekly_winner_to_staging
+                            forward_weekly_winner_to_staging(league_id, winner['name'], week_wordle, winner['score'], div_num)
+                        except Exception:
+                            pass
+
                 # Lock division mode after first weekly winners are recorded
                 cursor.execute("""
                     UPDATE leagues SET division_locked = TRUE WHERE id = %s AND division_locked = FALSE
@@ -392,6 +399,13 @@ def update_weekly_winners_from_db(league_id, week_start_wordle=None, week_end_wo
                 
                 winner_names = ', '.join([w['name'] for w in winners])
                 logging.info(f"Week {week_wordle}: Winner(s) = {winner_names} with total {min_total} - saved to database")
+
+                for winner in winners:
+                    try:
+                        from twilio_webhook_app import forward_weekly_winner_to_staging
+                        forward_weekly_winner_to_staging(league_id, winner['name'], week_wordle, winner['score'])
+                    except Exception:
+                        pass
         
         # Save back to database
         save_weekly_winners(winners_data)
@@ -534,7 +548,13 @@ def check_and_handle_season_transition(league_id):
                     VALUES (%s, %s, %s, %s, CURRENT_DATE)
                     ON CONFLICT (league_id, season_number, player_id) DO NOTHING
                 """, (league_id, player_id, current_season, win_count))
-        
+
+                try:
+                    from twilio_webhook_app import forward_season_winner_to_staging
+                    forward_season_winner_to_staging(league_id, winner_name, current_season, win_count)
+                except Exception:
+                    pass
+
         # Create new season entry
         new_season = current_season + 1
         next_season_start = last_week + 7  # Next Monday
