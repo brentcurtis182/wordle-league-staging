@@ -423,7 +423,7 @@ function toggleScoreView(divNum) {
 <p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 12px; cursor: pointer;" onclick="document.getElementById('season-modal-2').style.display='flex'">Season 2 Winner: Jeremy <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
 <p class="season-winner-message" style="color: #00E8DA; font-weight: bold; margin-top: 12px; cursor: pointer;" onclick="document.getElementById('season-modal-1').style.display='flex'">Season 1 Winner: Meredith <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
 <div class="all-time-container">
-<h2 style="margin-top: 5px; margin-bottom: 10px;">All-Time Stats</h2>
+<h2 style="margin-top: 30px; margin-bottom: 10px;">All-Time Stats</h2>
 <table>
 <thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>
 <tbody>
@@ -540,55 +540,70 @@ function toggleScoreView(divNum) {
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🤖 AI Automated Messaging</h3>
 <p style="margin:0 0 14px 0; color:#d7dadc; line-height:1.6;">The league manager can enable AI-generated messages that are automatically sent to the group chat when certain events happen. These messages add personality and fun to the league experience.</p>
-<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">🎯</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">Perfect Score</strong>
-      <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
+<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">🎯</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">Perfect Score</strong>
+        <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Celebrates when a player gets a perfect score (1/6 or 2/6).</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Celebrates when a player gets a perfect score (1/6 or 2/6).</p>
   </div>
+  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"🔥 NO WAY! Sarah just nailed a 2/6! That's absolutely elite. The rest of you might want to take notes — this is what perfection looks like! 🎯"</div>
 </div>
-<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">💀</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">Daily Worst Score</strong>
-      <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
+<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">💀</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">Daily Worst Score</strong>
+        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Playfully roasts the player with the worst score each day.</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Playfully roasts the player with the worst score each day.</p>
   </div>
+  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"😬 Mike... a 6/6? Buddy, the letters were RIGHT THERE. Even my autocorrect could've done better. Tomorrow's a new day though! 💀"</div>
 </div>
-<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">😬</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">Failed Attempt</strong>
-      <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
+<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">😬</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">Failed Attempt</strong>
+        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Sends a message when a player fails a Wordle (X/6).</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Sends a message when a player fails a Wordle (X/6).</p>
   </div>
+  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"Oh no, Alex! An X/6?! The Wordle gods were NOT on your side today. Don't worry, we've all been there... some of us more than others. 😅"</div>
 </div>
-<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">🏁</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">Sunday Race Update</strong>
-      <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">🏁</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">Sunday Race Update</strong>
+        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Posts a weekly race update every Sunday with standings and AI commentary.</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Posts a weekly race update every Sunday with standings and AI commentary.</p>
   </div>
+  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"🏁 SUNDAY RACE UPDATE! With 6 of 7 players reporting in, Sarah leads with a total of 14. Mike is right on her heels at 15. One day left — this is anyone's week! 🔥"</div>
 </div>
-<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
-  <span style="font-size:1.3em; flex-shrink:0;">📊</span>
-  <div style="flex:1; min-width:0;">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-      <strong style="color:#d7dadc;">Monday Recap</strong>
-      <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
+  <div style="display:flex; align-items:flex-start; gap:12px;">
+    <span style="font-size:1.3em; flex-shrink:0;">📊</span>
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <strong style="color:#d7dadc;">Monday Recap</strong>
+        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+      </div>
+      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Delivers a full weekly recap every Monday with winners and highlights.</p>
     </div>
-    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Delivers a full weekly recap every Monday with winners and highlights.</p>
   </div>
+  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"🏆 WEEKLY RECAP! Sarah takes the crown with a stellar best-5 total of 16! That gives her 3 weekly wins — just ONE more for the season championship! The pressure is ON! 🎉"</div>
 </div>
 
 <h4 style="color:#FFA64D; margin:16px 0 8px 0; font-size:0.95em;">Default Tone</h4>
