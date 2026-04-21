@@ -1262,13 +1262,27 @@ def webhook():
                             else:
                                 names_text = ', '.join(waiting_names[:-1]) + f', and {waiting_names[-1]}'
 
-                            body = (
-                                f"🎉 Success! This group is now connected to {league_name}.\n\n"
-                                f"Welcome, {names_text}! To get started, each player please type OPT IN "
-                                f"to have your Wordle scores auto-collected and posted to the league page. "
-                                f"You can type OPT OUT at any time to stop.\n\n"
-                                f"📊 View your league standings: {league_url}"
-                            )
+                            # Check if ALL active players are WAITING (new league) vs just some (re-link with new players)
+                            cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND active = TRUE", (league_id,))
+                            total_active = cursor.fetchone()[0]
+                            is_new_league = len(waiting_names) == total_active
+
+                            if is_new_league:
+                                body = (
+                                    f"🎉 Success! This group is now connected to {league_name}.\n\n"
+                                    f"Welcome, {names_text}! To get started, each player please type OPT IN "
+                                    f"to have your Wordle scores auto-collected and posted to the league page. "
+                                    f"You can type OPT OUT at any time to stop.\n\n"
+                                    f"📊 View your league standings: {league_url}"
+                                )
+                            else:
+                                body = (
+                                    f"🎉 Success! This group is now connected to {league_name}.\n\n"
+                                    f"Welcome, {names_text}! Please type OPT IN "
+                                    f"to have your Wordle scores auto-collected and posted to the league page. "
+                                    f"You can type OPT OUT at any time to stop.\n\n"
+                                    f"📊 View your league standings: {league_url}"
+                                )
                             cursor.execute("UPDATE leagues SET opt_in_welcome_sent = TRUE WHERE id = %s", (league_id,))
                             conn.commit()
                             logging.info(f"[OPT] Combined activation + opt-in welcome for {len(waiting_names)} WAITING players in league {league_id}")
@@ -3046,27 +3060,6 @@ def dashboard_generate_mascot(league_id):
         logging.error(f"[Mascot] Error generating mascot for league {league_id}: {e}")
         return jsonify({'error': 'Failed to generate mascot'}), 500
 
-def _send_opt_in_welcome_for_player(league_id, player_name):
-    """Send a targeted opt-in welcome to a single new player in an already-linked league."""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT slug FROM leagues WHERE id = %s", (league_id,))
-        row = cur.fetchone()
-        if row:
-            league_url = f"{APP_BASE_URL}/leagues/{row[0]}"
-            from message_router import send_league_message
-            send_league_message(
-                league_id,
-                f"Welcome, {player_name}! Please type OPT IN to have your Wordle scores auto-collected and posted to the league page. You can type OPT OUT at any time to stop.\n\n📊 {league_url}",
-                db_connection=conn
-            )
-            logging.info(f"[OPT] Sent targeted opt-in welcome for {player_name} in league {league_id}")
-        cur.close()
-        conn.close()
-    except Exception as e:
-        logging.error(f"[OPT] Error sending targeted opt-in welcome: {e}")
-
 
 @app.route('/dashboard/league/<int:league_id>/add-player', methods=['POST'])
 def dashboard_add_player(league_id):
@@ -3164,10 +3157,9 @@ def dashboard_add_player(league_id):
                 cursor.execute("UPDATE players SET division = %s WHERE id = %s", (td, inactive_player[0]))
                 div_suffix = f" (assigned to Division {'I' if td == 1 else 'II'})"
             
+            if channel_type == 'sms':
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
             conn.commit()
-
-            if channel_type == 'sms' and not reactivate_pending:
-                _send_opt_in_welcome_for_player(league_id, name)
 
             cursor.close()
             conn.close()
@@ -3227,10 +3219,8 @@ def dashboard_add_player(league_id):
                     dup_ids = [r[0] for r in inactive_rows[1:]]
                     cursor.execute("DELETE FROM players WHERE id = ANY(%s)", (dup_ids,))
                     logging.info(f"Cleaned up {len(dup_ids)} duplicate inactive record(s) for phone in league {league_id}")
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
                 conn.commit()
-
-                if not needs_pending:
-                    _send_opt_in_welcome_for_player(league_id, name)
 
                 cursor.close()
                 conn.close()
@@ -3247,6 +3237,9 @@ def dashboard_add_player(league_id):
                 VALUES (%s, %s, %s, TRUE, %s, %s)
             """, (name, id_value, league_id, is_active_league,
                   'WAITING' if channel_type == 'sms' else 'IN'))
+
+            if channel_type == 'sms':
+                cursor.execute("UPDATE leagues SET opt_in_welcome_sent = FALSE WHERE id = %s", (league_id,))
 
         conn.commit()
         
@@ -3287,9 +3280,6 @@ def dashboard_add_player(league_id):
         from update_pipeline import run_update_pipeline
         run_update_pipeline(league_id)
         
-        if channel_type == 'sms' and is_active_league:
-            _send_opt_in_welcome_for_player(league_id, name)
-
         logging.info(f"Added player {name} to league {league_id} (channel={channel_type}) - HTML regenerated")
 
         if channel_type in ('slack', 'discord'):
