@@ -335,6 +335,28 @@ def get_complete_league_data(league_id):
         header_emoji = _row[0] if _row and _row[0] else None
         _cur.close()
 
+        # AI messaging settings for Rules tab
+        _ai_cur = conn.cursor()
+        _ai_cur.execute("""
+            SELECT COALESCE(ai_perfect_score_congrats, FALSE),
+                   COALESCE(ai_failure_roast, FALSE),
+                   COALESCE(ai_sunday_race_update, FALSE),
+                   COALESCE(ai_daily_loser_roast, FALSE),
+                   COALESCE(ai_monday_recap, FALSE),
+                   COALESCE(ai_message_severity, 2)
+            FROM leagues WHERE id = %s
+        """, (league_id,))
+        _ai_row = _ai_cur.fetchone()
+        ai_settings = {
+            'perfect_score': _ai_row[0] if _ai_row else False,
+            'failure_roast': _ai_row[1] if _ai_row else False,
+            'sunday_race': _ai_row[2] if _ai_row else False,
+            'daily_loser': _ai_row[3] if _ai_row else False,
+            'monday_recap': _ai_row[4] if _ai_row else False,
+            'severity': _ai_row[5] if _ai_row else 2,
+        }
+        _ai_cur.close()
+
         # Get latest scores for display
         latest_scores, today_wordle = get_latest_scores_for_display(league_id, conn=conn)
 
@@ -484,6 +506,7 @@ def get_complete_league_data(league_id):
         'relegated_count': relegated_count,
         'min_weekly_scores': min_scores,
         'header_emoji': header_emoji,
+        'ai_settings': ai_settings,
         'timestamp': datetime.now()
     }
 

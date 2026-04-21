@@ -1366,58 +1366,131 @@ def generate_rules_html(league_data):
     wins_needed = 3 if division_active else 4
     promoted_count = league_data.get('promoted_count', 1)
     relegated_count = league_data.get('relegated_count', 1)
+    ai = league_data.get('ai_settings', {})
 
-    score_labels = {3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Competitive', 7: 'Hardcore'}
-    label = score_labels.get(min_scores, '')
-    label_html = f' <span style="opacity:0.6;">({label})</span>' if label else ''
+    score_labels = {3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Hard Mode', 7: 'Elite'}
     thrown_out = 7 - min_scores
 
+    # Build expanded min-scores selector matching dashboard style
     seg_buttons = ''
     for val in range(3, 8):
-        active = 'background:#00E8DA; color:#1a1a1b; font-weight:700;' if val == min_scores else 'background:#2a2a2c; color:#818384;'
-        seg_buttons += f'<span style="{active} padding:4px 10px; border-radius:6px; font-size:0.8em;">{val}</span> '
+        lbl = score_labels.get(val, '')
+        lbl_words = lbl.split(' ')
+        word1 = lbl_words[0]
+        word2 = lbl_words[1] if len(lbl_words) > 1 else '&nbsp;'
+        if val == min_scores:
+            bg = '#00E8DA'; fg = '#1a1a1b'; border = '#00E8DA'; weight = '700'
+        else:
+            bg = '#2a2a2c'; fg = '#818384'; border = '#444'; weight = '500'
+        seg_buttons += (
+            f'<div style="flex:1; padding:10px 6px; background:{bg}; color:{fg}; '
+            f'border:1px solid {border}; border-radius:8px; font-weight:{weight}; '
+            f'text-align:center;">'
+            f'<div style="font-size:1.3em; font-weight:700;">{val}</div>'
+            f'<div style="font-size:0.75em; opacity:0.85;">{word1}</div>'
+            f'<div style="font-size:0.75em; opacity:0.85;">{word2}</div>'
+            f'</div>'
+        )
 
-    html = '<h2 style="color:#FFA64D; margin-top:0; margin-bottom:20px; text-align:center;">Rules &amp; League Settings</h2>\n'
+    # Card wrapper matching dashboard glass-morphism style
+    card_style = 'background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);'
+
+    html = '<h2 style="color:#FFA64D; margin-top:0; margin-bottom:24px; text-align:center;">Rules &amp; League Settings</h2>\n'
 
     # 1. Minimum Weekly Scores
-    html += f'''<div style="margin-bottom:24px;">
-<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">📊 Minimum Weekly Scores</h3>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">This league is currently set to <strong style="color:#00E8DA;">{min_scores} scores</strong>{label_html}. Only your best {min_scores} scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your {thrown_out} highest (worst) score{"s are" if thrown_out != 1 else " is"} thrown out.</p>
-<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.4;">You need at least {min_scores} scores in a week to compete. The league manager can adjust this setting between 3 and 7:</p>
-<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">{seg_buttons}</div>
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">📊 Minimum Weekly Scores</h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league is currently set to <strong style="color:#00E8DA;">{min_scores} scores</strong>. Only your best {min_scores} scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your {thrown_out} highest (worst) score{"s are" if thrown_out != 1 else " is"} thrown out.</p>
+<p style="margin:0 0 12px 0; color:#818384; font-size:0.85em; line-height:1.5;">You need at least {min_scores} scores in a week to compete. The league manager can adjust this setting:</p>
+<div style="display:flex; gap:8px;">{seg_buttons}</div>
 </div>
 '''
 
     # 2. Fails Don't Count
-    html += '''<div style="margin-bottom:24px;">
-<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">❌ Fails Don&#39;t Count</h3>
-<p style="margin:0; color:#d7dadc; line-height:1.5;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">❌ Fails Don&#39;t Count</h3>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
 </div>
 '''
 
     # 3. Ties Share the Win
-    html += f'''<div style="margin-bottom:24px;">
-<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">🤝 Ties Share the Win</h3>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">If two or more players finish the week with the same total score, they all earn a weekly win. The same applies to the season&mdash;if multiple players reach <strong style="color:#00E8DA;">{wins_needed} weekly wins</strong> at the same time, they share the Season Victory.</p>
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🤝 Ties Share the Win</h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If two or more players finish the week with the same total score, they all earn a weekly win. The same applies to the season&mdash;if multiple players reach <strong style="color:#00E8DA;">{wins_needed} weekly wins</strong> at the same time, they share the Season Victory.</p>
 <p style="margin:0; color:#818384; font-size:0.85em;">First player to reach {wins_needed} weekly wins is crowned Season Champion!</p>
 </div>
 '''
 
     # 4. Division Mode (only show if active)
     if division_active:
-        html += f'''<div style="margin-bottom:24px;">
-<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">⚔️ Division Mode</h3>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
+        html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">⚔️ Division Mode</h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
 
-<h4 style="color:#FFA64D; margin:12px 0 6px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I. {"The season winner and the player(s) with the best season total (lowest cumulative score) move up." if promoted_count > 1 else "The season winner moves up."}</p>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">Meanwhile, the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II, based on the highest season total (worst cumulative score).</p>
+<h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I. {"The season winner and the player(s) with the best season total (lowest cumulative score) move up." if promoted_count > 1 else "The season winner moves up."}</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Meanwhile, the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II, based on the highest season total (worst cumulative score).</p>
 
-<h4 style="color:#FFA64D; margin:12px 0 6px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
-<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
-<p style="margin:0; color:#d7dadc; line-height:1.5;">If a player misses a week (fewer than {min_scores} scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
+<h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If a player misses a week (fewer than {min_scores} scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
+<p style="margin:0; color:#818384; font-size:0.85em;">The manager can adjust promotion and relegation counts (1&ndash;3) at any time. Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
+</div>
+'''
 
-<p style="margin:10px 0 0 0; color:#818384; font-size:0.85em;">The manager can adjust promotion and relegation counts (1&ndash;3) at any time. Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
+    # 5. AI Automated Messaging
+    severity_labels = {1: 'Gentle', 2: 'Spicy', 3: 'Playful', 4: 'Savage'}
+    current_tone = severity_labels.get(ai.get('severity', 2), 'Spicy')
+    tone_colors = {1: '#2ECC71', 2: '#E67E22', 3: '#9B59B6', 4: '#E74C3C'}
+    current_tone_color = tone_colors.get(ai.get('severity', 2), '#E67E22')
+
+    msg_types = [
+        ('🎯', 'Perfect Score', 'Celebrates when a player gets a perfect score (1/6 or 2/6).', ai.get('perfect_score', False)),
+        ('💀', 'Daily Worst Score', 'Playfully roasts the player with the worst score each day.', ai.get('daily_loser', False)),
+        ('😬', 'Failed Attempt', 'Sends a message when a player fails a Wordle (X/6).', ai.get('failure_roast', False)),
+        ('🏁', 'Sunday Race Update', 'Posts a weekly race update every Sunday with standings and AI commentary.', ai.get('sunday_race', False)),
+        ('📊', 'Monday Recap', 'Delivers a full weekly recap every Monday with winners and highlights.', ai.get('monday_recap', False)),
+    ]
+
+    msg_rows = ''
+    for emoji, name, desc, is_on in msg_types:
+        status_color = '#2ECC71' if is_on else '#E74C3C'
+        status_text = 'ON' if is_on else 'OFF'
+        msg_rows += f'''<div style="display:flex; align-items:flex-start; gap:12px; padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:8px;">
+  <span style="font-size:1.3em; flex-shrink:0;">{emoji}</span>
+  <div style="flex:1; min-width:0;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+      <strong style="color:#d7dadc;">{name}</strong>
+      <span style="background:{status_color}; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">{status_text}</span>
+    </div>
+    <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">{desc}</p>
+  </div>
+</div>
+'''
+
+    # Tone meter visual
+    tone_meter = ''
+    for sev_val, sev_label in severity_labels.items():
+        tc = tone_colors[sev_val]
+        if sev_val == ai.get('severity', 2):
+            tone_meter += f'<span style="background:{tc}; color:#fff; padding:4px 12px; border-radius:6px; font-size:0.8em; font-weight:700;">{sev_label}</span>'
+        else:
+            tone_meter += f'<span style="background:#2a2a2c; color:#818384; padding:4px 12px; border-radius:6px; font-size:0.8em;">{sev_label}</span>'
+
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🤖 AI Automated Messaging</h3>
+<p style="margin:0 0 14px 0; color:#d7dadc; line-height:1.6;">The league manager can enable AI-generated messages that are automatically sent to the group chat when certain events happen. These messages add personality and fun to the league experience.</p>
+{msg_rows}
+<h4 style="color:#FFA64D; margin:16px 0 8px 0; font-size:0.95em;">Default Tone</h4>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">The current default tone is set to <strong style="color:{current_tone_color};">{current_tone}</strong>. The manager can set the tone globally or customize it per message type, and even per individual player.</p>
+<div style="display:flex; gap:6px; flex-wrap:wrap;">{tone_meter}</div>
+</div>
+'''
+
+    # 6. Data Reset & Revert
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🔄 Data Reset &amp; Revert</h3>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">The league manager has the ability to reset various league data if needed. This includes resetting the current season table (clearing all weekly winners), resetting all previous season winners and the season counter, and resetting all-time stats for the entire league or for individual players. Most resets include a revert window so the manager can undo them if needed.</p>
 </div>
 '''
 
@@ -1540,13 +1613,13 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <div class="container">
 <div class="tab-container">
 <div class="tab-buttons tabs">
-<div class="tab-row">
-<button class="tab-button active" data-tab="latest">Latest Scores</button>
-<button class="tab-button" data-tab="weekly">Weekly Totals</button>
+<div class="tab-row" style="width:100%;">
+<button class="tab-button active" style="flex:1;" data-tab="latest">Latest Scores</button>
+<button class="tab-button" style="flex:1;" data-tab="weekly">Weekly Totals</button>
 </div>
-<div class="tab-row">
-<button class="tab-button" data-tab="stats">Season</button>
-<button class="tab-button" data-tab="rules">Rules</button>
+<div class="tab-row" style="width:100%;">
+<button class="tab-button" style="flex:1;" data-tab="stats">Season</button>
+<button class="tab-button" style="flex:1;" data-tab="rules">Rules</button>
 </div>
 </div>
 <div class="tab-content active" id="latest">
