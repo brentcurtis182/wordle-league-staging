@@ -190,8 +190,7 @@ def generate_weekly_totals_html(league_data):
     missed_weeks_data = league_data.get('missed_weeks', {})
     min_scores = league_data.get('min_weekly_scores', 5)
 
-    html = f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">{min_scores} scores</strong> needed to compete for the week!</p>
+    html = f'''<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
 <div class="table-container" style="overflow-x: auto;">
 <table>
 <thead>
@@ -274,8 +273,6 @@ def generate_weekly_totals_html(league_data):
     
     html += '</tbody>\n</table>\n'
     html += '</div>\n'
-    html += '<p class="note" style="font-style: italic; margin-top: 20px;">Failed attempts do not count towards your \'Used Scores\'</p>\n'
-    html += f'<p class="note" style="font-style: italic; margin-top: 5px;">Weekly Score uses only your <strong style="color: #00E8DA;">best {min_scores} scores</strong>. Additional scores appear in \'Thrown Out\'</p>\n'
     
     return html
 
@@ -477,7 +474,6 @@ def generate_season_stats_html(league_data):
             html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
-    html += '<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, then all players get a weekly win. First Player to get <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champ!</p>\n'
     
     # Show previous season winners if any (NEWEST FIRST)
     # Also include division season winner history if it exists (even when division mode is OFF)
@@ -817,8 +813,7 @@ def generate_division_weekly_totals_html(league_data):
         
         # Only show instructions above Division I (before the title)
         if div_num == 1:
-            html += f'''<p style="margin-top: 0; margin-bottom: 5px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
-<p style="margin-top: 0; margin-bottom: 10px; font-size: 0.9em;">At least <strong style="color: #00E8DA;">{min_scores} scores</strong> needed to compete for the week!</p>
+            html += f'''<p style="margin-top: 0; margin-bottom: 10px; font-style: italic;">Top <strong style="color: #00E8DA;">{min_scores} scores</strong> count toward weekly total (Monday-Sunday).</p>
 '''
         
         html += f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">\n'
@@ -945,8 +940,6 @@ def generate_division_weekly_totals_html(league_data):
         html += '</div>\n'
     
     # Footer text (shown once after both division tables)
-    html += f'''<p style="margin-top: 10px; font-size: 0.85em; color: #d7dadc; font-style: italic;">Failed attempts do not count towards your 'Used Scores'<br>Weekly score uses only your <strong style="color: #00E8DA;">best {min_scores} scores</strong>. Additional scores appear in 'Thrown Out'</p>
-'''
     
     # JavaScript for toggling Weekly Score / Season Total with sorting
     html += '''<script>
@@ -1050,7 +1043,6 @@ def generate_division_season_stats_html(league_data):
         html += '</tbody>\n</table>\n'
         # Only show instruction text under Division II
         if div_num == 2:
-            html += f'<p style="margin-top: 5px; font-size: 14px; font-style: italic;">If players are tied at the end of the week, all players get a weekly win. First Player to get <strong style="color: #00E8DA;">{wins_needed} weekly wins</strong> is the Season Champ!</p>\n'
         
         # Collect division season winners for display below both tables
         if season_winners:
@@ -1369,13 +1361,79 @@ function divFlChangePage(dir) {{ divFlShowPage(divFlCurrentPage + dir); }}
     return html
 
 
+def generate_rules_html(league_data):
+    """Generate the Rules & League Settings tab content."""
+    min_scores = league_data.get('min_weekly_scores', 5)
+    division_active = league_data.get('division_mode') and league_data.get('division_confirmed_at') is not None
+    wins_needed = 3 if division_active else 4
+    promoted_count = league_data.get('promoted_count', 1)
+    relegated_count = league_data.get('relegated_count', 1)
+
+    score_labels = {3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Competitive', 7: 'Hardcore'}
+    label = score_labels.get(min_scores, '')
+    label_html = f' <span style="opacity:0.6;">({label})</span>' if label else ''
+    thrown_out = 7 - min_scores
+
+    seg_buttons = ''
+    for val in range(3, 8):
+        active = 'background:#00E8DA; color:#1a1a1b; font-weight:700;' if val == min_scores else 'background:#2a2a2c; color:#818384;'
+        seg_buttons += f'<span style="{active} padding:4px 10px; border-radius:6px; font-size:0.8em;">{val}</span> '
+
+    html = '<h2 style="color:#FFA64D; margin-top:0; margin-bottom:20px; text-align:center;">Rules &amp; League Settings</h2>\n'
+
+    # 1. Minimum Weekly Scores
+    html += f'''<div style="margin-bottom:24px;">
+<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">📊 Minimum Weekly Scores</h3>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">This league is currently set to <strong style="color:#00E8DA;">{min_scores} scores</strong>{label_html}. Only your best {min_scores} scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your {thrown_out} highest (worst) score{"s are" if thrown_out != 1 else " is"} thrown out.</p>
+<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.4;">You need at least {min_scores} scores in a week to compete. The league manager can adjust this setting between 3 and 7:</p>
+<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">{seg_buttons}</div>
+</div>
+'''
+
+    # 2. Fails Don't Count
+    html += '''<div style="margin-bottom:24px;">
+<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">❌ Fails Don&#39;t Count</h3>
+<p style="margin:0; color:#d7dadc; line-height:1.5;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
+</div>
+'''
+
+    # 3. Ties Share the Win
+    html += f'''<div style="margin-bottom:24px;">
+<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">🤝 Ties Share the Win</h3>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">If two or more players finish the week with the same total score, they all earn a weekly win. The same applies to the season&mdash;if multiple players reach <strong style="color:#00E8DA;">{wins_needed} weekly wins</strong> at the same time, they share the Season Victory.</p>
+<p style="margin:0; color:#818384; font-size:0.85em;">First player to reach {wins_needed} weekly wins is crowned Season Champion!</p>
+</div>
+'''
+
+    # 4. Division Mode (only show if active)
+    if division_active:
+        html += f'''<div style="margin-bottom:24px;">
+<h3 style="color:#00E8DA; margin:0 0 8px 0; font-size:1.05em;">⚔️ Division Mode</h3>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
+
+<h4 style="color:#FFA64D; margin:12px 0 6px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I. {"The season winner and the player(s) with the best season total (lowest cumulative score) move up." if promoted_count > 1 else "The season winner moves up."}</p>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">Meanwhile, the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II, based on the highest season total (worst cumulative score).</p>
+
+<h4 style="color:#FFA64D; margin:12px 0 6px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.5;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
+<p style="margin:0; color:#d7dadc; line-height:1.5;">If a player misses a week (fewer than {min_scores} scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
+
+<p style="margin:10px 0 0 0; color:#818384; font-size:0.85em;">The manager can adjust promotion and relegation counts (1&ndash;3) at any time. Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
+</div>
+'''
+
+    return html
+
+
 def generate_full_html(league_data, league_name="League 6 Beta"):
     """Generate complete HTML page"""
     latest_html = generate_latest_scores_html(league_data)
-    
+    rules_html = generate_rules_html(league_data)
+
     # Only show division mode if both enabled AND confirmed
     division_active = league_data.get('division_mode') and league_data.get('division_confirmed_at') is not None
-    
+
     if division_active:
         weekly_html = generate_division_weekly_totals_html(league_data)
         stats_html = generate_division_season_stats_html(league_data)
@@ -1489,7 +1547,8 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <button class="tab-button" data-tab="weekly">Weekly Totals</button>
 </div>
 <div class="tab-row">
-<button class="tab-button" data-tab="stats">Season / All-Time Stats</button>
+<button class="tab-button" data-tab="stats">Season</button>
+<button class="tab-button" data-tab="rules">Rules</button>
 </div>
 </div>
 <div class="tab-content active" id="latest">
@@ -1500,6 +1559,9 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </div>
 <div class="tab-content" id="stats">
 {stats_html}
+</div>
+<div class="tab-content" id="rules">
+{rules_html}
 </div>
 </div>
 </div>
