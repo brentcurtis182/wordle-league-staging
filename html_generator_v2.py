@@ -1041,9 +1041,7 @@ def generate_division_season_stats_html(league_data):
                 html += '</tr>\n'
         
         html += '</tbody>\n</table>\n'
-        # Only show instruction text under Division II
-        if div_num == 2:
-        
+
         # Collect division season winners for display below both tables
         if season_winners:
             for winner in season_winners:
