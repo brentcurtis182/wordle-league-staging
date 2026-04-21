@@ -340,21 +340,31 @@ def generate_full_list_modal(seasons_dict, past_season_breakdowns):
     """Generate the 'Season Winners (Full List)' modal with drill-down capability."""
     modal_id = 'season-full-list-modal'
     
-    # Build the full list view
+    # Build the full list view with pagination data attributes
     list_items = ''
-    for season_num in sorted(seasons_dict.keys(), reverse=True):
+    sorted_seasons = sorted(seasons_dict.keys(), reverse=True)
+    for idx, season_num in enumerate(sorted_seasons):
         winners = seasons_dict[season_num]
-        # Simplified format: "Season N:    Name"
         if len(winners) == 1:
             name_text = winners[0]
         else:
             name_text = ' &amp; '.join(winners) if len(winners) == 2 else ', '.join(winners[:-1]) + ', &amp; ' + winners[-1]
         has_breakdown = season_num in past_season_breakdowns
-        
+        page_num = idx // 8 + 1
+
         if has_breakdown:
-            list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({season_num})"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
+            list_items += f'<div class="fl-season-item" data-page="{page_num}" style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="showSeasonDetail({season_num})"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
         else:
-            list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text}</span></div>\n'
+            list_items += f'<div class="fl-season-item" data-page="{page_num}" style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {season_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{name_text}</span></div>\n'
+
+    total_pages = (len(sorted_seasons) + 7) // 8
+    pagination_html = ''
+    if total_pages > 1:
+        pagination_html = f'''<div id="fl-pagination" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:12px; padding-top:8px;">
+  <span id="fl-page-label" style="color:#818384; font-size:0.8em; margin-right:auto;">Page 1 of {total_pages}</span>
+  <span id="fl-prev" onclick="flChangePage(-1)" style="color:#FFA64D; cursor:pointer; font-size:0.85em; padding:4px 10px; background:#2a2a2c; border-radius:6px; display:none;">&#8592; Prev</span>
+  <span id="fl-next" onclick="flChangePage(1)" style="color:#FFA64D; cursor:pointer; font-size:0.85em; padding:4px 10px; background:#2a2a2c; border-radius:6px;">Next &#8594;</span>
+</div>'''
     
     # Build breakdown detail views (hidden by default)
     detail_views = ''
@@ -375,6 +385,22 @@ def generate_full_list_modal(seasons_dict, past_season_breakdowns):
     
     # JS for toggling views
     js = f'''<script>
+var flCurrentPage = 1;
+var flTotalPages = {total_pages};
+function flShowPage(p) {{
+  flCurrentPage = p;
+  var items = document.querySelectorAll('.fl-season-item');
+  for (var i = 0; i < items.length; i++) {{
+    items[i].style.display = items[i].getAttribute('data-page') == String(p) ? 'flex' : 'none';
+  }}
+  var label = document.getElementById('fl-page-label');
+  var prev = document.getElementById('fl-prev');
+  var next = document.getElementById('fl-next');
+  if (label) label.textContent = 'Page ' + p + ' of ' + flTotalPages;
+  if (prev) prev.style.display = p > 1 ? 'inline' : 'none';
+  if (next) next.style.display = p < flTotalPages ? 'inline' : 'none';
+}}
+function flChangePage(dir) {{ flShowPage(flCurrentPage + dir); }}
 function showSeasonDetail(sn) {{
   document.getElementById('fl-list-view').style.display = 'none';
   var details = document.querySelectorAll('[id^="fl-detail-"]');
@@ -386,9 +412,11 @@ function backToFullList() {{
   var details = document.querySelectorAll('[id^="fl-detail-"]');
   for (var i = 0; i < details.length; i++) details[i].style.display = 'none';
   document.getElementById('fl-list-view').style.display = 'block';
+  flShowPage(flCurrentPage);
 }}
 function openFullList() {{
   backToFullList();
+  flShowPage(1);
   document.getElementById('season-full-list-modal').style.display = 'flex';
 }}
 </script>
@@ -402,6 +430,7 @@ function openFullList() {{
         <span onclick="backToFullList();document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
       </div>
       {list_items}
+      {pagination_html}
     </div>
     {detail_views}
   </div>
@@ -1178,13 +1207,13 @@ def generate_division_season_stats_html(league_data):
         
         # If more than 2, add "Season Winners (Full List)" link + modal
         if len(sorted_display_nums) > max_inline:
-            html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'div-season-full-list-modal\').style.display=\'flex\'">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
+            html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById(\'div-season-full-list-modal\').style.display=\'flex\';if(typeof divFlShowPage===\'function\')divFlShowPage(1);">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
             
             # Build Full List modal content - matching non-division league style
-            # White flex rows with padding, border-bottom separators
             full_list_items = ''
             full_list_detail_views = ''
-            for display_num in sorted_display_nums:
+            for idx_div, display_num in enumerate(sorted_display_nums):
+                div_page_num = idx_div // 8 + 1
                 sdata = unified_seasons[display_num]
                 if sdata.get('type') == 'division':
                     div1_names = ', '.join(sdata.get('div1', []))
@@ -1225,7 +1254,7 @@ def generate_division_season_stats_html(league_data):
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{div2_display}</span>
   </div>'''
                     
-                    full_list_items += f'''<div style="padding:12px 0; border-bottom:1px solid #333;">
+                    full_list_items += f'''<div class="div-fl-season-item" data-page="{div_page_num}" style="padding:12px 0; border-bottom:1px solid #333;">
   <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season {display_num}:</div>
   {div1_row}
   {div2_row}
@@ -1253,7 +1282,7 @@ def generate_division_season_stats_html(league_data):
                     real_sn = sdata.get('regular_sn', display_num)
                     has_breakdown = real_sn in regular_past_breakdowns
                     if has_breakdown:
-                        full_list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="document.getElementById(\'div-fl-detail-reg-{real_sn}\').style.display=\'block\'; document.getElementById(\'div-fl-list-view\').style.display=\'none\';"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
+                        full_list_items += f'<div class="div-fl-season-item" data-page="{div_page_num}" style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333; cursor:pointer;" onclick="document.getElementById(\'div-fl-detail-reg-{real_sn}\').style.display=\'block\'; document.getElementById(\'div-fl-list-view\').style.display=\'none\';"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names} <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span></div>\n'
                         rows_html = _build_breakdown_rows(regular_past_breakdowns[real_sn])
                         full_list_detail_views += f'''<div id="div-fl-detail-reg-{real_sn}" style="display:none; padding-top:4px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1268,9 +1297,38 @@ def generate_division_season_stats_html(league_data):
 </div>
 '''
                     else:
-                        full_list_items += f'<div style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names}</span></div>\n'
+                        full_list_items += f'<div class="div-fl-season-item" data-page="{div_page_num}" style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;"><span style="color:#d7dadc; font-weight:600; min-width:90px;">Season {display_num}:</span><span style="color:#d7dadc; font-weight:bold; margin-left:12px;">{regular_names}</span></div>\n'
             
-            all_modals_html += f'''<div id="div-season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){{var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){{if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'}};document.getElementById('div-fl-list-view').style.display='block';this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+            div_total_pages = (len(sorted_display_nums) + 7) // 8
+            div_pagination_html = ''
+            if div_total_pages > 1:
+                div_pagination_html = f'''<div id="div-fl-pagination" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:12px; padding-top:8px;">
+  <span id="div-fl-page-label" style="color:#818384; font-size:0.8em; margin-right:auto;">Page 1 of {div_total_pages}</span>
+  <span id="div-fl-prev" onclick="divFlChangePage(-1)" style="color:#FFA64D; cursor:pointer; font-size:0.85em; padding:4px 10px; background:#2a2a2c; border-radius:6px; display:none;">&#8592; Prev</span>
+  <span id="div-fl-next" onclick="divFlChangePage(1)" style="color:#FFA64D; cursor:pointer; font-size:0.85em; padding:4px 10px; background:#2a2a2c; border-radius:6px;">Next &#8594;</span>
+</div>'''
+
+            div_pagination_js = f'''<script>
+var divFlCurrentPage = 1;
+var divFlTotalPages = {div_total_pages};
+function divFlShowPage(p) {{
+  divFlCurrentPage = p;
+  var items = document.querySelectorAll('.div-fl-season-item');
+  for (var i = 0; i < items.length; i++) {{
+    items[i].style.display = items[i].getAttribute('data-page') == String(p) ? '' : 'none';
+  }}
+  var label = document.getElementById('div-fl-page-label');
+  var prev = document.getElementById('div-fl-prev');
+  var next = document.getElementById('div-fl-next');
+  if (label) label.textContent = 'Page ' + p + ' of ' + divFlTotalPages;
+  if (prev) prev.style.display = p > 1 ? 'inline' : 'none';
+  if (next) next.style.display = p < divFlTotalPages ? 'inline' : 'none';
+}}
+function divFlChangePage(dir) {{ divFlShowPage(divFlCurrentPage + dir); }}
+</script>
+'''
+
+            all_modals_html += f'''<div id="div-season-full-list-modal" class="season-modal-overlay" onclick="if(event.target===this){{var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){{if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'}};document.getElementById('div-fl-list-view').style.display='block';divFlShowPage(1);this.style.display='none'}}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:24px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div id="div-fl-list-view">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -1278,10 +1336,12 @@ def generate_division_season_stats_html(league_data):
         <span onclick="var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){{if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'}};document.getElementById('div-fl-list-view').style.display='block';document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
       </div>
       {full_list_items}
+      {div_pagination_html}
     </div>
     {full_list_detail_views}
   </div>
 </div>
+{div_pagination_js}
 '''
     
     # All-Time Stats (unchanged - shows all players regardless of division)
