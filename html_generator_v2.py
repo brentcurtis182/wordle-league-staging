@@ -1400,7 +1400,7 @@ def generate_rules_html(league_data):
     # 1. Minimum Weekly Scores
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">📊 Minimum Weekly Scores</h3>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league is currently set to <strong style="color:#00E8DA;">{min_scores} scores</strong>. Only your best {min_scores} scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your {thrown_out} highest (worst) score{"s are" if thrown_out != 1 else " is"} thrown out.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league is currently set to <strong style="color:#00E8DA;">{min_scores} scores</strong>. Only your best {min_scores} scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your {thrown_out} highest (worst) score{"s are" if thrown_out != 1 else " is"} thrown out. Once a player reaches the minimum {min_scores} scores for the week, their row will be highlighted to indicate they are eligible for a weekly score.</p>
 <p style="margin:0 0 12px 0; color:#818384; font-size:0.85em; line-height:1.5;">You need at least {min_scores} scores in a week to compete. The league manager can adjust this setting:</p>
 <div style="display:flex; gap:8px;">{seg_buttons}</div>
 </div>
