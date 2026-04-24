@@ -1406,7 +1406,14 @@ def generate_rules_html(league_data):
 </div>
 '''
 
-    # 2. Fails Don't Count
+    # 2. Window to Post
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🕐 Window to Post</h3>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">Each day&#39;s Wordle score can be submitted between <strong style="color:#00E8DA;">12:00 AM and 11:59 PM Pacific Time</strong>. Only the current day&#39;s Wordle puzzle number is accepted&mdash;scores from previous days cannot be posted retroactively. The scoring week runs <strong style="color:#00E8DA;">Monday through Sunday</strong>.</p>
+</div>
+'''
+
+    # 3. Fails Don't Count
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">❌ Fails Don&#39;t Count</h3>
 <p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
