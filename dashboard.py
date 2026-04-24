@@ -2200,14 +2200,29 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             identifier_value = player.get('phone') or ''
             identifier_display = player.get('phone') or identifier_empty
         
-        # For Slack/Discord: read-only player (only Remove allowed)
+        # For Slack/Discord: player with edit name + remove
         if is_chat_platform:
+            name_escaped = player['name'].replace("'", "\\'")
             player_rows += f"""
-            <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;" id="player-{player['id']}">
-                <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    {opt_in_label}
-                    <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, '{player['name']}')" title="Remove player">Remove</button>
+            <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px;" id="player-{player['id']}">
+                <div id="view-{player['id']}" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        {opt_in_label}
+                        <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player" style="background: none; border: none; cursor: pointer; padding: 4px 8px; font-size: 1.1em;">✏️</button>
+                        <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, '{name_escaped}')" title="Remove player">Remove</button>
+                    </div>
+                </div>
+                <div id="edit-{player['id']}" style="display: none;">
+                    <form id="form-{player['id']}" class="edit-form" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <input type="hidden" name="player_id" value="{player['id']}">
+                        <input type="text" name="name" value="{player['name']}" style="flex: 1; min-width: 120px; padding: 8px 12px; background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 6px; color: {COLORS['text']}; font-size: 0.95em;" placeholder="Name" maxlength="14">
+                        <input type="hidden" name="identifier" value="{identifier_value}">
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{name_escaped}')">Save</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
+                        </div>
+                    </form>
                 </div>
             </div>
             """
