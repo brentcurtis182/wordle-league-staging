@@ -1307,7 +1307,8 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 .then(data => {{
                     if (data.success) {{
                         showToast('Profile updated!');
-                        setTimeout(() => window.location.reload(), 1000);
+                        cancelEditProfile();
+                        setTimeout(() => window.location.reload(), 800);
                     }} else {{
                         showToast(data.error || 'Error updating profile', true);
                     }}
