@@ -2603,9 +2603,15 @@ def auth_logout():
 @app.route('/dashboard')
 def dashboard():
     """Main dashboard page"""
-    from auth import validate_session, get_user_leagues, get_shared_leagues
+    from auth import validate_session, get_user_leagues, get_shared_leagues, create_auth_tables
     from dashboard import render_dashboard
-    
+
+    # Ensure latest schema migrations have run (e.g. slack_user_id column)
+    try:
+        create_auth_tables()
+    except Exception:
+        pass
+
     session_token = request.cookies.get('session_token')
     logging.info(f"Dashboard: session_token present: {bool(session_token)}, token: {session_token[:20] if session_token else 'None'}...")
     user = validate_session(session_token)
