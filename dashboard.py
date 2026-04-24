@@ -1064,6 +1064,20 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <span class="info-label">Phone</span>
                         <span class="info-value">{user_details['phone'] or 'Not set'}</span>
                     </div>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Add your phone number to view any SMS leagues you're a player in.</p>
+                    <div class="info-row">
+                        <span class="info-label">Slack Member ID</span>
+                        <span class="info-value">{user_details.get('slack_user_id') or 'Not set'}</span>
+                    </div>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Add your Slack Member ID to view any Slack leagues you're a player in. <a href="#" onclick="document.getElementById('slackIdHelp').style.display=document.getElementById('slackIdHelp').style.display==='none'?'block':'none'; return false;" style="color: {COLORS['accent']}; text-decoration: underline;">How do I find this?</a></p>
+                    <div id="slackIdHelp" style="display: none; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 8px; padding: 12px; margin: 4px 0 8px 0; font-size: 0.82em; color: {COLORS['text_muted']}; line-height: 1.6;">
+                        <strong style="color: {COLORS['text']};">To find your Slack Member ID:</strong><br>
+                        1. Open Slack and click on your <strong>profile picture</strong> (bottom-left on desktop)<br>
+                        2. Click <strong>Profile</strong><br>
+                        3. Click the <strong>&#8942;</strong> (three dots) menu<br>
+                        4. Click <strong>"Copy member ID"</strong><br>
+                        <span style="color: {COLORS['accent']}; margin-top: 6px; display: inline-block;">It will look something like: <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">U0AC23PA58F</code></span>
+                    </div>
                     <div class="info-row">
                         <span class="info-label">Member Since</span>
                         <span class="info-value">{created_str}</span>
@@ -1090,6 +1104,12 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <div class="form-group">
                             <label>Phone</label>
                             <input type="tel" name="phone" value="{user_details['phone']}" placeholder="(858) 555-1234">
+                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Links your account to SMS leagues you play in.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Slack Member ID</label>
+                            <input type="text" name="slack_user_id" value="{user_details.get('slack_user_id', '')}" placeholder="U0ABC123DEF">
+                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Links your account to Slack leagues you play in. Find it in Slack: Profile &#8594; &#8942; &#8594; Copy member ID.</p>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 8px;">
                             <button type="button" class="btn btn-primary btn-small" onclick="saveProfile()">Save Changes</button>
@@ -1230,7 +1250,8 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 first_name: '{user_details['first_name']}',
                 last_name: '{user_details['last_name']}',
                 email: '{user_details['email']}',
-                phone: '{user_details['phone']}'
+                phone: '{user_details['phone']}',
+                slack_user_id: '{user_details.get('slack_user_id', '')}'
             }};
             let pendingProfileData = null;
             
@@ -1240,7 +1261,8 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                     first_name: form.querySelector('[name="first_name"]').value.trim(),
                     last_name: form.querySelector('[name="last_name"]').value.trim(),
                     email: form.querySelector('[name="email"]').value.trim(),
-                    phone: form.querySelector('[name="phone"]').value.trim()
+                    phone: form.querySelector('[name="phone"]').value.trim(),
+                    slack_user_id: form.querySelector('[name="slack_user_id"]').value.trim()
                 }};
                 
                 if (!data.first_name || !data.last_name || !data.email) {{
@@ -1254,7 +1276,8 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 if (data.last_name !== originalProfile.last_name) changes.push('Last Name: ' + originalProfile.last_name + ' → ' + data.last_name);
                 if (data.email !== originalProfile.email) changes.push('Email: ' + originalProfile.email + ' → ' + data.email);
                 if (data.phone !== originalProfile.phone) changes.push('Phone: ' + (originalProfile.phone || 'Not set') + ' → ' + (data.phone || 'Not set'));
-                
+                if (data.slack_user_id !== originalProfile.slack_user_id) changes.push('Slack Member ID: ' + (originalProfile.slack_user_id || 'Not set') + ' → ' + (data.slack_user_id || 'Not set'));
+
                 if (changes.length === 0) {{
                     showToast('No changes to save', true);
                     return;
@@ -1582,6 +1605,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             <div class="card">
                 <h2>👋 Welcome, {user['name'] or user['email']}!</h2>
                 <p style="color: {COLORS['text_muted']};">Manage your Wordle leagues from here.</p>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.82em; margin-top: 6px;">Add your phone number or Slack Member ID in <a href="/dashboard/profile" style="color: {COLORS['accent']}; text-decoration: underline;">Profile</a> to see your <strong>Shared Leagues</strong>.</p>
             </div>
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1597,7 +1621,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             </div>
             <div class="platform-section">
                 <h3 class="platform-title">🤝 Leagues You're Playing In</h3>
-                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 16px;">These leagues matched your phone number on file. You're a player in these leagues.</p>
+                <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 16px;">These leagues matched your phone number or Slack Member ID on file. You're a player in these leagues.</p>
                 <div class="league-grid">
                     {"".join([f"""
                     <div class="league-card">

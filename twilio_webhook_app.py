@@ -2661,7 +2661,8 @@ def dashboard_profile_update():
             first_name=data.get('first_name'),
             last_name=data.get('last_name'),
             email=data.get('email'),
-            phone=data.get('phone')
+            phone=data.get('phone'),
+            slack_user_id=data.get('slack_user_id')
         )
         return jsonify(result)
     except Exception as e:

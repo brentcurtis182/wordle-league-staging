@@ -126,6 +126,12 @@ def create_auth_tables():
         except:
             pass
         
+        # Add Slack user ID column for shared leagues matching
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS slack_user_id VARCHAR(50)")
+        except:
+            pass
+
         # Add role column for super_admin support
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'")
@@ -402,52 +408,82 @@ def get_user_leagues(user_id):
         conn.close()
 
 def get_shared_leagues(user_id):
-    """Get leagues the user is a player in (matched by phone number) but does not manage"""
+    """Get leagues the user is a player in (matched by phone number or Slack user ID) but does not manage"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        # Get user's phone number
-        cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
+        # Get user's phone number and Slack user ID
+        cursor.execute("SELECT phone, slack_user_id FROM users WHERE id = %s", (user_id,))
         result = cursor.fetchone()
-        if not result or not result[0]:
+        if not result:
             return []
-        
-        import re
-        user_phone = re.sub(r'\D', '', result[0])
-        
-        # Normalize: check both with and without leading '1' country code
-        phone_variants = [user_phone]
-        if user_phone.startswith('1') and len(user_phone) == 11:
-            phone_variants.append(user_phone[1:])  # without country code
-        elif len(user_phone) == 10:
-            phone_variants.append('1' + user_phone)  # with country code
-        
-        # Find leagues where this phone number is an active player,
-        # excluding leagues the user already manages (in user_leagues)
-        cursor.execute("""
-            SELECT DISTINCT l.id, l.name, l.display_name, l.slug, l.channel_type,
-                   p.name as player_name
-            FROM players p
-            JOIN leagues l ON p.league_id = l.id
-            WHERE p.phone_number IN %s
-              AND p.active = TRUE
-              AND l.id NOT IN (SELECT league_id FROM user_leagues WHERE user_id = %s)
-            ORDER BY l.display_name
-        """, (tuple(phone_variants), user_id))
-        
+
+        user_phone = result[0] or ''
+        user_slack_id = result[1] or ''
+
+        if not user_phone and not user_slack_id:
+            return []
+
         leagues = []
+        managed_league_ids = set()
+
+        # Get IDs of leagues this user manages (to exclude them)
+        cursor.execute("SELECT league_id FROM user_leagues WHERE user_id = %s", (user_id,))
         for row in cursor.fetchall():
-            leagues.append({
-                'id': row[0],
-                'name': row[1],
-                'display_name': row[2],
-                'slug': row[3],
-                'channel_type': row[4] or 'sms',
-                'player_name': row[5]
-            })
-        
-        logging.info(f"Found {len(leagues)} shared leagues for user {user_id} (phone: ...{user_phone[-4:]})")
+            managed_league_ids.add(row[0])
+
+        seen_league_ids = set()
+
+        # Match by phone number (SMS leagues)
+        if user_phone:
+            import re
+            user_phone = re.sub(r'\D', '', user_phone)
+            phone_variants = [user_phone]
+            if user_phone.startswith('1') and len(user_phone) == 11:
+                phone_variants.append(user_phone[1:])
+            elif len(user_phone) == 10:
+                phone_variants.append('1' + user_phone)
+
+            cursor.execute("""
+                SELECT DISTINCT l.id, l.name, l.display_name, l.slug, l.channel_type,
+                       p.name as player_name
+                FROM players p
+                JOIN leagues l ON p.league_id = l.id
+                WHERE p.phone_number IN %s
+                  AND p.active = TRUE
+                ORDER BY l.display_name
+            """, (tuple(phone_variants),))
+
+            for row in cursor.fetchall():
+                if row[0] not in managed_league_ids and row[0] not in seen_league_ids:
+                    seen_league_ids.add(row[0])
+                    leagues.append({
+                        'id': row[0], 'name': row[1], 'display_name': row[2],
+                        'slug': row[3], 'channel_type': row[4] or 'sms', 'player_name': row[5]
+                    })
+
+        # Match by Slack user ID (Slack leagues)
+        if user_slack_id:
+            cursor.execute("""
+                SELECT DISTINCT l.id, l.name, l.display_name, l.slug, l.channel_type,
+                       p.name as player_name
+                FROM players p
+                JOIN leagues l ON p.league_id = l.id
+                WHERE p.slack_user_id = %s
+                  AND p.active = TRUE
+                ORDER BY l.display_name
+            """, (user_slack_id,))
+
+            for row in cursor.fetchall():
+                if row[0] not in managed_league_ids and row[0] not in seen_league_ids:
+                    seen_league_ids.add(row[0])
+                    leagues.append({
+                        'id': row[0], 'name': row[1], 'display_name': row[2],
+                        'slug': row[3], 'channel_type': row[4] or 'sms', 'player_name': row[5]
+                    })
+
+        logging.info(f"Found {len(leagues)} shared leagues for user {user_id} (phone: {'...' + user_phone[-4:] if user_phone else 'none'}, slack: {user_slack_id or 'none'})")
         return leagues
         
     except Exception as e:
@@ -506,7 +542,7 @@ def get_user_details(user_id):
     try:
         try:
             cursor.execute("""
-                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login, password_hash, google_id
+                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login, password_hash, google_id, slack_user_id
                 FROM users WHERE id = %s
             """, (user_id,))
             result = cursor.fetchone()
@@ -533,7 +569,8 @@ def get_user_details(user_id):
             'created_at': result[6],
             'last_login': result[7],
             'has_password': bool(result[8]) if has_extra_cols else True,
-            'has_google': bool(result[9]) if has_extra_cols else False
+            'has_google': bool(result[9]) if has_extra_cols else False,
+            'slack_user_id': (result[10] or '') if has_extra_cols and len(result) > 10 else ''
         }
         return details
     except Exception as e:
@@ -577,7 +614,7 @@ def change_password(user_id, current_password, new_password):
         cursor.close()
         conn.close()
 
-def update_profile(user_id, first_name=None, last_name=None, email=None, phone=None):
+def update_profile(user_id, first_name=None, last_name=None, email=None, phone=None, slack_user_id=None):
     """Update user profile fields"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -606,7 +643,11 @@ def update_profile(user_id, first_name=None, last_name=None, email=None, phone=N
             phone = re.sub(r'\D', '', phone) if phone else ''
             updates.append("phone = %s")
             params.append(phone)
-        
+        if slack_user_id is not None:
+            slack_user_id = slack_user_id.strip().upper() if slack_user_id else ''
+            updates.append("slack_user_id = %s")
+            params.append(slack_user_id or None)
+
         if not updates:
             return {'success': True}
         
