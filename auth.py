@@ -414,13 +414,22 @@ def get_shared_leagues(user_id):
 
     try:
         # Get user's phone number and Slack user ID
-        cursor.execute("SELECT phone, slack_user_id FROM users WHERE id = %s", (user_id,))
-        result = cursor.fetchone()
-        if not result:
-            return []
-
-        user_phone = result[0] or ''
-        user_slack_id = result[1] or ''
+        try:
+            cursor.execute("SELECT phone, slack_user_id FROM users WHERE id = %s", (user_id,))
+            result = cursor.fetchone()
+            if not result:
+                return []
+            user_phone = result[0] or ''
+            user_slack_id = result[1] or ''
+        except Exception:
+            # slack_user_id column may not exist yet (migration pending restart)
+            conn.rollback()
+            cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
+            result = cursor.fetchone()
+            if not result:
+                return []
+            user_phone = result[0] or ''
+            user_slack_id = ''
 
         if not user_phone and not user_slack_id:
             return []
@@ -650,10 +659,32 @@ def update_profile(user_id, first_name=None, last_name=None, email=None, phone=N
 
         if not updates:
             return {'success': True}
-        
+
         params.append(user_id)
-        cursor.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", params)
-        conn.commit()
+        try:
+            cursor.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", params)
+            conn.commit()
+        except Exception as col_err:
+            # slack_user_id column may not exist yet — retry without it
+            if 'slack_user_id' in str(col_err) and slack_user_id is not None:
+                conn.rollback()
+                updates = [u for u in updates if 'slack_user_id' not in u]
+                params = [p for p in params if p != (slack_user_id or None) or 'slack_user_id' not in str(updates)]
+                # Rebuild cleanly
+                updates2, params2 = [], []
+                if first_name is not None: updates2.append("first_name = %s"); params2.append(first_name)
+                if last_name is not None: updates2.append("last_name = %s"); params2.append(last_name)
+                if email is not None: updates2.append("email = %s"); params2.append(email.lower())
+                if phone is not None:
+                    import re as _re
+                    updates2.append("phone = %s"); params2.append(_re.sub(r'\D', '', phone) if phone else '')
+                if updates2:
+                    params2.append(user_id)
+                    cursor.execute(f"UPDATE users SET {', '.join(updates2)} WHERE id = %s", params2)
+                    conn.commit()
+                logging.warning("slack_user_id column not yet available — saved other fields")
+            else:
+                raise
         
         logging.info(f"Profile updated for user {user_id}")
         return {'success': True}
