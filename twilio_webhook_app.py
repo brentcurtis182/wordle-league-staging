@@ -2949,34 +2949,25 @@ def embed_leagues_directory():
         cursor.close()
         conn.close()
 
-        # Build league cards HTML
-        cards_html = ''
+        # Build league cards as JS data for client-side pagination
+        import json as _json
+        leagues_data = []
         for lg in leagues:
             lg_id, name, slug, ch_type, emoji, player_count, div_mode = lg
-            emoji_display = f'<span style="font-size:1.6em;margin-right:8px;">{emoji}</span>' if emoji else ''
-            platform_icon = '💬' if ch_type == 'sms' else ('🟣' if ch_type == 'slack' else ('🎮' if ch_type == 'discord' else ''))
-            division_badge = '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">Division Mode</span>' if div_mode else ''
-            cards_html += f'''
-            <a href="/leagues/{slug}" target="_top" style="text-decoration:none;display:block;">
-                <div style="background:rgba(16,16,36,0.7);backdrop-filter:blur(16px);border-radius:12px;border:1px solid rgba(255,255,255,0.08);padding:20px 24px;transition:transform 0.2s,border-color 0.3s;cursor:pointer;" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(0,232,218,0.3)';" onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,0.08)';">
-                    <div style="display:flex;align-items:center;justify-content:space-between;">
-                        <div style="display:flex;align-items:center;gap:4px;">
-                            {emoji_display}
-                            <span style="color:#d7dadc;font-size:1.15em;font-weight:600;">{name}</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            {division_badge}
-                            <span style="color:#8a8aa5;font-size:0.85em;">{platform_icon} {player_count} player{"s" if player_count != 1 else ""}</span>
-                        </div>
-                    </div>
-                </div>
-            </a>'''
+            leagues_data.append({
+                'name': name,
+                'slug': slug,
+                'channel_type': ch_type,
+                'emoji': emoji or '',
+                'player_count': player_count,
+                'division_mode': bool(div_mode),
+            })
+        leagues_json = _json.dumps(leagues_data)
 
         if not leagues:
-            cards_html = '''
-            <div style="text-align:center;padding:40px 20px;color:#8a8aa5;">
-                <p style="font-size:1.1em;">No leagues yet — be the first to create one!</p>
-            </div>'''
+            empty_msg = '<div style="text-align:center;padding:40px 20px;color:#8a8aa5;"><p style="font-size:1.1em;">No leagues yet — be the first to create one!</p></div>'
+        else:
+            empty_msg = ''
 
         html = f'''<!DOCTYPE html>
 <html lang="en">
@@ -3027,6 +3018,36 @@ body{{
     font-weight:600;
     margin-top:6px;
 }}
+.league-card{{
+    background:rgba(16,16,36,0.7);
+    backdrop-filter:blur(16px);
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.08);
+    padding:20px 24px;
+    transition:transform 0.2s,border-color 0.3s;
+    cursor:pointer;
+}}
+.league-card:hover{{
+    transform:translateY(-2px);
+    border-color:rgba(0,232,218,0.3);
+}}
+.load-more-btn{{
+    display:block;
+    margin:16px auto 0;
+    padding:10px 32px;
+    background:rgba(0,232,218,0.1);
+    color:#00E8DA;
+    border:1px solid rgba(0,232,218,0.3);
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:0.9em;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.2s;
+}}
+.load-more-btn:hover{{
+    background:rgba(0,232,218,0.2);
+}}
 </style>
 </head>
 <body>
@@ -3035,9 +3056,42 @@ body{{
     <p>Join a league or create your own</p>
     <span class="league-count">{len(leagues)} league{"s" if len(leagues) != 1 else ""}</span>
 </div>
-<div class="directory-grid">
-    {cards_html}
+{empty_msg}
+<div class="directory-grid" id="leagueGrid"></div>
+<div id="loadMoreWrap" style="display:none;">
+    <button class="load-more-btn" onclick="loadMore()">Show More Leagues</button>
 </div>
+<script>
+var PAGE_SIZE = 20;
+var allLeagues = {leagues_json};
+var shown = 0;
+
+function renderCard(lg) {{
+    var emoji = lg.emoji ? '<span style="font-size:1.6em;margin-right:8px;">' + lg.emoji + '</span>' : '';
+    var icon = lg.channel_type === 'sms' ? '\\uD83D\\uDCAC' : (lg.channel_type === 'slack' ? '\\uD83D\\uDFE3' : (lg.channel_type === 'discord' ? '\\uD83C\\uDFAE' : ''));
+    var divBadge = lg.division_mode ? '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">Division Mode</span>' : '';
+    var pLabel = lg.player_count === 1 ? 'player' : 'players';
+    return '<a href="/leagues/' + lg.slug + '" target="_top" style="text-decoration:none;display:block;">'
+        + '<div class="league-card"><div style="display:flex;align-items:center;justify-content:space-between;">'
+        + '<div style="display:flex;align-items:center;gap:4px;">' + emoji
+        + '<span style="color:#d7dadc;font-size:1.15em;font-weight:600;">' + lg.name + '</span></div>'
+        + '<div style="display:flex;align-items:center;gap:8px;">' + divBadge
+        + '<span style="color:#8a8aa5;font-size:0.85em;">' + icon + ' ' + lg.player_count + ' ' + pLabel + '</span>'
+        + '</div></div></div></a>';
+}}
+
+function loadMore() {{
+    var grid = document.getElementById('leagueGrid');
+    var end = Math.min(shown + PAGE_SIZE, allLeagues.length);
+    for (var i = shown; i < end; i++) {{
+        grid.insertAdjacentHTML('beforeend', renderCard(allLeagues[i]));
+    }}
+    shown = end;
+    document.getElementById('loadMoreWrap').style.display = shown < allLeagues.length ? 'block' : 'none';
+}}
+
+loadMore();
+</script>
 </body>
 </html>'''
         return html
