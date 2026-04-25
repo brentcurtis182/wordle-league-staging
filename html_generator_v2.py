@@ -474,7 +474,8 @@ def generate_season_stats_html(league_data):
             html += '</tr>\n'
     
     html += '</tbody>\n</table>\n'
-    
+    html += '</div>\n'  # Close season-container
+
     # Show previous season winners if any (NEWEST FIRST)
     # Also include division season winner history if it exists (even when division mode is OFF)
     modals_html = ''
@@ -484,6 +485,11 @@ def generate_season_stats_html(league_data):
         div_data.get('season_winners') for div_data in (division_data or {}).values() if isinstance(div_data, dict)
     )
     
+    has_any_winners = has_division_history or season_winners
+    if has_any_winners:
+        html += '<div class="season-winners-container" style="margin-top: 24px; margin-bottom: 30px;">\n'
+        html += '<h3 style="margin-bottom: 10px; color: #FFA64D;">Season Winners</h3>\n'
+
     if has_division_history:
         # Use unified season display (same approach as division mode)
         # Collect all division winners
@@ -758,9 +764,10 @@ function openFullList() {
         if len(sorted_season_nums) > max_inline:
             html += '<p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="openFullList()">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>\n'
             modals_html += generate_full_list_modal(seasons_dict, past_season_breakdowns)
-    
-    html += '</div>\n'
-    
+
+    if has_any_winners:
+        html += '</div>\n'  # Close season-winners-container
+
     # All-Time Stats
     html += '<div class="all-time-container" style="margin-top: 36px;">\n'
     html += '<h2 style="margin-top: 30px; margin-bottom: 10px;">All-Time Stats</h2>\n'
