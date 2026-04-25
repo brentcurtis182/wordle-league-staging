@@ -1827,7 +1827,8 @@ def render_create_league(user, error=None, config=None):
                                placeholder="e.g., office-champions" required
                                pattern="[a-z0-9-]+" 
                                title="Only lowercase letters, numbers, and hyphens allowed">
-                        <div class="hint">Your league will be at: <span class="slug-preview">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/<span id="slugPreview">your-slug</span></span></div>
+                        <div class="hint">Your league will be at:</div>
+                        <div class="slug-preview" style="word-break: break-all;">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/<span id="slugPreview">your-slug</span></div>
                     </div>
                     
                     <div class="status-info">
