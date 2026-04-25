@@ -5080,21 +5080,17 @@ def render_admin_dashboard(user, leagues, config=None):
             <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
             
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                    <div>
-                        <h2 style="color: {COLORS['accent_orange']}; margin-bottom: 4px;">&#9881; Admin Dashboard</h2>
-                        <p style="color: {COLORS['text_muted']}; margin: 0;">Monitor all leagues across every account.</p>
-                    </div>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button onclick="document.getElementById('configModal').style.display='flex'" style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9em; cursor: pointer;">⚙️ Configuration</button>
-                        <a href="/admin/newsletter" style="background: {COLORS['accent_orange']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
-                        <a href="/admin/twilio-reports" style="background: {COLORS['accent']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📊 Twilio Monthly Reports</a>
-                    </div>
+                <h2 style="color: {COLORS['accent_orange']}; margin-bottom: 4px;">&#9881; Admin Dashboard</h2>
+                <p style="color: {COLORS['text_muted']}; margin: 0 0 20px 0;">Monitor all leagues across every account.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="document.getElementById('configModal').style.display='flex'" style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9em; cursor: pointer; text-align: left;">⚙️ Configuration</button>
+                    <a href="/admin/newsletter" style="display: block; background: {COLORS['bg_dark']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
+                    <a href="/admin/twilio-reports" style="display: block; background: {COLORS['bg_dark']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📊 Twilio Monthly Reports</a>
                 </div>
             </div>
-            
+
             <!-- Stats Row: Total + Active -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; margin-bottom: 12px;">
                 <div class="stat-card">
                     <div class="stat-number">{len(leagues)}</div>
                     <div class="stat-label">Total Leagues</div>
@@ -5105,7 +5101,7 @@ def render_admin_dashboard(user, leagues, config=None):
                 </div>
             </div>
             <!-- Stats Row: Platform breakdown -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 32px;">
                 <div class="stat-card" style="padding: 12px;">
                     <div class="stat-number" style="font-size: 1.4em;">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'sms'])}</div>
                     <div class="stat-label" style="font-size: 0.75em;">📱 SMS</div>
@@ -5119,8 +5115,9 @@ def render_admin_dashboard(user, leagues, config=None):
                     <div class="stat-label" style="font-size: 0.75em;">🎮 Discord</div>
                 </div>
             </div>
-            
+
             <!-- Leagues Table -->
+            <h2 style="color: {COLORS['text']}; margin-bottom: 16px;">Leagues</h2>
             <div class="card" style="padding: 0;">
                 <div class="table-wrap">
                     <table class="admin-table" id="leaguesTable">
