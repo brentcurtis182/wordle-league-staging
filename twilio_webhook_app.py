@@ -2929,7 +2929,7 @@ def embed_leagues_directory():
                        (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
                        l.division_mode
                 FROM leagues l
-                WHERE (l.conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
+                WHERE (l.twilio_conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
                   AND COALESCE(l.public_listed, TRUE) = TRUE
                 ORDER BY l.display_name
             """)
@@ -2941,7 +2941,7 @@ def embed_leagues_directory():
                        (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
                        l.division_mode
                 FROM leagues l
-                WHERE (l.conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
+                WHERE (l.twilio_conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
                 ORDER BY l.display_name
             """)
         leagues = cursor.fetchall()
