@@ -1434,7 +1434,16 @@ def generate_rules_html(league_data):
 </div>
 '''
 
-    # 4. Division Mode (only show if active)
+    # 4. Division Mode
+    if not division_active:
+        html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">⚔️ Division Mode <span style="font-size:0.75em; color:#818384; font-weight:400;">(Available)</span></h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Want more competition? Your league manager can enable <strong style="color:#00E8DA;">Division Mode</strong>, which splits the league into two divisions. Each division has its own season race, and at the end of each season the top players from Division II get <strong style="color:#FFA64D;">promoted</strong> while the bottom players from Division I get <strong style="color:#FFA64D;">relegated</strong>.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Newly promoted players receive <strong style="color:#d7dadc;">immunity</strong> from relegation for their first season, and players who miss a full week move to the front of the relegation line.</p>
+<p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">Requires at least <strong style="color:#FFA64D;">6 active players</strong>. League managers can enable this from the league settings page.</p>
+</div>
+'''
+
     if division_active:
         html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">⚔️ Division Mode</h3>
