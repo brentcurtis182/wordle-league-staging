@@ -555,7 +555,7 @@ def generate_season_stats_html(league_data):
                         m_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1001; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">{div_label} - Season {display_num}</h3>
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season {display_num} - {div_label}</h3>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
     <table class="season-table" style="width:100%;"><thead><tr><th>Player</th><th>Wins</th></tr></thead><tbody>{rows_html}</tbody></table>
@@ -663,7 +663,7 @@ def generate_season_stats_html(league_data):
       <span onclick="backToFullList()" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}, {div_label_check}</h3>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season {display_num} - {div_label_check}</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody>{rows_html}</tbody>
@@ -1129,7 +1129,7 @@ def generate_division_season_stats_html(league_data):
                         modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">Division I - Season {display_num}</h3>
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season {display_num} - Division I</h3>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
     <table class="season-table" style="width:100%;">
@@ -1161,7 +1161,7 @@ def generate_division_season_stats_html(league_data):
                         modal_html += f'''<div id="{modal_id}" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">Division II - Season {display_num}</h3>
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season {display_num} - Division II</h3>
       <span onclick="document.getElementById('{modal_id}').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
     <table class="season-table" style="width:100%;">
@@ -1266,7 +1266,7 @@ def generate_division_season_stats_html(league_data):
       <span onclick="document.getElementById('{detail_id}').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season {display_num}, {div_label_check}</h3>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season {display_num} - {div_label_check}</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody>{rows_html}</tbody>
