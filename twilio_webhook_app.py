@@ -3098,7 +3098,7 @@ loadMore();
 
     except Exception as e:
         logging.error(f"Error rendering leagues directory: {e}", exc_info=True)
-        return f"<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load leagues directory: {e}</p>", 500
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load leagues directory.</p>", 500
 
 
 @app.route('/leagues/<slug>')
