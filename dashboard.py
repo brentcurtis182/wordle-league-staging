@@ -5441,7 +5441,7 @@ def render_admin_dashboard(user, leagues, config=None):
                 <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Show as league creation option</span>
               </div>
               <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
-                <input type="checkbox" id="configDiscordEnabled" {'checked' if config.get('discord_enabled', 'true') == 'true' else ''} onchange="saveConfig('discord_enabled', this.checked)" style="opacity:0; width:0; height:0;">
+                <input type="checkbox" id="configDiscordEnabled" {'checked' if config.get('discord_enabled', 'true') == 'true' else ''} onchange="confirmConfigChange('discord_enabled', this)" style="opacity:0; width:0; height:0;">
                 <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('discord_enabled', 'true') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
                 <span style="position:absolute; top:2px; left:{'22px' if config.get('discord_enabled', 'true') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
               </label>
@@ -5453,30 +5453,83 @@ def render_admin_dashboard(user, leagues, config=None):
           </div>
         </div>
 
+        <!-- Config Confirm Modal -->
+        <div id="configConfirmModal" onclick="if(event.target===this)cancelConfigChange()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1100; justify-content:center; align-items:center;">
+          <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:24px; max-width:360px; width:90%; text-align:center;">
+            <h3 id="configConfirmTitle" style="color:{COLORS['accent_orange']}; margin:0 0 12px 0;"></h3>
+            <p id="configConfirmText" style="color:{COLORS['text_muted']}; margin:0 0 20px 0; font-size:0.9em; line-height:1.5;"></p>
+            <div style="display:flex; gap:12px; justify-content:center;">
+              <button onclick="cancelConfigChange()" style="background:{COLORS['bg_dark']}; color:{COLORS['text']}; border:1px solid {COLORS['border']}; padding:10px 24px; border-radius:8px; cursor:pointer; font-weight:600;">Cancel</button>
+              <button onclick="executeConfigChange()" style="background:{COLORS['accent_orange']}; color:#000; border:none; padding:10px 24px; border-radius:8px; cursor:pointer; font-weight:600;">Confirm</button>
+            </div>
+          </div>
+        </div>
+
         <script>
-        function saveConfig(key, value) {{
+        var pendingConfigKey = null;
+        var pendingConfigCheckbox = null;
+
+        function confirmConfigChange(key, checkbox) {{
+            pendingConfigKey = key;
+            pendingConfigCheckbox = checkbox;
+            var newState = checkbox.checked;
+
+            var labels = {{
+                'discord_enabled': {{
+                    on: ['Enable Discord?', 'Discord will appear as an option when users create a new league.'],
+                    off: ['Disable Discord?', 'Discord will be hidden from the Create League page. Existing Discord leagues will continue to work.']
+                }}
+            }};
+            var label = labels[key] || {{}};
+            var msg = newState ? (label.on || ['Enable?', '']) : (label.off || ['Disable?', '']);
+
+            document.getElementById('configConfirmTitle').textContent = msg[0];
+            document.getElementById('configConfirmText').textContent = msg[1];
+            document.getElementById('configConfirmModal').style.display = 'flex';
+        }}
+
+        function cancelConfigChange() {{
+            if (pendingConfigCheckbox) {{
+                pendingConfigCheckbox.checked = !pendingConfigCheckbox.checked;
+            }}
+            pendingConfigKey = null;
+            pendingConfigCheckbox = null;
+            document.getElementById('configConfirmModal').style.display = 'none';
+        }}
+
+        function executeConfigChange() {{
+            document.getElementById('configConfirmModal').style.display = 'none';
+            if (!pendingConfigKey || !pendingConfigCheckbox) return;
+
+            var value = pendingConfigCheckbox.checked;
             fetch('/admin/config', {{
                 method: 'POST',
                 headers: {{'Content-Type': 'application/json'}},
-                body: JSON.stringify({{key: key, value: value ? 'true' : 'false'}})
+                body: JSON.stringify({{key: pendingConfigKey, value: value ? 'true' : 'false'}})
             }})
             .then(r => r.json())
             .then(data => {{
                 if (data.success) {{
-                    // Update toggle visual
-                    var checkbox = document.getElementById('configDiscordEnabled');
-                    var track = checkbox.nextElementSibling;
+                    var track = pendingConfigCheckbox.nextElementSibling;
                     var thumb = track.nextElementSibling;
-                    if (checkbox.checked) {{
+                    if (pendingConfigCheckbox.checked) {{
                         track.style.background = '#2ECC71';
                         thumb.style.left = '22px';
                     }} else {{
                         track.style.background = '#555';
                         thumb.style.left = '2px';
                     }}
+                }} else {{
+                    pendingConfigCheckbox.checked = !pendingConfigCheckbox.checked;
                 }}
+                pendingConfigKey = null;
+                pendingConfigCheckbox = null;
             }})
-            .catch(function() {{}});
+            .catch(function() {{
+                if (pendingConfigCheckbox) pendingConfigCheckbox.checked = !pendingConfigCheckbox.checked;
+                pendingConfigKey = null;
+                pendingConfigCheckbox = null;
+            }});
         }}
         </script>
     </body>

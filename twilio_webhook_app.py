@@ -3704,17 +3704,23 @@ def dashboard_check_status(league_id):
 @app.route('/admin/dashboard')
 def admin_dashboard():
     """Admin dashboard - view all leagues across all users"""
-    from auth import validate_session
+    from auth import validate_session, create_auth_tables
     from dashboard import render_admin_dashboard
-    
+
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
-    
+
     if not user:
         return redirect('/auth/login')
-    
+
     if user.get('role') != 'admin':
         return redirect('/dashboard')
+
+    # Ensure latest schema migrations have run (e.g. admin_config table)
+    try:
+        create_auth_tables()
+    except Exception:
+        pass
     
     try:
         conn = get_db_connection()
