@@ -3143,14 +3143,17 @@ def dashboard_add_player(league_id):
         if channel_type == 'sms' and not identifier:
             return redirect(f'/dashboard/league/{league_id}?error=Name and phone number are required')
         
-        # For SMS leagues, enforce 9-player limit (Twilio group MMS max)
-        if channel_type == 'sms':
-            cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND active = TRUE", (league_id,))
-            active_count = cursor.fetchone()[0]
-            if active_count >= 9:
-                cursor.close()
-                conn.close()
-                return redirect(f'/dashboard/league/{league_id}?error=SMS leagues are limited to 9 players (Twilio group MMS maximum). Remove a player before adding a new one.')
+        # Enforce player limits per platform
+        cursor.execute("SELECT COUNT(*) FROM players WHERE league_id = %s AND active = TRUE", (league_id,))
+        active_count = cursor.fetchone()[0]
+        if channel_type == 'sms' and active_count >= 9:
+            cursor.close()
+            conn.close()
+            return redirect(f'/dashboard/league/{league_id}?error=SMS leagues are limited to 9 players (Twilio group MMS maximum). Remove a player before adding a new one.')
+        if channel_type in ('slack', 'discord') and active_count >= 14:
+            cursor.close()
+            conn.close()
+            return redirect(f'/dashboard/league/{league_id}?error=Leagues are limited to 14 players. Remove a player before adding a new one.')
         
         # Check if player name already exists and is active
         cursor.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = TRUE", (league_id, name))
