@@ -2917,6 +2917,7 @@ def serve_static(filename):
     return send_from_directory('.', filename)
 
 @app.route('/embed/leagues')
+@app.route('/leagues-directory')
 def embed_leagues_directory():
     """Embeddable public leagues directory — shows all active, public_listed leagues."""
     try:
