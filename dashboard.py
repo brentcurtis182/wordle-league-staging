@@ -2624,11 +2624,28 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     </div>
                     <input type="hidden" id="leagueHeaderEmoji" value="{_current_header_emoji}">
                 </div>
+                <div class="form-group">
+                    <label>🌐 Public Directory</label>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 4px 0 8px 0;">
+                        Show this league on <strong style="color: {COLORS['text']};">wordplayleague.com/leagues</strong>. Your league's direct URL is unaffected.
+                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: {COLORS['bg_dark']}; border-radius: 8px;">
+                        <span style="color: {COLORS['text']}; font-size: 0.95em;">Show on public leagues page</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="publicListedStatus" style="color: {'#2ECC71' if league.get('public_listed', True) else COLORS['text_muted']}; font-size: 0.85em; font-weight: 600;">{'Visible' if league.get('public_listed', True) else 'Hidden'}</span>
+                            <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+                                <input type="checkbox" id="publicListedToggle" {'checked' if league.get('public_listed', True) else ''} onchange="confirmPublicListed(this)" style="opacity: 0; width: 0; height: 0;">
+                                <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: {'#2ECC71' if league.get('public_listed', True) else '#555'}; border-radius: 24px; transition: 0.3s;"></span>
+                                <span style="position: absolute; top: 2px; left: {'22px' if league.get('public_listed', True) else '2px'}; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: 0.3s;"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 <div style="display:flex; justify-content:center;">
                     <button type="button" class="btn btn-primary" style="width:220px; flex-shrink:0;" onclick="showLeagueSettingsModal()">Save Changes</button>
                 </div>
             </div>
-            
+
             <!-- Players Section -->
             {_render_players_section(league, players, player_rows, channel_type, identifier_label, identifier_placeholder, identifier_empty, is_chat_platform)}
             
@@ -3089,6 +3106,18 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             </div>
         </div>
         
+        <!-- Public Directory Toggle Confirmation Modal -->
+        <div class="modal-overlay" id="publicListedModal">
+            <div class="modal">
+                <h3 id="publicListedModalTitle">🌐 Update Directory Visibility</h3>
+                <p id="publicListedModalText" style="margin-bottom: 16px;"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="closePublicListedModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="submitPublicListed()">Confirm</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Reset Confirmation Modal -->
         <div class="modal-overlay" id="resetModal">
             <div class="modal">
@@ -3709,6 +3738,37 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('deleteLeagueModal').classList.remove('active');
             }}
             
+            // Public Directory toggle functions
+            var _publicListedPending = null;
+            function confirmPublicListed(cb) {{
+                _publicListedPending = cb.checked;
+                var action = cb.checked ? 'show' : 'hide';
+                document.getElementById('publicListedModalText').innerHTML = cb.checked
+                    ? 'This will make <strong>{league["display_name"]}</strong> visible on the public leagues directory at wordplayleague.com/leagues.'
+                    : 'This will hide <strong>{league["display_name"]}</strong> from the public leagues directory. Players can still access the league via its direct URL.';
+                document.getElementById('publicListedModal').classList.add('active');
+            }}
+            function closePublicListedModal() {{
+                document.getElementById('publicListedModal').classList.remove('active');
+                // revert checkbox
+                var cb = document.getElementById('publicListedToggle');
+                cb.checked = !_publicListedPending;
+                _publicListedPending = null;
+            }}
+            function submitPublicListed() {{
+                document.getElementById('publicListedModal').classList.remove('active');
+                showLoading(_publicListedPending ? 'Showing league on directory...' : 'Hiding league from directory...');
+                fetch('/dashboard/league/{league["id"]}/toggle-public-listed', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{public_listed: _publicListedPending}})
+                }}).then(function(r) {{ return r.json(); }})
+                .then(function(data) {{
+                    if (data.success) {{ window.location.reload(); }}
+                    else {{ alert(data.error || 'Failed to update'); window.location.reload(); }}
+                }}).catch(function() {{ alert('Network error'); window.location.reload(); }});
+            }}
+
             // Activate League functions
             function showActivateModal() {{
                 document.getElementById('activateModal').classList.add('active');
@@ -4834,7 +4894,8 @@ def get_league_info(league_id):
                    COALESCE(promoted_count, 1),
                    COALESCE(relegated_count, 1),
                    COALESCE(min_weekly_scores, 5),
-                   header_emoji
+                   header_emoji,
+                   COALESCE(public_listed, TRUE)
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -4870,6 +4931,7 @@ def get_league_info(league_id):
                 'relegated_count': row[25] or 1,
                 'min_weekly_scores': int(row[26]) if row[26] is not None else 5,
                 'header_emoji': row[27] if row[27] is not None else None,
+                'public_listed': row[28] if row[28] is not None else True,
                 'channel_name': None
             }
             

@@ -2916,6 +2916,124 @@ def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
 
+@app.route('/embed/leagues')
+def embed_leagues_directory():
+    """Embeddable public leagues directory — shows all active, public_listed leagues."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT l.id, l.display_name, l.slug, l.channel_type,
+                   l.header_emoji,
+                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
+                   l.division_mode
+            FROM leagues l
+            WHERE l.active = TRUE
+              AND COALESCE(l.public_listed, TRUE) = TRUE
+            ORDER BY l.display_name
+        """)
+        leagues = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Build league cards HTML
+        cards_html = ''
+        for lg in leagues:
+            lg_id, name, slug, ch_type, emoji, player_count, div_mode = lg
+            emoji_display = f'<span style="font-size:1.6em;margin-right:8px;">{emoji}</span>' if emoji else ''
+            platform_icon = '💬' if ch_type == 'sms' else ('🟣' if ch_type == 'slack' else ('🎮' if ch_type == 'discord' else ''))
+            division_badge = '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">Division Mode</span>' if div_mode else ''
+            cards_html += f'''
+            <a href="/leagues/{slug}" target="_top" style="text-decoration:none;display:block;">
+                <div style="background:rgba(16,16,36,0.7);backdrop-filter:blur(16px);border-radius:12px;border:1px solid rgba(255,255,255,0.08);padding:20px 24px;transition:transform 0.2s,border-color 0.3s;cursor:pointer;" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(0,232,218,0.3)';" onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,0.08)';">
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            {emoji_display}
+                            <span style="color:#d7dadc;font-size:1.15em;font-weight:600;">{name}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            {division_badge}
+                            <span style="color:#8a8aa5;font-size:0.85em;">{platform_icon} {player_count} player{"s" if player_count != 1 else ""}</span>
+                        </div>
+                    </div>
+                </div>
+            </a>'''
+
+        if not leagues:
+            cards_html = '''
+            <div style="text-align:center;padding:40px 20px;color:#8a8aa5;">
+                <p style="font-size:1.1em;">No leagues yet — be the first to create one!</p>
+            </div>'''
+
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Active Leagues — Word Play League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{
+    font-family:'Inter',sans-serif;
+    background:transparent;
+    color:#d7dadc;
+    padding:12px;
+    min-height:100vh;
+}}
+.directory-grid{{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    max-width:700px;
+    margin:0 auto;
+}}
+.directory-header{{
+    text-align:center;
+    margin-bottom:8px;
+}}
+.directory-header h2{{
+    font-size:1.3em;
+    font-weight:700;
+    color:#d7dadc;
+    letter-spacing:0.5px;
+}}
+.directory-header p{{
+    color:#8a8aa5;
+    font-size:0.9em;
+    margin-top:4px;
+}}
+.league-count{{
+    display:inline-block;
+    background:rgba(0,232,218,0.1);
+    color:#00E8DA;
+    padding:2px 10px;
+    border-radius:12px;
+    font-size:0.8em;
+    font-weight:600;
+    margin-top:6px;
+}}
+</style>
+</head>
+<body>
+<div class="directory-header">
+    <h2>Active Leagues</h2>
+    <p>Join a league or create your own</p>
+    <span class="league-count">{len(leagues)} league{"s" if len(leagues) != 1 else ""}</span>
+</div>
+<div class="directory-grid">
+    {cards_html}
+</div>
+</body>
+</html>'''
+        return html
+
+    except Exception as e:
+        logging.error(f"Error rendering leagues directory: {e}")
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load leagues directory.</p>", 500
+
+
 @app.route('/leagues/<slug>')
 def public_league_page(slug):
     """Public league page - serves the leaderboard HTML (e.g., /leagues/warriorz)"""
@@ -7388,6 +7506,33 @@ def dashboard_revert_alltime_player(league_id):
 # Division Mode Routes
 # ============================================================
 
+@app.route('/dashboard/league/<int:league_id>/toggle-public-listed', methods=['POST'])
+def dashboard_toggle_public_listed(league_id):
+    """Toggle whether a league appears in the public leagues directory."""
+    from auth import validate_session, can_manage_league
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Not authorized'}), 403
+
+    data = request.get_json()
+    public_listed = bool(data.get('public_listed', True))
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE leagues SET public_listed = %s WHERE id = %s", (public_listed, league_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'public_listed': public_listed})
+    except Exception as e:
+        logging.error(f"Error toggling public_listed for league {league_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/dashboard/league/<int:league_id>/division-toggle', methods=['POST'])
 def dashboard_division_toggle(league_id):
     """Toggle division mode on or off"""
@@ -8392,6 +8537,9 @@ def _run_one_time_migrations():
         
         # Add ai_filter column if it doesn't exist
         cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS ai_filter BOOLEAN DEFAULT FALSE")
+
+        # Add public_listed column (leagues visible in public directory by default)
+        cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS public_listed BOOLEAN DEFAULT TRUE")
         
         # Add promoted_count and relegated_count columns for division mode (can differ to balance pacing)
         cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS promoted_count INTEGER DEFAULT 1")
