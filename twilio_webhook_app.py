@@ -2922,16 +2922,28 @@ def embed_leagues_directory():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT l.id, l.display_name, l.slug, l.channel_type,
-                   l.header_emoji,
-                   (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
-                   l.division_mode
-            FROM leagues l
-            WHERE l.active = TRUE
-              AND COALESCE(l.public_listed, TRUE) = TRUE
-            ORDER BY l.display_name
-        """)
+        try:
+            cursor.execute("""
+                SELECT l.id, l.display_name, l.slug, l.channel_type,
+                       l.header_emoji,
+                       (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
+                       l.division_mode
+                FROM leagues l
+                WHERE l.active = TRUE
+                  AND COALESCE(l.public_listed, TRUE) = TRUE
+                ORDER BY l.display_name
+            """)
+        except Exception:
+            conn.rollback()
+            cursor.execute("""
+                SELECT l.id, l.display_name, l.slug, l.channel_type,
+                       l.header_emoji,
+                       (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
+                       l.division_mode
+                FROM leagues l
+                WHERE l.active = TRUE
+                ORDER BY l.display_name
+            """)
         leagues = cursor.fetchall()
         cursor.close()
         conn.close()
