@@ -2757,17 +2757,19 @@ def dashboard_delete_account():
 @app.route('/dashboard/create-league', methods=['GET', 'POST'])
 def dashboard_create_league():
     """Create a new league"""
-    from auth import validate_session, assign_league_to_user
+    from auth import validate_session, assign_league_to_user, get_all_config
     from dashboard import render_create_league
-    
+
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
-    
+
     if not user:
         return redirect('/auth/login')
-    
+
+    config = get_all_config()
+
     if request.method == 'GET':
-        return render_create_league(user)
+        return render_create_league(user, config=config)
     
     # POST - create the league
     league_name = request.form.get('league_name', '').strip()
@@ -2777,14 +2779,18 @@ def dashboard_create_league():
     # Validate channel_type
     if channel_type not in ('sms', 'slack', 'discord'):
         channel_type = 'sms'
-    
+
+    # Block disabled platforms
+    if channel_type == 'discord' and config.get('discord_enabled', 'true') != 'true':
+        return render_create_league(user, error='Discord leagues are not currently available.', config=config)
+
     if not league_name or not slug:
-        return render_create_league(user, error='League name and slug are required')
+        return render_create_league(user, error='League name and slug are required', config=config)
     
     # Validate slug format
     import re
     if not re.match(r'^[a-z0-9-]+$', slug):
-        return render_create_league(user, error='Slug can only contain lowercase letters, numbers, and hyphens')
+        return render_create_league(user, error='Slug can only contain lowercase letters, numbers, and hyphens', config=config)
     
     try:
         conn = get_db_connection()
@@ -2795,14 +2801,14 @@ def dashboard_create_league():
         if cursor.fetchone():
             cursor.close()
             conn.close()
-            return render_create_league(user, error=f'The slug "{slug}" is already taken. Please choose another.')
+            return render_create_league(user, error=f'The slug "{slug}" is already taken. Please choose another.', config=config)
         
         # Check if league name already exists
         cursor.execute("SELECT id FROM leagues WHERE LOWER(display_name) = LOWER(%s)", (league_name,))
         if cursor.fetchone():
             cursor.close()
             conn.close()
-            return render_create_league(user, error=f'A league named "{league_name}" already exists. Please choose another name.')
+            return render_create_league(user, error=f'A league named "{league_name}" already exists. Please choose another name.', config=config)
         
         # Get next available ID (since id column doesn't auto-increment)
         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM leagues")
@@ -2873,7 +2879,7 @@ def dashboard_create_league():
         logging.error(f"Error creating league: {e}")
         import traceback
         logging.error(traceback.format_exc())
-        return render_create_league(user, error=f'Failed to create league: {str(e)}')
+        return render_create_league(user, error=f'Failed to create league: {str(e)}', config=config)
 
 @app.route('/dashboard/league/<int:league_id>')
 def dashboard_league(league_id):
@@ -3759,7 +3765,9 @@ def admin_dashboard():
         cursor.close()
         conn.close()
         
-        return render_admin_dashboard(user, leagues)
+        from auth import get_all_config
+        config = get_all_config()
+        return render_admin_dashboard(user, leagues, config=config)
         
     except Exception as e:
         logging.error(f"Error loading admin dashboard: {e}")
@@ -3852,12 +3860,35 @@ def admin_clear_pending(league_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/admin/config', methods=['POST'])
+def admin_config_update():
+    """Admin-only: update a configuration flag"""
+    from auth import validate_session, set_config
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or user.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    data = request.get_json(force=True)
+    key = data.get('key')
+    value = data.get('value')
+
+    allowed_keys = ('discord_enabled',)
+    if key not in allowed_keys:
+        return jsonify({'success': False, 'error': f'Unknown config key: {key}'}), 400
+
+    result = set_config(key, value)
+    logging.info(f"Admin config updated: {key} = {value} (by user {user['id']})")
+    return jsonify({'success': result})
+
+
 @app.route('/admin/league/<int:league_id>')
 def admin_league_detail(league_id):
     """Admin league detail view - all info about a specific league"""
     from auth import validate_session
     from dashboard import render_admin_league_detail
-    
+
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
     

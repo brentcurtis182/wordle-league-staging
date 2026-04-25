@@ -139,6 +139,15 @@ def create_auth_tables():
         except:
             pass
         
+        # Create admin_config table for feature flags
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_config (
+                key VARCHAR(100) PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
         logging.info("✅ Auth tables created successfully!")
         return True
@@ -150,6 +159,54 @@ def create_auth_tables():
     finally:
         cursor.close()
         conn.close()
+
+def get_config(key, default=None):
+    """Get a config value from admin_config table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT value FROM admin_config WHERE key = %s", (key,))
+        row = cursor.fetchone()
+        return row[0] if row else default
+    except Exception:
+        return default
+    finally:
+        cursor.close()
+        conn.close()
+
+def set_config(key, value):
+    """Set a config value in admin_config table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO admin_config (key, value, updated_at)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+        """, (key, str(value)))
+        conn.commit()
+        return True
+    except Exception as e:
+        logging.error(f"Error setting config {key}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_all_config():
+    """Get all config values as a dict"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT key, value FROM admin_config")
+        return {row[0]: row[1] for row in cursor.fetchall()}
+    except Exception:
+        return {}
+    finally:
+        cursor.close()
+        conn.close()
+
 
 def register_user(email, password, first_name=None, last_name=None, phone=None, sms_consent=False):
     """Register a new user"""

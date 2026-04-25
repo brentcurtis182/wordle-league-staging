@@ -1655,8 +1655,11 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
     """
 
 
-def render_create_league(user, error=None):
+def render_create_league(user, error=None, config=None):
     """Render the create league page with platform selection"""
+    if config is None:
+        config = {}
+    discord_enabled = config.get('discord_enabled', 'true') == 'true'
     return f"""
     <!DOCTYPE html>
     <html>
@@ -1806,12 +1809,7 @@ def render_create_league(user, error=None):
                                 <div class="name">Slack</div>
                                 <div class="desc">Slack workspace channel</div>
                             </label>
-                            <label class="platform-option" onclick="selectPlatform(this, 'discord')">
-                                <input type="radio" name="channel_type" value="discord">
-                                <div class="icon">🎮</div>
-                                <div class="name">Discord</div>
-                                <div class="desc">Discord server channel</div>
-                            </label>
+                            {'<label class="platform-option" onclick="selectPlatform(this, \'discord\')"><input type="radio" name="channel_type" value="discord"><div class="icon">🎮</div><div class="name">Discord</div><div class="desc">Discord server channel</div></label>' if discord_enabled else ''}
                         </div>
                     </div>
                     
@@ -4890,8 +4888,10 @@ def get_league_info(league_id):
         conn.close()
 
 
-def render_admin_dashboard(user, leagues):
+def render_admin_dashboard(user, leagues, config=None):
     """Render the admin dashboard showing all leagues across all users"""
+    if config is None:
+        config = {}
     
     # Build league rows with data attributes for sorting
     league_rows = ''
@@ -5085,14 +5085,15 @@ def render_admin_dashboard(user, leagues):
                         <p style="color: {COLORS['text_muted']}; margin: 0;">Monitor all leagues across every account.</p>
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="document.getElementById('configModal').style.display='flex'" style="background: {COLORS['bg_card']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9em; cursor: pointer;">⚙️ Configuration</button>
                         <a href="/admin/newsletter" style="background: {COLORS['accent_orange']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📰 Newsletter</a>
                         <a href="/admin/twilio-reports" style="background: {COLORS['accent']}; color: #000; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9em;">📊 Twilio Monthly Reports</a>
                     </div>
                 </div>
             </div>
             
-            <!-- Stats Row -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <!-- Stats Row: Total + Active -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
                 <div class="stat-card">
                     <div class="stat-number">{len(leagues)}</div>
                     <div class="stat-label">Total Leagues</div>
@@ -5101,17 +5102,20 @@ def render_admin_dashboard(user, leagues):
                     <div class="stat-number">{len([l for l in leagues if (l.get('conversation_sid') if (l.get('channel_type') or 'sms') == 'sms' else l.get('slack_channel_id') if (l.get('channel_type') or 'sms') == 'slack' else l.get('discord_channel_id'))])}</div>
                     <div class="stat-label">Active</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'sms'])}</div>
-                    <div class="stat-label">SMS</div>
+            </div>
+            <!-- Stats Row: Platform breakdown -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+                <div class="stat-card" style="padding: 12px;">
+                    <div class="stat-number" style="font-size: 1.4em;">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'sms'])}</div>
+                    <div class="stat-label" style="font-size: 0.75em;">📱 SMS</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'slack'])}</div>
-                    <div class="stat-label">Slack</div>
+                <div class="stat-card" style="padding: 12px;">
+                    <div class="stat-number" style="font-size: 1.4em;">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'slack'])}</div>
+                    <div class="stat-label" style="font-size: 0.75em;">💬 Slack</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'discord'])}</div>
-                    <div class="stat-label">Discord</div>
+                <div class="stat-card" style="padding: 12px;">
+                    <div class="stat-number" style="font-size: 1.4em;">{len([l for l in leagues if (l.get('channel_type') or 'sms') == 'discord'])}</div>
+                    <div class="stat-label" style="font-size: 0.75em;">🎮 Discord</div>
                 </div>
             </div>
             
@@ -5402,6 +5406,78 @@ def render_admin_dashboard(user, leagues):
                         if (tc) tc.textContent = '-';
                     }});
             }})();
+        </script>
+
+        <!-- Configuration Modal -->
+        <div id="configModal" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+          <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:24px; max-width:420px; width:90%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+              <h3 style="color:{COLORS['accent_orange']}; margin:0;">⚙️ Configuration</h3>
+              <span onclick="document.getElementById('configModal').style.display='none'" style="color:{COLORS['text']}; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+            </div>
+
+            <h4 style="color:{COLORS['text']}; margin:0 0 12px 0; font-size:0.95em;">Platform Availability</h4>
+            <p style="color:{COLORS['text_muted']}; font-size:0.82em; margin:0 0 16px 0;">Control which platforms are available when users create a new league.</p>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:10px;">
+              <div>
+                <span style="color:{COLORS['text']}; font-weight:500;">📱 SMS</span>
+                <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Always enabled</span>
+              </div>
+              <span style="color:#2ECC71; font-weight:600; font-size:0.85em;">ON</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:10px;">
+              <div>
+                <span style="color:{COLORS['text']}; font-weight:500;">💬 Slack</span>
+                <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Always enabled</span>
+              </div>
+              <span style="color:#2ECC71; font-weight:600; font-size:0.85em;">ON</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:16px;">
+              <div>
+                <span style="color:{COLORS['text']}; font-weight:500;">🎮 Discord</span>
+                <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Show as league creation option</span>
+              </div>
+              <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+                <input type="checkbox" id="configDiscordEnabled" {'checked' if config.get('discord_enabled', 'true') == 'true' else ''} onchange="saveConfig('discord_enabled', this.checked)" style="opacity:0; width:0; height:0;">
+                <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('discord_enabled', 'true') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
+                <span style="position:absolute; top:2px; left:{'22px' if config.get('discord_enabled', 'true') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
+              </label>
+            </div>
+
+            <div style="border-top:1px solid {COLORS['border']}; padding-top:16px; margin-top:8px;">
+              <p style="color:{COLORS['text_muted']}; font-size:0.8em; margin:0;">Changes take effect immediately for new league creation.</p>
+            </div>
+          </div>
+        </div>
+
+        <script>
+        function saveConfig(key, value) {{
+            fetch('/admin/config', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{key: key, value: value ? 'true' : 'false'}})
+            }})
+            .then(r => r.json())
+            .then(data => {{
+                if (data.success) {{
+                    // Update toggle visual
+                    var checkbox = document.getElementById('configDiscordEnabled');
+                    var track = checkbox.nextElementSibling;
+                    var thumb = track.nextElementSibling;
+                    if (checkbox.checked) {{
+                        track.style.background = '#2ECC71';
+                        thumb.style.left = '22px';
+                    }} else {{
+                        track.style.background = '#555';
+                        thumb.style.left = '2px';
+                    }}
+                }}
+            }})
+            .catch(function() {{}});
+        }}
         </script>
     </body>
     </html>
