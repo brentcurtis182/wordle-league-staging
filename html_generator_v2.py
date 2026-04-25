@@ -488,7 +488,6 @@ def generate_season_stats_html(league_data):
     has_any_winners = has_division_history or season_winners
     if has_any_winners:
         html += '<div class="season-winners-container" style="margin-top: 24px; margin-bottom: 30px;">\n'
-        html += '<h3 style="margin-bottom: 10px; color: #FFA64D;">Season Winners</h3>\n'
 
     if has_division_history:
         # Use unified season display (same approach as division mode)
