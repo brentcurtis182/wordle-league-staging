@@ -2975,6 +2975,12 @@ def embed_rules_page():
             },
         }
         rules_html = generate_rules_html(generic_data)
+        # Inject shimmering brand below the heading
+        rules_html = rules_html.replace(
+            '</h2>\n',
+            '</h2>\n<div class="rules-brand"><span class="wpl-brand">WordPlayLeague</span></div>\n',
+            1
+        )
         star_css, star_prefix, star_suffix = _embed_starry_background()
 
         html = f'''<!DOCTYPE html>
@@ -3001,11 +3007,33 @@ body{{
     margin:0 auto;
     position:relative;
     z-index:1;
-    padding-top:24px;
+    padding-top:40px;
 }}
 .rules-wrap h2{{
     font-size:2em;
-    margin-bottom:28px;
+    margin-bottom:6px;
+}}
+.rules-brand{{
+    display:block;
+    text-align:center;
+    margin-bottom:32px;
+}}
+.wpl-brand{{
+    display:inline-block;
+    font-weight:800;
+    font-size:1.1rem;
+    letter-spacing:0.02em;
+    text-decoration:none;
+    background:linear-gradient(135deg,#00E8DA 0%,#FFA64D 25%,#00E8DA 50%,#FFA64D 75%,#00E8DA 100%);
+    background-size:300% auto;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:wpl-shimmer 4s linear infinite;
+}}
+@keyframes wpl-shimmer{{
+    0%{{background-position:0% center;}}
+    100%{{background-position:300% center;}}
 }}
 {star_css}
 </style>
