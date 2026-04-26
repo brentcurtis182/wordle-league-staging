@@ -1916,7 +1916,7 @@ def _render_players_section(league, players, player_rows, channel_type, identifi
     
     # Column header for SMS opt-in status
     opt_in_header = ''
-    if channel_type == 'sms' and not division_mode:
+    if channel_type == 'sms':
         opt_in_header = f'''
         <div style="display: flex; justify-content: flex-end; padding: 0 16px 6px 16px; margin-bottom: 2px;">
             <span style="font-size: 0.7em; font-weight: 600; color: {COLORS['text_muted']}; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 40px;">Opt-In</span>
@@ -1968,7 +1968,7 @@ def _render_division_players(league, players, is_chat_platform):
         pid = player['id']
         name = player['name']
         immunity = player.get('division_immunity', False)
-        
+
         # Immunity highlight colors
         if immunity and player.get('division') == 1:
             bg = f"{COLORS['accent']}30"
@@ -1982,6 +1982,17 @@ def _render_division_players(league, players, is_chat_platform):
             bg = COLORS['bg_dark']
             border = "transparent"
             badge = ""
+
+        # SMS opt-in status badge
+        opt_in_badge = ''
+        if league.get('channel_type') == 'sms':
+            _opt = player.get('sms_opt_in_status', 'IN')
+            if _opt == 'IN':
+                opt_in_badge = f'<span style="color: #2ECC71; font-size: 0.75em; font-weight: 600;">IN</span>'
+            elif _opt == 'OUT':
+                opt_in_badge = f'<span style="color: #E74C3C; font-size: 0.75em; font-weight: 600;">OUT</span>'
+            elif _opt == 'WAITING':
+                opt_in_badge = f'<span style="color: {COLORS["accent_orange"]}; font-size: 0.75em; font-weight: 600;">WAITING</span>'
         
         # Phone / identifier display
         phone = player.get('phone', '') or ''
@@ -2008,7 +2019,8 @@ def _render_division_players(league, players, is_chat_platform):
                 <div style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</div>
                 <div style="color: {COLORS['text_muted']}; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis;">{identifier_display}</div>
             </div>
-            <div style="display: flex; gap: 4px; align-items: center;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                {opt_in_badge}
                 {edit_btn}
                 {drag_handle}
             </div>
