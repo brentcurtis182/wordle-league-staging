@@ -1007,7 +1007,7 @@ def generate_division_season_stats_html(league_data):
     html = ''
     all_modals_html = ''
     all_div_winners = []  # Collect division season winners to show below both tables
-    
+
     for div_num in (1, 2):
         div_info = division_data.get(div_num, {})
         div_label = "Division I" if div_num == 1 else "Division II"
@@ -1019,10 +1019,11 @@ def generate_division_season_stats_html(league_data):
         wins_needed = div_info.get('wins_needed', 3)
         div_players_list = div_info.get('players', [])
         immune_players = {p['name'] for p in div_players_list if p.get('immunity')}
-        
+
         html += f'<div class="season-container" style="margin-bottom: 30px;">\n'
         html += f'<h3 style="margin-bottom: 10px; color: {div_color};">{div_label} - Season {current_season}</h3>\n'
-        html += f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: {div_color};">{wins_needed} weekly wins</strong> is the Season Champion!</p>\n'
+        if div_num == 1:
+            html += f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">{wins_needed} weekly wins</strong> is the Season Champion!</p>\n'
         html += '<table class="season-table">\n'
         html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
         html += '<tbody>\n'
