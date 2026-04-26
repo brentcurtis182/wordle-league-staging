@@ -2916,6 +2916,64 @@ def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
 
+@app.route('/embed/rules')
+def embed_rules_page():
+    """Embeddable general rules reference page."""
+    try:
+        from html_generator_v2 import generate_rules_html
+        # Generic league data with defaults — show division mode active for full description
+        generic_data = {
+            'min_weekly_scores': 5,
+            'division_mode': True,
+            'division_confirmed_at': '2026-01-01',
+            'promoted_count': 1,
+            'relegated_count': 1,
+            'ai_settings': {
+                'severity': 2,
+                'perfect_score': True,
+                'daily_loser': True,
+                'failure_roast': True,
+                'sunday_race': True,
+                'monday_recap': True,
+            },
+        }
+        rules_html = generate_rules_html(generic_data)
+
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Rules — Word Play League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{
+    font-family:'Inter',sans-serif;
+    background:transparent;
+    color:#d7dadc;
+    padding:16px;
+    min-height:100vh;
+}}
+.rules-wrap{{
+    max-width:700px;
+    margin:0 auto;
+}}
+</style>
+</head>
+<body>
+<div class="rules-wrap">
+{rules_html}
+</div>
+</body>
+</html>'''
+        return html
+    except Exception as e:
+        logging.error(f"Error rendering embed rules page: {e}", exc_info=True)
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load rules page.</p>", 500
+
+
 @app.route('/embed/leagues')
 @app.route('/leagues-directory')
 def embed_leagues_directory():
