@@ -445,10 +445,11 @@ def generate_season_stats_html(league_data):
     
     html = '<div class="season-container" style="margin-bottom: 30px;">\n'
     html += f'<h3 style="margin-bottom: 10px; color: #00E8DA;">Season {current_season}</h3>\n'
+    html += '<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champion!</p>\n'
     html += '<table class="season-table">\n'
     html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
     html += '<tbody>\n'
-    
+
     # Add current season standings
     if season_standings:
         # Sort by wins descending, then by when they reached that win count (first to reach stays on top)
@@ -1021,10 +1022,11 @@ def generate_division_season_stats_html(league_data):
         
         html += f'<div class="season-container" style="margin-bottom: 30px;">\n'
         html += f'<h3 style="margin-bottom: 10px; color: {div_color};">{div_label} - Season {current_season}</h3>\n'
+        html += f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: {div_color};">{wins_needed} weekly wins</strong> is the Season Champion!</p>\n'
         html += '<table class="season-table">\n'
         html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
         html += '<tbody>\n'
-        
+
         if season_standings:
             def sort_key(item):
                 player_name, data = item
@@ -1412,7 +1414,19 @@ def generate_rules_html(league_data):
 </div>
 '''
 
-    # 2. Window to Post
+    # 2. Season Wins
+    if division_active:
+        season_wins_detail = f'''Seasons in <strong style="color:#00E8DA;">Division Mode</strong> require <strong style="color:#00E8DA;">3 weekly wins</strong> for a faster-paced race with promotion and relegation on the line. Standard (non-division) leagues require <strong style="color:#00E8DA;">4 weekly wins</strong> to claim the season.'''
+    else:
+        season_wins_detail = f'''The current season goal is <strong style="color:#00E8DA;">4 weekly wins</strong>. The first player to reach that number is crowned the Season Champion. Leagues running in <strong style="color:#00E8DA;">Division Mode</strong> use a shorter target of <strong style="color:#00E8DA;">3 wins</strong> per division for a faster-paced season.'''
+    html += f'''<div style="{card_style}">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🏆 Season Wins</h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">{season_wins_detail}</p>
+<p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">Configurable season win targets are coming in a future update&mdash;stay tuned!</p>
+</div>
+'''
+
+    # 3. Window to Post
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🕐 Window to Post</h3>
 <p style="margin:0; color:#d7dadc; line-height:1.6;">Each day&#39;s Wordle score can be submitted between <strong style="color:#00E8DA;">12:00 AM and 11:59 PM Pacific Time</strong>. Only the current day&#39;s Wordle puzzle number is accepted&mdash;scores from previous days cannot be posted retroactively. The scoring week runs <strong style="color:#00E8DA;">Monday through Sunday</strong>.</p>
