@@ -500,7 +500,8 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
         elif text and status == 'eliminated':
             eliminated.append(player['name'])
 
-    race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
+    # Race is decided if no one can catch the leader — leader's ability to improve is irrelevant
+    race_is_decided = len(players_who_can_catch_up) == 0
 
     # Compute clinch candidates BEFORE incrementing pending win.
     # potential_clinchers = "1 win away entering this week" — they clinch IF they win this week.
@@ -521,7 +522,8 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     elif len(leaders) == 1:
         leader_text = f"{leader_names[0]} leads at {leader_total}"
         parts = [leader_text]
-        if leader_improve_scenarios:
+        # Only mention leader improvement if others can still catch up (race is live)
+        if leader_improve_scenarios and catch_up_scenarios:
             parts.extend(leader_improve_scenarios)
         if catch_up_scenarios:
             parts.append(". ".join(catch_up_scenarios[:3]))
@@ -741,32 +743,31 @@ RACE ANALYSIS:
             has_season_stakes = div1_has_stakes or div2_has_stakes
             
             if has_season_stakes:
-                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 400 characters. Lower scores are better in Wordle."
             else:
-                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} Make it exciting with emojis! Keep it under 400 characters. Lower scores are better in Wordle."
             
-            sunday_system_msg = """You are an exciting sports announcer for a Wordle league with DIVISIONS. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            sunday_system_msg = """You are a concise sports announcer for a Wordle league with DIVISIONS. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
-IMPORTANT RULES:
+STYLE RULES:
+- Be CONCISE. No filler. No rhetorical questions. No "stay tuned" or "who will win?" or "the door is open".
+- When the race is OVER ("RACE OVER"), just declare the winner briefly. Do NOT describe what the winner "could still do" or "potential improvements". It's done.
+- Do NOT describe eliminated players' situations in detail. They lost — move on.
+- Only describe catch-up scenarios for players who can ACTUALLY still win or tie.
+
+ACCURACY RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
-2. A score of 1 is nearly impossible (use the exact dramatic phrase provided like 'hail mary', 'dream shot', 'shot in the dark', 'miracle', etc.), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
-3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
-4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
-5. Focus on players who realistically CAN still win or tie
-6. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS section. If the RACE ANALYSIS for a division does NOT contain "SEASON STAKES" or "SEASON CLINCH", do NOT mention clinching, season wins, or season implications for that division AT ALL.
-7. Use emojis for excitement!
-8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" or "is on the verge of clinching" unless the RACE ANALYSIS text EXPLICITLY contains "SEASON CLINCH" or "SEASON STAKES" for that specific division. Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
-10. This league has DIVISIONS (Division I and Division II) competing separately. Each division has its own weekly winner and its own season.
-11. Division seasons require 3 wins (not 4). Winning a Division II season earns a PROMOTION to Division I! When a Division I season ends, the worst player gets RELEGATED to Division II.
-12. Structure your message with Division I first, then Division II. Use line breaks between divisions.
-13. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section for each division. Do NOT add, calculate, or infer win counts. If someone has "1 win" listed, say "1 win" - NEVER inflate it.
-14. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
-15. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data.
-16. If a division's RACE ANALYSIS has no SEASON STAKES or SEASON CLINCH text, just describe the weekly race for that division - do NOT add any season commentary.
-17. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in RACE ANALYSIS for that exact player/division: "locked", "has it locked", "out of contention", "out of the race", "eliminated", "in the hunt", "hail mary" (only if a score of 1 is required). Do not use these phrases as filler.
-18. If NO "SEASON WINS" section is provided for a division, do NOT mention season wins, win counts, or season standings for that division AT ALL. Do not invent counts. Do not say "each player has X wins" or "with X wins this season". Just describe the weekly race.
-19. If two players are tied for the lead and the leader who hasn't posted "could improve", the race is NOT locked — describe it as "currently tied, [name] could break the tie by improving"."""
+2. A score of 1 is nearly impossible (use the exact dramatic phrase provided), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable.
+3. Don't say someone can "take the lead" unless the math supports it.
+4. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS. If not present for a division, do NOT mention clinching, season wins, or season implications for that division.
+5. NEVER claim someone "clinched the season" unless RACE ANALYSIS explicitly says "SEASON CLINCH".
+6. When mentioning season wins, use ONLY the numbers from "SEASON WINS" section. Do NOT infer or inflate.
+7. If NO "SEASON WINS" section exists for a division, do NOT mention season wins at all.
+8. Use emojis for excitement!
+9. Division I first, then Division II. Line break between them.
+10. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Div I season end = worst player RELEGATED.
+11. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
+12. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
@@ -774,7 +775,7 @@ IMPORTANT RULES:
                     {"role": "system", "content": sunday_system_msg},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=350,
+                max_tokens=300,
                 temperature=0.3
             )
             
@@ -874,8 +875,8 @@ IMPORTANT RULES:
                         eliminated.append(player['name'])
                 
                 # Race is decided if no one who hasn't posted can catch up
-                # (even if eliminated players haven't posted yet — they can't change the outcome)
-                race_is_decided = len(players_who_can_catch_up) == 0 and len(leader_improve_scenarios) == 0
+                # Leader's ability to improve is irrelevant — if no one can catch them, they've won
+                race_is_decided = len(players_who_can_catch_up) == 0
                 
                 if all_players_posted or race_is_decided:
                     # Race is over — the leader(s) will get this week's win
@@ -909,7 +910,8 @@ IMPORTANT RULES:
                         leader_text = f"{' and '.join(leader_names)} tied at {leader_total}"
                     
                     scenario_parts = [leader_text]
-                    if leader_improve_scenarios:
+                    # Only mention leader improvement if others can still catch up (race is live)
+                    if leader_improve_scenarios and catch_up_scenarios:
                         scenario_parts.extend(leader_improve_scenarios)
                     if catch_up_scenarios:
                         scenario_parts.append(". ".join(catch_up_scenarios[:3]))
@@ -988,28 +990,29 @@ WEEKLY RACE ANALYSIS: {scenario_text}"""
 WEEKLY RACE ANALYSIS: {scenario_text}"""
                 
                 if season_clinch_text:
-                    prompt = f"It's Sunday morning Wordle race update! {context_block} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+                    prompt = f"It's Sunday morning Wordle race update! {context_block} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
                 else:
-                    prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 320 characters. Lower scores are better in Wordle."
+                    prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
             
-            sunday_system_msg = """You are an exciting sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            sunday_system_msg = """You are a concise sports announcer for a Wordle league. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
-IMPORTANT RULES:
+STYLE RULES:
+- Be CONCISE. No filler. No rhetorical questions. No "stay tuned" or "who will win?" or "the door is open" or "can anyone catch up?".
+- When the race is OVER ("RACE OVER"), just declare the winner briefly and move on. Do NOT describe what the winner "could still do" or improvements they could make. It's done.
+- Do NOT describe eliminated players' situations in detail. They lost — skip them.
+- Only describe catch-up scenarios for players who can ACTUALLY still win or tie.
+
+ACCURACY RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
-2. A score of 1 is nearly impossible (use the exact dramatic phrase provided like 'hail mary', 'dream shot', 'shot in the dark', 'miracle', etc.), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable
-3. If someone is "eliminated" or "out of contention", they cannot win even with a perfect score
-4. Don't say someone can "take the lead" or "catapult into first" unless the math actually supports it
-5. Focus on players who realistically CAN still win or tie
-6. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently! Use the EXACT phrasing provided (e.g., "one win away from the season").
-7. Use emojis for excitement!
-8. NEVER say "can anyone catch up?" or "stay tuned" or "will anyone challenge" when the scenario says "RACE OVER" - the race is DECIDED, declare the winner definitively!
-9. CRITICAL: NEVER claim someone "clinched the season" or "won the season" unless the prompt EXPLICITLY says "SEASON CLINCH". Having a weekly lead does NOT mean they clinched the season. Winning a WEEK is different from winning the SEASON.
-10. CRITICAL: When mentioning season wins, use ONLY the numbers shown in the "SEASON WINS" section. Do NOT add, calculate, or infer win counts. If someone has "3 wins" listed, say "3 wins" - do NOT say they "need 4 wins" (everyone needs that). Say they are "one win away" if the prompt says so.
-11. Keep it factual - only state what the data shows. Do not speculate or infer beyond what is given.
-12. NEVER mention total historical wins or all-time records - only mention current season wins as shown in the data.
-13. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in RACE ANALYSIS for that exact player: "locked", "has it locked", "out of contention", "out of the race", "eliminated", "in the hunt", "hail mary" (only if a score of 1 is required). Do not use these phrases as filler.
-14. If NO "SEASON WINS" section is provided in the prompt, do NOT mention season wins, win counts, or season standings AT ALL. Do not invent counts. Do not say "each player has X wins" or "with X wins this season". Just describe the weekly race.
-15. If two players are tied for the lead and the leader who hasn't posted "could improve", the race is NOT locked — describe it as "currently tied, [name] could break the tie by improving"."""
+2. A score of 1 is nearly impossible (use the exact dramatic phrase provided), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable.
+3. Don't say someone can "take the lead" unless the math supports it.
+4. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently!
+5. NEVER claim someone "clinched the season" unless the prompt explicitly says "SEASON CLINCH".
+6. When mentioning season wins, use ONLY numbers from "SEASON WINS" section. Do NOT infer or inflate.
+7. If NO "SEASON WINS" section exists, do NOT mention season wins at all.
+8. Use emojis for excitement!
+9. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
+10. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
