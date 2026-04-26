@@ -2916,6 +2916,43 @@ def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
 
+def _embed_starry_background():
+    """Return (css, body_prefix, body_suffix) for the starry particle background used on league pages."""
+    css = '''
+#wpl-particles{position:fixed;inset:0;z-index:-1;pointer-events:none;}
+.wpl-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:-1;animation:wpl-orb-float 20s ease-in-out infinite;}
+.wpl-orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(0,255,136,0.08),transparent 70%);top:-10%;left:-5%;}
+.wpl-orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(168,85,247,0.06),transparent 70%);top:40%;right:-10%;animation-delay:-7s;}
+.wpl-orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(255,215,0,0.05),transparent 70%);bottom:10%;left:20%;animation-delay:-14s;}
+@keyframes wpl-orb-float{0%,100%{transform:translate(0,0) scale(1);}25%{transform:translate(30px,-40px) scale(1.05);}50%{transform:translate(-20px,20px) scale(0.95);}75%{transform:translate(15px,30px) scale(1.02);}}
+'''
+    body_prefix = '''<canvas id="wpl-particles"></canvas>
+<div class="wpl-orb wpl-orb-1"></div>
+<div class="wpl-orb wpl-orb-2"></div>
+<div class="wpl-orb wpl-orb-3"></div>'''
+    body_suffix = '''<script>
+(function(){
+    var canvas=document.getElementById('wpl-particles');if(!canvas)return;
+    var ctx=canvas.getContext('2d'),particles=[],w,h;
+    function resize(){w=canvas.width=window.innerWidth;h=canvas.height=window.innerHeight;}
+    function create(){
+        particles=[];var count=Math.min(60,Math.floor(w*h/20000));
+        var colors=['#00ff88','#ffd700','#a855f7','#38bdf8'];
+        for(var i=0;i<count;i++){particles.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,size:Math.random()*1.5+0.5,opacity:Math.random()*0.4+0.25,color:colors[Math.floor(Math.random()*4)]});}
+    }
+    function draw(){
+        ctx.clearRect(0,0,w,h);
+        particles.forEach(function(p){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=w;if(p.x>w)p.x=0;if(p.y<0)p.y=h;if(p.y>h)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.color;ctx.globalAlpha=p.opacity;ctx.fill();});
+        ctx.globalAlpha=1;
+        for(var i=0;i<particles.length;i++){for(var j=i+1;j<particles.length;j++){var dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy);if(dist<100){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(255,255,255,'+(0.06*(1-dist/100))+')';ctx.lineWidth=0.5;ctx.stroke();}}}
+        requestAnimationFrame(draw);
+    }
+    resize();create();draw();window.addEventListener('resize',function(){resize();create();});
+})();
+</script>'''
+    return css, body_prefix, body_suffix
+
+
 @app.route('/embed/rules')
 def embed_rules_page():
     """Embeddable general rules reference page."""
@@ -2938,6 +2975,7 @@ def embed_rules_page():
             },
         }
         rules_html = generate_rules_html(generic_data)
+        star_css, star_prefix, star_suffix = _embed_starry_background()
 
         html = f'''<!DOCTYPE html>
 <html lang="en">
@@ -2951,7 +2989,9 @@ def embed_rules_page():
 *{{margin:0;padding:0;box-sizing:border-box;}}
 body{{
     font-family:'Inter',sans-serif;
-    background:transparent;
+    background-color:#06060e;
+    background-image:radial-gradient(ellipse 60% 40% at 10% -10%,rgba(56,189,248,0.05),transparent 70%),radial-gradient(ellipse 60% 40% at 90% 110%,rgba(168,85,247,0.05),transparent 70%);
+    background-attachment:fixed;
     color:#d7dadc;
     padding:16px;
     min-height:100vh;
@@ -2959,13 +2999,18 @@ body{{
 .rules-wrap{{
     max-width:700px;
     margin:0 auto;
+    position:relative;
+    z-index:1;
 }}
+{star_css}
 </style>
 </head>
 <body>
+{star_prefix}
 <div class="rules-wrap">
 {rules_html}
 </div>
+{star_suffix}
 </body>
 </html>'''
         return html
@@ -3027,6 +3072,8 @@ def embed_leagues_directory():
         else:
             empty_msg = ''
 
+        star_css, star_prefix, star_suffix = _embed_starry_background()
+
         html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3039,7 +3086,9 @@ def embed_leagues_directory():
 *{{margin:0;padding:0;box-sizing:border-box;}}
 body{{
     font-family:'Inter',sans-serif;
-    background:transparent;
+    background-color:#06060e;
+    background-image:radial-gradient(ellipse 60% 40% at 10% -10%,rgba(56,189,248,0.05),transparent 70%),radial-gradient(ellipse 60% 40% at 90% 110%,rgba(168,85,247,0.05),transparent 70%);
+    background-attachment:fixed;
     color:#d7dadc;
     padding:12px;
     min-height:100vh;
@@ -3106,9 +3155,12 @@ body{{
 .load-more-btn:hover{{
     background:rgba(0,232,218,0.2);
 }}
+.directory-header,.directory-grid,#loadMoreWrap{{position:relative;z-index:1;}}
+{star_css}
 </style>
 </head>
 <body>
+{star_prefix}
 <div class="directory-header">
     <h2>Active Leagues</h2>
     <p>Join a league or create your own</p>
@@ -3150,6 +3202,7 @@ function loadMore() {{
 
 loadMore();
 </script>
+{star_suffix}
 </body>
 </html>'''
         return html
