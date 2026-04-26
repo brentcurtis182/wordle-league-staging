@@ -2935,19 +2935,26 @@ def _check_league_name(name):
     # Remove non-alphanumeric (catches dashes, dots, underscores used to bypass)
     condensed = re.sub(r'[^a-z]', '', normalized)
 
-    # Blocklist — covers major slurs, profanity, and hate terms
-    blocked = [
-        'nigger', 'nigga', 'nigg', 'n1gger', 'faggot', 'fag', 'dyke', 'tranny',
-        'retard', 'retarded', 'spic', 'wetback', 'kike', 'chink', 'gook', 'coon',
-        'raghead', 'towelhead', 'beaner', 'gringo', 'cracker',
-        'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
-        'whore', 'slut', 'bastard', 'twat', 'wanker', 'piss',
+    # Substring blocklist — always blocked even inside other words
+    always_blocked = [
+        'nigger', 'nigga', 'nigg', 'n1gger', 'faggot', 'dyke', 'tranny',
+        'retard', 'wetback', 'kike', 'chink', 'gook', 'raghead', 'towelhead',
+        'fuck', 'shit', 'bitch', 'pussy', 'whore', 'slut', 'bastard', 'twat', 'wanker',
         'nazi', 'hitler', 'kkk', 'whitesuprem', 'whitepower',
     ]
 
-    for word in blocked:
+    for word in always_blocked:
         if word in condensed:
             return 'League name contains inappropriate language. Please choose another name.'
+
+    # Word-boundary blocklist — only blocked as standalone words (not inside assassins, classic, etc.)
+    words = re.split(r'[\s\-_.,!?]+', text)
+    word_only = {'ass', 'fag', 'dick', 'cock', 'cunt', 'piss', 'coon', 'spic', 'beaner', 'gringo', 'cracker'}
+    for w in words:
+        cleaned = re.sub(r'[^a-z]', '', w.translate(subs))
+        if cleaned in word_only:
+            return 'League name contains inappropriate language. Please choose another name.'
+
     return None
 
 
