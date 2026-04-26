@@ -3236,7 +3236,7 @@ body{{
     padding:40px 0 48px;
 }}
 .page-hero h1{{
-    font-size:3em;
+    font-size:2em;
     font-weight:800;
     color:#d7dadc;
     letter-spacing:1px;
