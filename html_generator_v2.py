@@ -1437,7 +1437,7 @@ def generate_rules_html(league_data):
     # 3. Fails Don't Count
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">❌ Fails Don&#39;t Count</h3>
-<p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference. Failed attempts do count as a <strong style="color:#d7dadc;">7</strong> in your All-Time stats.</p>
 </div>
 '''
 
