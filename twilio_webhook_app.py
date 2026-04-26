@@ -2786,7 +2786,15 @@ def dashboard_create_league():
 
     if not league_name or not slug:
         return render_create_league(user, error='League name and slug are required', config=config)
-    
+
+    # Check for inappropriate language
+    name_error = _check_league_name(league_name)
+    if name_error:
+        return render_create_league(user, error=name_error, config=config)
+    slug_error = _check_league_name(slug)
+    if slug_error:
+        return render_create_league(user, error='League URL contains inappropriate language. Please choose another.', config=config)
+
     # Validate slug format
     import re
     if not re.match(r'^[a-z0-9-]+$', slug):
@@ -2915,6 +2923,33 @@ def dashboard_league(league_id):
 def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
+
+def _check_league_name(name):
+    """Check league name for profanity/slurs. Returns error string or None if clean."""
+    # Normalize: lowercase, strip extra spaces, remove common substitutions
+    import re
+    text = name.lower()
+    # Common letter substitutions: @ -> a, 0 -> o, 1 -> i/l, 3 -> e, $ -> s, 5 -> s
+    subs = str.maketrans({'@': 'a', '0': 'o', '1': 'i', '3': 'e', '$': 's', '5': 's'})
+    normalized = text.translate(subs)
+    # Remove non-alphanumeric (catches dashes, dots, underscores used to bypass)
+    condensed = re.sub(r'[^a-z]', '', normalized)
+
+    # Blocklist — covers major slurs, profanity, and hate terms
+    blocked = [
+        'nigger', 'nigga', 'nigg', 'n1gger', 'faggot', 'fag', 'dyke', 'tranny',
+        'retard', 'retarded', 'spic', 'wetback', 'kike', 'chink', 'gook', 'coon',
+        'raghead', 'towelhead', 'beaner', 'gringo', 'cracker',
+        'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
+        'whore', 'slut', 'bastard', 'twat', 'wanker', 'piss',
+        'nazi', 'hitler', 'kkk', 'whitesuprem', 'whitepower',
+    ]
+
+    for word in blocked:
+        if word in condensed:
+            return 'League name contains inappropriate language. Please choose another name.'
+    return None
+
 
 def _embed_starry_background():
     """Return (css, body_prefix, body_suffix) for the starry particle background used on league pages."""
@@ -3356,6 +3391,10 @@ def dashboard_rename_league(league_id):
     display_name = request.form.get('display_name', '').strip()
     if not display_name:
         return redirect(f'/dashboard/league/{league_id}?error=Display name is required')
+
+    name_error = _check_league_name(display_name)
+    if name_error:
+        return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(name_error)}')
 
     min_weekly_scores_raw = request.form.get('min_weekly_scores', '').strip()
     new_min_scores = None
