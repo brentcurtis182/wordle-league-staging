@@ -3160,12 +3160,45 @@ body{{
 .load-more-btn:hover{{
     background:rgba(0,232,218,0.2);
 }}
-.directory-header,.directory-grid,#loadMoreWrap{{position:relative;z-index:1;}}
+.directory-header,.directory-grid,#loadMoreWrap,.page-hero{{position:relative;z-index:1;}}
+.page-hero{{
+    text-align:center;
+    padding:40px 0 48px;
+}}
+.page-hero h1{{
+    font-size:3em;
+    font-weight:800;
+    color:#d7dadc;
+    letter-spacing:1px;
+    margin:0;
+}}
+.wpl-brand{{
+    display:inline-block;
+    margin-top:8px;
+    font-weight:800;
+    font-size:1.1rem;
+    letter-spacing:0.02em;
+    text-decoration:none;
+    background:linear-gradient(135deg,#00E8DA 0%,#FFA64D 25%,#00E8DA 50%,#FFA64D 75%,#00E8DA 100%);
+    background-size:300% auto;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:wpl-shimmer 4s linear infinite;
+}}
+@keyframes wpl-shimmer{{
+    0%{{background-position:0% center;}}
+    100%{{background-position:300% center;}}
+}}
 {star_css}
 </style>
 </head>
 <body>
 {star_prefix}
+<div class="page-hero">
+    <h1>Leagues</h1>
+    <span class="wpl-brand">WordPlayLeague</span>
+</div>
 <div class="directory-header">
     <h2>Active Leagues</h2>
     <p>Join a league or create your own</p>
