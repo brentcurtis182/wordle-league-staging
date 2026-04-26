@@ -16,6 +16,10 @@ from datetime import datetime
 # Slack API base URL
 SLACK_API_BASE = "https://slack.com/api"
 
+# Track non-player users we've already notified (channel_id:user_id -> True)
+# Resets on deploy/restart, which is fine — just prevents spam within a session
+_notified_non_players = {}
+
 def verify_slack_signature(request_body: bytes, timestamp: str, signature: str) -> bool:
     """
     Verify that the request came from Slack using the signing secret.
@@ -403,7 +407,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
     
     logging.info(f"Parsed Wordle score: #{wordle_number}, score={score}, emoji_pattern={emoji_pattern[:20] if emoji_pattern else 'none'}...")
     
-    # Look up the league by Slack team + channel
+    # Look up ALL leagues linked to this Slack team + channel (supports multiple leagues per channel)
     cursor = db_connection.cursor()
     cursor.execute("""
         SELECT id, slack_bot_token, display_name 
@@ -413,74 +417,95 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
         AND slack_channel_id = %s
     """, (team_id, channel_id))
     
-    league_row = cursor.fetchone()
-    if not league_row:
+    league_rows = cursor.fetchall()
+    if not league_rows:
         logging.warning(f"No league found for Slack team {team_id} channel {channel_id}")
         cursor.close()
         return {"status": "error", "reason": "league_not_found"}
     
-    league_id, bot_token, league_name = league_row
+    logging.info(f"Found {len(league_rows)} league(s) in channel {channel_id}")
     
-    # Look up player by Slack user ID first
-    cursor.execute("""
-        SELECT id, name FROM players 
-        WHERE league_id = %s AND slack_user_id = %s AND active = TRUE
-    """, (league_id, user_id))
+    # Fetch Slack profile once (used for name-based matching across all leagues)
+    slack_display_name = None
     
-    player_row = cursor.fetchone()
+    from twilio_webhook_app import process_wordle_score
     
-    if not player_row:
-        # Player not found by Slack ID - get their Slack profile
-        user_info = get_slack_user_info(bot_token, user_id)
-        display_name = user_info.get("profile", {}).get("display_name") or \
-                       user_info.get("profile", {}).get("real_name") or \
-                       user_info.get("name", f"SlackUser_{user_id[:8]}")
-        
-        # Check if player exists by name (might not have slack_user_id set yet)
+    results = []
+    not_in_any_league = True
+    
+    for league_id, bot_token, league_name in league_rows:
+        # Look up player by Slack user ID first
         cursor.execute("""
             SELECT id, name FROM players 
-            WHERE league_id = %s AND name = %s AND active = TRUE
-        """, (league_id, display_name))
+            WHERE league_id = %s AND slack_user_id = %s AND active = TRUE
+        """, (league_id, user_id))
         
         player_row = cursor.fetchone()
         
-        if player_row:
-            # Player exists by name - update their slack_user_id
+        if not player_row:
+            # Player not found by Slack ID - get their Slack profile (once)
+            if slack_display_name is None:
+                user_info = get_slack_user_info(bot_token, user_id)
+                slack_display_name = user_info.get("profile", {}).get("display_name") or \
+                                    user_info.get("profile", {}).get("real_name") or \
+                                    user_info.get("name", f"SlackUser_{user_id[:8]}")
+            
+            # Check if player exists by name (might not have slack_user_id set yet)
             cursor.execute("""
-                UPDATE players SET slack_user_id = %s WHERE id = %s
-            """, (user_id, player_row[0]))
-            db_connection.commit()
-            logging.info(f"Linked existing player {display_name} to Slack user {user_id}")
-        else:
-            # Player not in league - do NOT auto-add. Manager must add them first.
-            logging.info(f"Slack user {display_name} ({user_id}) not in league {league_id} - score ignored. Manager must add player first.")
-            send_slack_message(
-                bot_token,
-                channel_id,
-                f"Hey {display_name}! Your score wasn't recorded because you're not in this league yet. Ask the league manager to add you at {os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')} 👋"
-            )
-            cursor.close()
-            return {"status": "ignored", "reason": "player_not_in_league"}
+                SELECT id, name FROM players 
+                WHERE league_id = %s AND name = %s AND active = TRUE
+            """, (league_id, slack_display_name))
+            
+            player_row = cursor.fetchone()
+            
+            if player_row:
+                # Player exists by name - update their slack_user_id
+                cursor.execute("""
+                    UPDATE players SET slack_user_id = %s WHERE id = %s
+                """, (user_id, player_row[0]))
+                db_connection.commit()
+                logging.info(f"Linked existing player {slack_display_name} to Slack user {user_id} in league {league_id}")
+            else:
+                # Player not in this league - skip and check next league
+                logging.info(f"Slack user {slack_display_name} ({user_id}) not in league {league_id} ({league_name}) - skipping")
+                continue
+        
+        not_in_any_league = False
+        player_id, player_name = player_row
+        
+        # Process the score for this league
+        result = process_wordle_score(
+            league_id=league_id,
+            player_id=player_id,
+            player_name=player_name,
+            wordle_number=wordle_number,
+            score=score,
+            emoji_pattern=emoji_pattern,
+            is_hard_mode=is_hard_mode,
+            channel_type='slack'
+        )
+        results.append({"league_id": league_id, "league_name": league_name, "result": result})
+        logging.info(f"Processed score for {player_name} in league {league_id} ({league_name})")
     
-    player_id, player_name = player_row
     cursor.close()
     
-    # Now process the score using existing score processing logic
-    # Import here to avoid circular imports
-    from twilio_webhook_app import process_wordle_score
+    if not_in_any_league:
+        # Player is not in ANY league in this channel — notify once per user per channel
+        notify_key = f"{channel_id}:{user_id}"
+        if notify_key not in _notified_non_players:
+            _notified_non_players[notify_key] = True
+            display = slack_display_name or f"user {user_id[:8]}"
+            # Use bot_token from the first league in the channel
+            send_slack_message(
+                league_rows[0][1],
+                channel_id,
+                f"Hey {display}! Your score wasn't recorded because you're not in a league in this channel yet. Ask the league manager to add you at {os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')} 👋"
+            )
+        else:
+            logging.info(f"Slack user {user_id} already notified in channel {channel_id} - suppressing duplicate message")
+        return {"status": "ignored", "reason": "player_not_in_any_league"}
     
-    result = process_wordle_score(
-        league_id=league_id,
-        player_id=player_id,
-        player_name=player_name,
-        wordle_number=wordle_number,
-        score=score,
-        emoji_pattern=emoji_pattern,
-        is_hard_mode=is_hard_mode,
-        channel_type='slack'
-    )
-    
-    return {"status": "processed", "result": result}
+    return {"status": "processed", "leagues_processed": len(results), "results": results}
 
 
 # OAuth flow helpers for Slack app installation
