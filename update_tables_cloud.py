@@ -660,6 +660,7 @@ def run_full_update_for_league(league_id):
             if 1 in transitioned_divisions and 2 in transitioned_divisions:
                 clear_immunity(league_id, 1)
                 logging.info(f"Both divisions transitioned simultaneously for league {league_id} — cleared immunity on promoted player")
+
         else:
             check_and_handle_season_transition(league_id)
         

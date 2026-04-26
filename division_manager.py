@@ -480,45 +480,61 @@ def reset_division_seasons(league_id):
         """, (league_id,))
         current_seasons = {r[0]: {'season': r[1], 'start_week': r[2]} for r in cursor.fetchall()}
         
-        # Only delete weekly winners from the CURRENT in-progress season (not completed ones)
+        # Wipe weekly winners from BOTH divisions' current in-progress seasons
         for div, info in current_seasons.items():
             if info['start_week']:
                 cursor.execute("""
                     DELETE FROM weekly_winners
                     WHERE league_id = %s AND division = %s AND week_wordle_number >= %s
                 """, (league_id, div, info['start_week']))
-        
+
         # DO NOT delete season_winners — completed season winners are preserved
-        
-        # Close any open season boundaries (set end_week so they show as closed)
+
+        # Target season = whichever division is highest (they may differ if lapping)
         current_week = calculate_wordle_number(get_week_start_date())
+        target_season = max((info['season'] for info in current_seasons.values()), default=1)
+
         for div, info in current_seasons.items():
-            cursor.execute("""
-                UPDATE division_season_boundaries
-                SET end_week = %s
-                WHERE league_id = %s AND division = %s AND season_number = %s AND end_week IS NULL
-            """, (current_week, league_id, div, info['season']))
-        
-        # Determine next season number: max current season across both divisions + 1
-        # (so both divisions start the same new season together)
-        max_season = max((info['season'] for info in current_seasons.values()), default=1)
-        new_season = max_season + 1
-        
-        # Set both divisions to the new season
-        for div in (1, 2):
-            cursor.execute("""
-                INSERT INTO division_seasons (league_id, division, current_season, season_start_week)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (league_id, division) DO UPDATE
-                SET current_season = %s, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
-            """, (league_id, div, new_season, current_week, new_season, current_week))
-            
-            cursor.execute("""
-                INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
-                VALUES (%s, %s, %s, %s, NULL)
-                ON CONFLICT (league_id, division, season_number) DO UPDATE
-                SET start_week = EXCLUDED.start_week, end_week = NULL
-            """, (league_id, div, new_season, current_week))
+            if info['season'] < target_season:
+                # This division is behind — close its boundary as "Closed" (no winner)
+                # and advance it to match the leading division
+                cursor.execute("""
+                    UPDATE division_season_boundaries
+                    SET end_week = %s
+                    WHERE league_id = %s AND division = %s AND season_number = %s AND end_week IS NULL
+                """, (current_week, league_id, div, info['season']))
+
+                # Set this division to the target season
+                cursor.execute("""
+                    UPDATE division_seasons
+                    SET current_season = %s, season_start_week = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE league_id = %s AND division = %s
+                """, (target_season, current_week, league_id, div))
+
+                # Create the new season boundary
+                cursor.execute("""
+                    INSERT INTO division_season_boundaries (league_id, division, season_number, start_week, end_week)
+                    VALUES (%s, %s, %s, %s, NULL)
+                    ON CONFLICT (league_id, division, season_number) DO UPDATE
+                    SET start_week = EXCLUDED.start_week, end_week = NULL
+                """, (league_id, div, target_season, current_week))
+
+                logging.info(f"Div {div} was on season {info['season']}, advanced to {target_season} (closed as no winner)")
+            else:
+                # This division is already at the target season — just restart it
+                # (wipe happened above, boundary stays open, season number unchanged)
+                cursor.execute("""
+                    UPDATE division_seasons
+                    SET season_start_week = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE league_id = %s AND division = %s
+                """, (current_week, league_id, div))
+
+                # Update the boundary start_week for the fresh start
+                cursor.execute("""
+                    UPDATE division_season_boundaries
+                    SET start_week = %s
+                    WHERE league_id = %s AND division = %s AND season_number = %s AND end_week IS NULL
+                """, (current_week, league_id, div, info['season']))
         
         # Clear immunity and reset joined_week for all players
         cursor.execute("""
@@ -1105,3 +1121,5 @@ def clear_immunity(league_id, division):
     finally:
         cursor.close()
         conn.close()
+
+

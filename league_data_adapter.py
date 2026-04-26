@@ -755,6 +755,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
         """, (league_id, div_num))
         
         season_winners = []
+        winner_season_nums = set()
         for row in cursor.fetchall():
             # If player_id is NULL, this is a "Closed" season
             season_winners.append({
@@ -762,7 +763,24 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                 'name': row[1] if row[3] is not None else 'Closed',
                 'wins': row[2]
             })
-        
+            winner_season_nums.add(row[0])
+
+        # Find closed season boundaries that have no season_winners entry → "Closed"
+        cursor.execute("""
+            SELECT season_number FROM division_season_boundaries
+            WHERE league_id = %s AND division = %s AND end_week IS NOT NULL
+              AND season_number < %s
+            ORDER BY season_number DESC
+        """, (league_id, div_num, current_season))
+        for row in cursor.fetchall():
+            if row[0] not in winner_season_nums:
+                season_winners.append({
+                    'season': row[0],
+                    'name': 'Closed',
+                    'wins': 0
+                })
+                winner_season_nums.add(row[0])
+
         # Get past season breakdowns
         past_season_breakdowns = {}
         if season_winners:
