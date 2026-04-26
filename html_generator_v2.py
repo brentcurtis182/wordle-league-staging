@@ -443,9 +443,9 @@ def generate_season_stats_html(league_data):
     season_winners = season_data.get('season_winners', [])
     past_season_breakdowns = season_data.get('past_season_breakdowns', {})
     
-    html = '<div class="season-container" style="margin-bottom: 30px;">\n'
+    html = '<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champion!</p>\n'
+    html += '<div class="season-container" style="margin-bottom: 30px;">\n'
     html += f'<h3 style="margin-bottom: 10px; color: #00E8DA;">Season {current_season}</h3>\n'
-    html += '<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champion!</p>\n'
     html += '<table class="season-table">\n'
     html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
     html += '<tbody>\n'
@@ -1008,6 +1008,10 @@ def generate_division_season_stats_html(league_data):
     all_modals_html = ''
     all_div_winners = []  # Collect division season winners to show below both tables
 
+    # Banner above all season tables (outside card, on background)
+    div1_wins_needed = division_data.get(1, {}).get('wins_needed', 3)
+    html += f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">{div1_wins_needed} weekly wins</strong> is the Season Champion!</p>\n'
+
     for div_num in (1, 2):
         div_info = division_data.get(div_num, {})
         div_label = "Division I" if div_num == 1 else "Division II"
@@ -1022,8 +1026,6 @@ def generate_division_season_stats_html(league_data):
 
         html += f'<div class="season-container" style="margin-bottom: 30px;">\n'
         html += f'<h3 style="margin-bottom: 10px; color: {div_color};">{div_label} - Season {current_season}</h3>\n'
-        if div_num == 1:
-            html += f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">{wins_needed} weekly wins</strong> is the Season Champion!</p>\n'
         html += '<table class="season-table">\n'
         html += '<thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>\n'
         html += '<tbody>\n'
