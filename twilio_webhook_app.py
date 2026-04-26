@@ -3001,6 +3001,11 @@ body{{
     margin:0 auto;
     position:relative;
     z-index:1;
+    padding-top:24px;
+}}
+.rules-wrap h2{{
+    font-size:2em;
+    margin-bottom:28px;
 }}
 {star_css}
 </style>
