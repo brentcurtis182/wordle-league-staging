@@ -381,6 +381,85 @@ def is_ai_message_enabled(league_id, message_type):
 
 DIVISION_WINS_FOR_SEASON = 3  # Division seasons require 3 wins (not 4)
 
+
+def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_info, min_scores):
+    """Check if relegation (Div I) or extra promotion (Div II) would involve a tie.
+    Returns warning text to append to scenario, or empty string."""
+    warnings = []
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # --- Div I relegation tie check ---
+        # Only relevant if someone in Div I could clinch this week
+        div1_season = div1_season_info.get('current_season', 1)
+        div1_start = div1_season_info.get('season_start_week')
+        if div1_start:
+            # Get season winner names (exempt from relegation)
+            cursor.execute("""
+                SELECT p.name FROM season_winners sw
+                JOIN players p ON sw.player_id = p.id
+                WHERE sw.league_id = %s AND sw.division = 1 AND sw.season_number = %s
+            """, (league_id, div1_season))
+            winner_names = {r[0] for r in cursor.fetchall()}
+
+            # Get Div I players' season totals from weekly_winners
+            cursor.execute("""
+                SELECT p.name, COALESCE(SUM(ww.score), 0) as season_total
+                FROM players p
+                LEFT JOIN weekly_winners ww ON ww.player_name = p.name
+                    AND ww.league_id = %s AND ww.division = 1
+                    AND ww.week_wordle_number >= %s
+                WHERE p.league_id = %s AND p.division = 1 AND p.active = TRUE
+                    AND p.division_immunity = FALSE
+                GROUP BY p.name
+                ORDER BY season_total DESC
+            """, (league_id, div1_start, league_id))
+            candidates = [(r[0], r[1]) for r in cursor.fetchall() if r[0] not in winner_names]
+
+            if len(candidates) >= 2:
+                # Check for tie at the worst (highest) season total
+                worst_total = candidates[0][1]  # sorted DESC, first is worst
+                tied_at_worst = [c for c in candidates if c[1] == worst_total]
+                if len(tied_at_worst) >= 2:
+                    names = ', '.join(c[0] for c in tied_at_worst)
+                    warnings.append(f"RELEGATION ALERT: If Division I's season ends this week, {names} are TIED at a Season Total of {worst_total} for relegation — a RANDOM DRAW would decide who moves down!")
+
+        # --- Div II extra promotion tie check ---
+        cursor.execute("SELECT COALESCE(promoted_count, 1) FROM leagues WHERE id = %s", (league_id,))
+        promoted_count = cursor.fetchone()[0]
+        if promoted_count > 1:
+            div2_start = div2_season_info.get('season_start_week')
+            if div2_start:
+                cursor.execute("""
+                    SELECT p.name, COALESCE(SUM(ww.score), 999) as season_total
+                    FROM players p
+                    LEFT JOIN weekly_winners ww ON ww.player_name = p.name
+                        AND ww.league_id = %s AND ww.division = 2
+                        AND ww.week_wordle_number >= %s
+                    WHERE p.league_id = %s AND p.division = 2 AND p.active = TRUE
+                    GROUP BY p.name
+                    ORDER BY season_total ASC
+                """, (league_id, div2_start, league_id))
+                all_div2 = cursor.fetchall()
+                # Skip the likely season winner (best performer), check remaining for ties
+                remaining = all_div2[1:] if len(all_div2) > 1 else []
+                extra_spots = promoted_count - 1
+                if extra_spots > 0 and len(remaining) >= 2:
+                    best_remaining_total = remaining[0][1]
+                    tied_at_best = [r for r in remaining if r[1] == best_remaining_total]
+                    if len(tied_at_best) > extra_spots:
+                        names = ', '.join(r[0] for r in tied_at_best)
+                        warnings.append(f"PROMOTION ALERT: If Division II's season ends this week, {names} are TIED at a Season Total of {best_remaining_total} for the extra promotion spot — a RANDOM DRAW would decide who moves up!")
+
+    except Exception as e:
+        logging.warning(f"Error checking relegation/promotion ties: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return ' '.join(warnings)
+
+
 def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current_season, min_scores=5):
     """Build scenario analysis text for a single division.
     Returns scenario text string for the AI prompt."""
@@ -605,8 +684,14 @@ def send_sunday_race_update(league_id, force_season_image=False):
             div2_scenario = build_division_scenario(div2_standings, 2, div2_weekly_wins, div2_season_info['current_season'], min_scores=min_scores)
             
             scenario_text = f"{div1_scenario}\n\n{div2_scenario}"
+
+            # Check for relegation/promotion ties (random draw warning)
+            tie_warnings = check_relegation_promotion_ties(league_id, div1_season_info, div2_season_info, min_scores)
+            if tie_warnings:
+                scenario_text += f"\n\n{tie_warnings}"
+
             logging.info(f"League {league_id} division scenarios: {scenario_text}")
-            
+
             # Build division standings summaries for AI context
             def build_div_standings_summary(div_standings):
                 lines = []

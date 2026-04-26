@@ -8834,6 +8834,22 @@ def _run_one_time_migrations():
         # Add promoted_count and relegated_count columns for division mode (can differ to balance pacing)
         cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS promoted_count INTEGER DEFAULT 1")
         cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS relegated_count INTEGER DEFAULT 1")
+
+        # Division movement log — tracks promotions/relegations with randomization info
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS division_movements (
+                id SERIAL PRIMARY KEY,
+                league_id INTEGER NOT NULL,
+                player_name VARCHAR(255) NOT NULL,
+                movement_type VARCHAR(20) NOT NULL,
+                season_number INTEGER,
+                division INTEGER,
+                randomized BOOLEAN DEFAULT FALSE,
+                tied_with TEXT,
+                tied_score INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         
         # Fix: Both divisions in league 4 transitioned simultaneously on 2026-03-09,
         # but the promoted player (Jess) was given immunity unnecessarily.
