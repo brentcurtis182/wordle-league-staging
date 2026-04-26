@@ -16,7 +16,7 @@ import pytz
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date, get_league_min_scores
 from season_management import get_weekly_wins_in_current_season
 from message_router import send_league_message
 
@@ -303,12 +303,15 @@ def get_last_week_results(league_id):
         # How many players participated last week
         participating_players = len(player_stats)
         
+        # Per-league configurable minimum scores per week
+        min_scores = get_league_min_scores(league_id, conn=conn)
+
         # Get league display name
         cursor.execute("SELECT display_name, slug FROM leagues WHERE id = %s", (league_id,))
         league_info = cursor.fetchone()
         league_display_name = league_info[0] if league_info else f"League {league_id}"
         league_slug = league_info[1] if league_info else f"league{league_id}"
-        
+
         return {
             'winner_names': winner_names,
             'winner_score': winner_score,
@@ -335,6 +338,7 @@ def get_last_week_results(league_id):
             'division_season_wins': division_season_wins,
             'division_season_clinched': division_season_clinched,
             'division_current_seasons': division_current_seasons,
+            'min_scores': min_scores,
         }
         
     except Exception as e:
@@ -366,6 +370,8 @@ def send_monday_recap(league_id):
         # Build the scenario text for the AI
         scenario_parts = []
         is_div = results.get('division_mode', False)
+        min_scores = results.get('min_scores', 5)
+        best_n_label = f"best-{min_scores}"
         
         # ============================================================
         # DIVISION MODE scenario building
@@ -386,9 +392,9 @@ def send_monday_recap(league_id):
                 # Winner announcement
                 if len(dw) > 1:
                     names = " and ".join([w['name'] for w in dw])
-                    scenario_parts.append(f"{div_label} WINNER: {names} TIED with a best-5 total of {dw[0]['score']}!")
+                    scenario_parts.append(f"{div_label} WINNER: {names} TIED with a {best_n_label} total of {dw[0]['score']}!")
                 else:
-                    scenario_parts.append(f"{div_label} WINNER: {dw[0]['name']} won with a best-5 total of {dw[0]['score']}!")
+                    scenario_parts.append(f"{div_label} WINNER: {dw[0]['name']} won with a {best_n_label} total of {dw[0]['score']}!")
                 
                 # Per-division season standings
                 dsw = div_season_wins.get(div_num, {})
@@ -412,9 +418,9 @@ def send_monday_recap(league_id):
         else:
             if results['is_tie']:
                 winner_list = " and ".join(results['winner_names'])
-                scenario_parts.append(f"WEEKLY WINNER: {winner_list} TIED with a best-5 total of {results['winner_score']}! They share the win.")
+                scenario_parts.append(f"WEEKLY WINNER: {winner_list} TIED with a {best_n_label} total of {results['winner_score']}! They share the win.")
             else:
-                scenario_parts.append(f"WEEKLY WINNER: {results['winner_names'][0]} won the week with a best-5 total of {results['winner_score']}!")
+                scenario_parts.append(f"WEEKLY WINNER: {results['winner_names'][0]} won the week with a {best_n_label} total of {results['winner_score']}!")
             
             # Standard season clinch
             if results['season_just_clinched']:
@@ -496,7 +502,7 @@ IMPORTANT RULES:
 4. Keep the tone exciting and celebratory
 5. Use emojis for excitement
 6. Don't invent stats or names - only use what's provided
-7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
+7. A best-N total is the sum of their N best daily scores that week (lower = better) — N varies per league
 8. If it's a tie, celebrate both/all winners equally
 9. When a season was just clinched, do NOT mention next season standings or win counts — the new season just started with 0 wins
 10. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
@@ -515,7 +521,7 @@ IMPORTANT RULES:
 4. Keep the tone exciting and celebratory
 5. Use emojis for excitement
 6. Don't invent stats or names - only use what's provided
-7. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
+7. A best-N total is the sum of their N best daily scores that week (lower = better) — N varies per league
 8. If it's a tie, celebrate both/all winners equally
 9. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
 10. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
