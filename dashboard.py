@@ -2150,7 +2150,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
     ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
     ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
-    ai_daily_checked = 'checked' if league.get('ai_daily_loser_roast') else ''
     ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
     
     # Division promotion/relegation counts (used in JS)
@@ -2730,23 +2729,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         </div>
                         <div class="ai-toggle-meta">
                             <span class="tone-na">Tone: N/A (informational)</span>
-                        </div>
-                    </div>
-                    
-                    <div class="ai-toggle-item">
-                        <div class="ai-toggle-header">
-                            <label class="toggle-label">
-                                <input type="checkbox" id="ai_daily_loser" {ai_daily_checked}>
-                                <span class="toggle-text">
-                                    <strong>😈 Daily Loser Roast</strong>
-                                    <small>Roast the worst scorer(s) when all players have posted, using the Wordle word subtly</small>
-                                </span>
-                            </label>
-                            <button type="button" class="btn btn-secondary btn-small" onclick="openMessageConfig('daily_loser', '😈 Daily Loser Roast')">Edit ✏️</button>
-                        </div>
-                        <div class="ai-toggle-meta">
-                            <span>Tone: <strong id="daily_loser_tone_label">{'Gentle 🔒' if league.get('ai_filter') else ['Savage', 'Spicy', 'Playful', 'Gentle'][league.get('ai_daily_loser_severity', 2) - 1]}</strong></span>
-                            <span>Players: <strong id="daily_loser_players_label">All</strong></span>
                         </div>
                     </div>
                     
@@ -3409,7 +3391,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <input type="hidden" name="ai_perfect_score_congrats" id="aiPerfectScoreInput">
             <input type="hidden" name="ai_failure_roast" id="aiFailureRoastInput">
             <input type="hidden" name="ai_sunday_race_update" id="aiSundayRaceInput">
-            <input type="hidden" name="ai_daily_loser_roast" id="aiDailyLoserInput">
             <input type="hidden" name="ai_monday_recap" id="aiMondayRecapInput">
             <input type="hidden" name="ai_message_severity" id="aiSeverityInput">
         </form>
@@ -4034,19 +4015,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 perfect: {str(league.get('ai_perfect_score_congrats', False)).lower()},
                 failure: {str(league.get('ai_failure_roast', True)).lower()},
                 sunday: {str(league.get('ai_sunday_race_update', True)).lower()},
-                daily: {str(league.get('ai_daily_loser_roast', False)).lower()},
                 monday: {str(league.get('ai_monday_recap', True)).lower()},
                 severity: {league.get('ai_message_severity', 2)},
                 perfect_score_severity: {league.get('ai_perfect_score_severity', 2)},
-                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)},
-                daily_loser_severity: {league.get('ai_daily_loser_severity', 2)}
+                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)}
             }};
-            
+
             // Track what's actually saved to DB (updated when message config saves)
             const savedToDbSettings = {{
                 perfect_score_severity: {league.get('ai_perfect_score_severity', 2)},
-                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)},
-                daily_loser_severity: {league.get('ai_daily_loser_severity', 2)}
+                failure_roast_severity: {league.get('ai_failure_roast_severity', 2)}
             }};
             
             // Player data for config modal
@@ -4124,12 +4102,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     3: '"Amazing score! 🎯 You\\'re on fire today... almost suspiciously so 😉🔥"',
                     4: '"WOW! Incredible score! 🎉🏆 You absolutely crushed it - pure skill! So impressed!"'
                 }},
-                'daily_loser': {{
-                    1: '"Congrats on finding rock bottom! 💀 The word wasn\\'t THAT hard... for most people 🔥"',
-                    2: '"Today\\'s biggest L goes to... 😂 Maybe Wordle just isn\\'t your thing?"',
-                    3: '"Someone had to come in last! 😅 Hey, at least you showed up - that counts for something!"',
-                    4: '"Not your best day, but we still love you! 💚 Tomorrow is a new opportunity!"'
-                }}
             }};
             
             function updateConfigSeverityLabel(value) {{
@@ -4292,7 +4264,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const perfect = document.getElementById('ai_perfect_score').checked;
                 const failure = document.getElementById('ai_failure_roast').checked;
                 const sunday = document.getElementById('ai_sunday_race').checked;
-                const daily = document.getElementById('ai_daily_loser').checked;
                 const monday = document.getElementById('ai_monday_recap').checked;
                 
                 if (perfect !== originalAISettings.perfect) {{
@@ -4303,9 +4274,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 }}
                 if (sunday !== originalAISettings.sunday) {{
                     changes.push('📊 Sunday Race Update: ' + (sunday ? 'ON' : 'OFF'));
-                }}
-                if (daily !== originalAISettings.daily) {{
-                    changes.push('😈 Daily Loser Roast: ' + (daily ? 'ON' : 'OFF'));
                 }}
                 if (monday !== originalAISettings.monday) {{
                     changes.push('📅 Monday Morning Recap: ' + (monday ? 'ON' : 'OFF'));
@@ -4318,10 +4286,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 if (originalAISettings.failure_roast_severity !== savedToDbSettings.failure_roast_severity) {{
                     changes.push('🔥 Failure Roast Tone: ' + severityNames[originalAISettings.failure_roast_severity - 1]);
                 }}
-                if (originalAISettings.daily_loser_severity !== savedToDbSettings.daily_loser_severity) {{
-                    changes.push('😈 Daily Loser Tone: ' + severityNames[originalAISettings.daily_loser_severity - 1]);
-                }}
-                
                 // Check for player setting changes (compare against what's saved to DB)
                 let hasUnsavedPlayerChanges = false;
                 for (const key of Object.keys(messagePlayerSettings)) {{
@@ -4352,14 +4316,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 document.getElementById('aiPerfectScoreInput').value = document.getElementById('ai_perfect_score').checked ? 'true' : 'false';
                 document.getElementById('aiFailureRoastInput').value = document.getElementById('ai_failure_roast').checked ? 'true' : 'false';
                 document.getElementById('aiSundayRaceInput').value = document.getElementById('ai_sunday_race').checked ? 'true' : 'false';
-                document.getElementById('aiDailyLoserInput').value = document.getElementById('ai_daily_loser').checked ? 'true' : 'false';
                 document.getElementById('aiMondayRecapInput').value = document.getElementById('ai_monday_recap').checked ? 'true' : 'false';
                 
                 // Add per-message severity values
                 document.getElementById('aiSeverityInput').value = JSON.stringify({{
                     perfect_score: originalAISettings.perfect_score_severity,
                     failure_roast: originalAISettings.failure_roast_severity,
-                    daily_loser: originalAISettings.daily_loser_severity,
                     player_settings: messagePlayerSettings
                 }});
                 
@@ -5651,7 +5613,6 @@ def render_admin_league_detail(user, league):
     if league.get('ai_perfect_score'): ai_features.append('Perfect Score Congrats')
     if league.get('ai_failure_roast'): ai_features.append('Failure Roast')
     if league.get('ai_sunday_race'): ai_features.append('Sunday Race Update')
-    if league.get('ai_daily_loser'): ai_features.append('Daily Loser Roast')
     if league.get('ai_monday_recap'): ai_features.append('Monday Recap')
     ai_summary = ', '.join(ai_features) if ai_features else 'None enabled'
     

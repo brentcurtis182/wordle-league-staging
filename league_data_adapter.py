@@ -341,7 +341,6 @@ def get_complete_league_data(league_id):
             SELECT COALESCE(ai_perfect_score_congrats, FALSE),
                    COALESCE(ai_failure_roast, FALSE),
                    COALESCE(ai_sunday_race_update, FALSE),
-                   COALESCE(ai_daily_loser_roast, FALSE),
                    COALESCE(ai_monday_recap, FALSE),
                    COALESCE(ai_message_severity, 2)
             FROM leagues WHERE id = %s
@@ -351,9 +350,8 @@ def get_complete_league_data(league_id):
             'perfect_score': _ai_row[0] if _ai_row else False,
             'failure_roast': _ai_row[1] if _ai_row else False,
             'sunday_race': _ai_row[2] if _ai_row else False,
-            'daily_loser': _ai_row[3] if _ai_row else False,
-            'monday_recap': _ai_row[4] if _ai_row else False,
-            'severity': _ai_row[5] if _ai_row else 2,
+            'monday_recap': _ai_row[3] if _ai_row else False,
+            'severity': _ai_row[4] if _ai_row else 2,
         }
         _ai_cur.close()
 

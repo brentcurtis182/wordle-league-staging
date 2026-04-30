@@ -355,8 +355,7 @@ def is_ai_message_enabled(league_id, message_type):
         column_map = {
             'perfect_score': 'ai_perfect_score_congrats',
             'failure_roast': 'ai_failure_roast',
-            'sunday_race': 'ai_sunday_race_update',
-            'daily_loser': 'ai_daily_loser_roast'
+            'sunday_race': 'ai_sunday_race_update'
         }
         column = column_map.get(message_type)
         if not column:
