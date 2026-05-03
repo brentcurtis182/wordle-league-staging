@@ -3699,10 +3699,15 @@ def dashboard_add_player(league_id):
             cursor2.execute("SELECT id FROM players WHERE league_id = %s AND name = %s AND active = TRUE", (league_id, name))
             new_player = cursor2.fetchone()
             if new_player:
-                cursor2.execute("UPDATE players SET division = %s WHERE id = %s", (target_div, new_player[0]))
+                # Set immunity so new player is exempt from relegation for their first season
+                current_week = get_todays_wordle_number()
+                cursor2.execute("""
+                    UPDATE players SET division = %s, division_immunity = TRUE, division_joined_week = %s
+                    WHERE id = %s
+                """, (target_div, current_week, new_player[0]))
                 conn.commit()
                 division_msg_suffix = f" (assigned to Division {div_label})"
-                logging.info(f"Auto-assigned new player {name} to Division {div_label} in league {league_id}")
+                logging.info(f"Auto-assigned new player {name} to Division {div_label} in league {league_id} (immune for first season)")
         
         cursor2.close()
         cursor.close()

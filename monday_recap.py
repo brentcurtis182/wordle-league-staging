@@ -169,31 +169,33 @@ def get_last_week_results(league_id):
                 for row in cursor.fetchall():
                     division_season_wins[div_num][row[0]] = row[1]
                 
-                # Check if a division season was just clinched
+                # Check if a division season was just clinched (supports co-champions)
                 cursor.execute("""
                     SELECT p.name, sw.wins, sw.season_number, sw.completed_date, sw.division
                     FROM season_winners sw
                     JOIN players p ON sw.player_id = p.id
                     WHERE sw.league_id = %s AND sw.division = %s
                     ORDER BY sw.completed_date DESC NULLS LAST, sw.id DESC
-                    LIMIT 1
                 """, (league_id, div_num))
-                div_latest = cursor.fetchone()
-                if div_latest:
-                    completed_date = div_latest[3]
-                    if completed_date and completed_date > last_monday:
-                        div_label = "Division I" if div_num == 1 else "Division II"
-                        clinch_info = {
-                            'division': div_num,
-                            'division_label': div_label,
-                            'name': div_latest[0],
-                            'wins': div_latest[1],
-                            'season_number': div_latest[2],
-                        }
-                        # Div II winner gets promoted
-                        if div_num == 2:
-                            clinch_info['promoted'] = True
-                        division_season_clinched.append(clinch_info)
+                div_winners_rows = cursor.fetchall()
+                # Group winners from the same recent clinch (completed after last_monday)
+                recent_winners = [r for r in div_winners_rows if r[3] and r[3] > last_monday]
+                if recent_winners:
+                    div_label = "Division I" if div_num == 1 else "Division II"
+                    names = [r[0] for r in recent_winners]
+                    clinch_info = {
+                        'division': div_num,
+                        'division_label': div_label,
+                        'name': ' and '.join(names),
+                        'names': names,
+                        'wins': recent_winners[0][1],
+                        'season_number': recent_winners[0][2],
+                        'co_champions': len(names) > 1,
+                    }
+                    # Div II winner(s) get promoted
+                    if div_num == 2:
+                        clinch_info['promoted'] = True
+                    division_season_clinched.append(clinch_info)
         
         # Get current season info and weekly wins (standard mode / fallback)
         cursor.execute("""
@@ -435,32 +437,65 @@ def send_monday_recap(league_id):
             promoted_count = results.get('promoted_count', 1)
             relegated_count = results.get('relegated_count', 1)
             for clinch in div_clinched:
+                is_co = clinch.get('co_champions', False)
+                champ_label = "CO-CHAMPIONS" if is_co else "SEASON CHAMPION"
+                clinch_verb = "share" if is_co else "clinched"
                 if clinch.get('promoted'):
                     if promoted_count > 1:
-                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! The top {promoted_count} players get promoted. A new season begins!")
+                        scenario_parts.append(f"🏆 {clinch['division_label']} {champ_label}: {clinch['name']} {clinch_verb} {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earn{'s' if not is_co else ''} a PROMOTION to Division I! The top {promoted_count} players get promoted. A new season begins!")
                     else:
-                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! A new season begins!")
+                        scenario_parts.append(f"🏆 {clinch['division_label']} {champ_label}: {clinch['name']} {clinch_verb} {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earn{'s' if not is_co else ''} a PROMOTION to Division I! A new season begins!")
                 else:
                     if relegated_count > 1:
-                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The {relegated_count} players with the worst Season Totals in Division I get RELEGATED to Division II. A new season begins!")
+                        scenario_parts.append(f"🏆 {clinch['division_label']} {champ_label}: {clinch['name']} {clinch_verb} {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The {relegated_count} players with the worst Season Totals in Division I get RELEGATED to Division II. A new season begins!")
                     else:
-                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The player with the worst Season Total in Division I gets RELEGATED to Division II. A new season begins!")
+                        scenario_parts.append(f"🏆 {clinch['division_label']} {champ_label}: {clinch['name']} {clinch_verb} {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The player with the worst Season Total in Division I gets RELEGATED to Division II. A new season begins!")
 
             # Division movement announcements (promotions/relegations with randomization info)
             movements = results.get('division_movements', [])
             # Track season winner names so we don't double-announce their promotion
-            clinch_names = {c['name'] for c in div_clinched if c.get('promoted')}
+            # Use individual names list from clinch info, not the joined "X and Y" string
+            clinch_names = set()
+            for c in div_clinched:
+                if c.get('promoted'):
+                    clinch_names.update(c.get('names', [c['name']]))
+
+            # Group non-random promotions together for a cleaner announcement
+            extra_promotions = []
+            random_promotions = []
+            relegations = []
             for mv in movements:
                 name = mv['player_name']
-                if mv['movement_type'] == 'promotion' and mv['randomized']:
-                    scenario_parts.append(f"⬆️ PROMOTION (Random Draw): {name} was also promoted to Division I! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
-                elif mv['movement_type'] == 'promotion' and not mv['randomized']:
-                    if name not in clinch_names:
-                        # Extra promotion slot (best season total) — announce it
-                        scenario_parts.append(f"⬆️ PROMOTION: {name} also earns promotion to Division I with the best Season Total among remaining Division II players!")
-                elif mv['movement_type'] == 'relegation' and mv['randomized']:
+                if name in clinch_names:
+                    continue  # Already announced as season winner
+                if mv['movement_type'] == 'promotion':
+                    if mv['randomized']:
+                        random_promotions.append(mv)
+                    else:
+                        extra_promotions.append(mv)
+                elif mv['movement_type'] == 'relegation':
+                    relegations.append(mv)
+
+            # Announce extra promotions (grouped)
+            if extra_promotions:
+                names = [mv['player_name'] for mv in extra_promotions]
+                if len(names) == 1:
+                    scenario_parts.append(f"⬆️ PROMOTION: {names[0]} also earns promotion to Division I with the best Season Total among remaining Division II players!")
+                else:
+                    names_str = ', '.join(names[:-1]) + ' and ' + names[-1]
+                    scenario_parts.append(f"⬆️ PROMOTIONS: {names_str} also earn promotion to Division I with the best Season Totals among remaining Division II players!")
+
+            # Announce random-draw promotions individually (they have unique tie info)
+            for mv in random_promotions:
+                name = mv['player_name']
+                scenario_parts.append(f"⬆️ PROMOTION (Random Draw): {name} was also promoted to Division I! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
+
+            # Announce relegations
+            for mv in relegations:
+                name = mv['player_name']
+                if mv['randomized']:
                     scenario_parts.append(f"⬇️ RELEGATION (Random Draw): {name} was relegated to Division II! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
-                elif mv['movement_type'] == 'relegation' and not mv['randomized']:
+                else:
                     scenario_parts.append(f"⬇️ RELEGATION: {name} had the worst Season Total in Division I and moves down to Division II.")
 
         # ============================================================
