@@ -672,27 +672,40 @@ def _on_subscription_updated(subscription):
     """Handle subscription updates (plan changes, status changes)."""
     from auth import get_db_connection
 
-    stripe_sub_id = subscription['id']
-    new_status = subscription['status']
+    stripe_sub_id = subscription.get('id') or subscription.id
+    new_status = subscription.get('status', 'active')
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
         # Update the price if it changed
-        price_id = subscription['items']['data'][0]['price']['id'] if subscription['items']['data'] else None
+        items_data = subscription.get('items', {}).get('data', [])
+        price_id = items_data[0]['price']['id'] if items_data else None
 
-        cursor.execute("""
-            UPDATE subscriptions SET
-                status = %s,
-                current_period_end = to_timestamp(%s),
-                cancel_at_period_end = %s,
-                stripe_price_id = COALESCE(%s, stripe_price_id),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE stripe_subscription_id = %s
-        """, (new_status, subscription['current_period_end'],
-              subscription.get('cancel_at_period_end', False),
-              price_id, stripe_sub_id))
+        # Safely get current_period_end (can be int timestamp or None)
+        period_end = subscription.get('current_period_end')
+        cancel_at_end = subscription.get('cancel_at_period_end', False)
+
+        if period_end:
+            cursor.execute("""
+                UPDATE subscriptions SET
+                    status = %s,
+                    current_period_end = to_timestamp(%s),
+                    cancel_at_period_end = %s,
+                    stripe_price_id = COALESCE(%s, stripe_price_id),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_subscription_id = %s
+            """, (new_status, period_end, cancel_at_end, price_id, stripe_sub_id))
+        else:
+            cursor.execute("""
+                UPDATE subscriptions SET
+                    status = %s,
+                    cancel_at_period_end = %s,
+                    stripe_price_id = COALESCE(%s, stripe_price_id),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_subscription_id = %s
+            """, (new_status, cancel_at_end, price_id, stripe_sub_id))
 
         conn.commit()
         logging.info(f"Subscription updated: {stripe_sub_id} -> status={new_status}")

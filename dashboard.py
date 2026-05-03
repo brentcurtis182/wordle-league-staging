@@ -6259,10 +6259,12 @@ def render_membership_page(user, subscriptions, message=None, error=None):
     if subscriptions:
         subs_html = ""
         for sub in subscriptions:
-            status_color = COLORS['success'] if sub['status'] == 'active' else COLORS['accent_orange'] if sub['status'] == 'past_due' else COLORS['error']
-            status_label = sub['status'].replace('_', ' ').title()
+            is_canceling = sub.get('cancel_at_period_end') or sub['status'] == 'canceled'
+            status_color = COLORS['error'] if sub['status'] == 'canceled' else COLORS['accent_orange'] if is_canceling or sub['status'] == 'past_due' else COLORS['success']
+            status_label = 'Canceling' if is_canceling and sub['status'] == 'active' else sub['status'].replace('_', ' ').title()
             period_end = sub['current_period_end'].strftime('%b %d, %Y') if sub.get('current_period_end') else '—'
-            cancel_note = ' (cancels at period end)' if sub.get('cancel_at_period_end') else ''
+            period_label = 'Ends' if is_canceling else 'Renews'
+            cancel_note = ''
 
             # Plan display name
             tier = sub['plan_tier']
@@ -6355,7 +6357,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     <span style="color: {status_color}; font-size: 0.85em; font-weight: 600;">{status_label}{cancel_note}</span>
                 </div>
                 <div style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 12px;">
-                    Renews: {period_end}
+                    {period_label}: {period_end}
                 </div>
                 {leagues_html}
                 {ai_addon_html}
