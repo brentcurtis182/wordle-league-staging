@@ -380,18 +380,72 @@ def is_ai_message_enabled(league_id, message_type):
 
 DIVISION_WINS_FOR_SEASON = 3  # Division seasons require 3 wins (not 4)
 
+def _calc_season_totals(cursor, league_id, division, season_start, min_scores, this_week_scores):
+    """Calculate true season totals from raw scores table (best-N per week, all weeks).
+    Returns dict {player_name: season_total} for active, non-immune players.
+    this_week_scores is a dict {name: best_N_total} from current week standings."""
+    # Get active non-immune players in this division
+    cursor.execute("""
+        SELECT p.id, p.name FROM players p
+        WHERE p.league_id = %s AND p.division = %s AND p.active = TRUE
+            AND p.division_immunity = FALSE
+    """, (league_id, division))
+
+    players = cursor.fetchall()
+
+    totals = {}
+    for player_id, player_name in players:
+        # Fetch all raw scores from season start onwards
+        cursor.execute("""
+            SELECT s.wordle_number, s.score
+            FROM scores s
+            WHERE s.player_id = %s AND s.wordle_number >= %s
+            ORDER BY s.wordle_number
+        """, (player_id, season_start))
+
+        # Group scores by 7-day week blocks from season_start
+        week_scores = {}
+        for wn, sc in cursor.fetchall():
+            ws = wn - ((wn - season_start) % 7)
+            if ws not in week_scores:
+                week_scores[ws] = []
+            week_scores[ws].append(sc)
+
+        # Determine current week start (the week containing today's scores)
+        current_week_start = None
+        if this_week_scores:
+            # Current week start = highest week-start wordle that has scores in standings
+            all_ws = sorted(week_scores.keys())
+            if all_ws:
+                current_week_start = all_ws[-1]
+
+        # Sum best-N from each PAST week (exclude current week)
+        past_total = 0
+        for ws, scores in week_scores.items():
+            if current_week_start and ws >= current_week_start:
+                continue
+            valid = sorted([s for s in scores if s < 7])
+            best_n = sum(valid[:min_scores]) if valid else 0
+            past_total += best_n
+
+        # Add current week's live best-N total from standings
+        current_week_score = this_week_scores.get(player_name, 0)
+        totals[player_name] = past_total + current_week_score
+
+    return totals
 
 def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_info, min_scores,
                                      div1_weekly_wins=None, div2_weekly_wins=None,
                                      div1_standings=None, div2_standings=None):
     """Check relegation (Div I) / promotion (Div II) outlook when a season could end this week.
     Uses weekly_wins (already incremented with pending win) to identify likely clinchers.
+    Season totals are calculated from raw scores (best-N per week), matching the public page.
     Returns info text to append to scenario, or empty string."""
     warnings = []
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Build a lookup of current-week scores from standings so we can add them to season totals
+        # Build a lookup of current-week best-N scores from standings
         div1_this_week = {}
         if div1_standings:
             for s in div1_standings:
@@ -412,39 +466,20 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
             div1_clinchers = {name for name, wins in div1_weekly_wins.items() if wins >= DIVISION_WINS_FOR_SEASON}
 
         if div1_start and div1_clinchers:
-            # Get existing season winners (from prior seasons, in case they're still in div)
+            # Get existing season winners + likely clinchers = exempt from relegation
             cursor.execute("""
                 SELECT p.name FROM season_winners sw
                 JOIN players p ON sw.player_id = p.id
                 WHERE sw.league_id = %s AND sw.division = 1 AND sw.season_number = %s
             """, (league_id, div1_season))
             existing_winners = {r[0] for r in cursor.fetchall()}
-            # Combine with likely clinchers from this week
             exempt_names = existing_winners | div1_clinchers
 
-            # Get Div I players' season totals from weekly_winners (past weeks)
-            cursor.execute("""
-                SELECT p.name, COALESCE(SUM(ww.score), 0) as season_total
-                FROM players p
-                LEFT JOIN weekly_winners ww ON ww.player_name = p.name
-                    AND ww.league_id = %s AND ww.division = 1
-                    AND ww.week_wordle_number >= %s
-                WHERE p.league_id = %s AND p.division = 1 AND p.active = TRUE
-                    AND p.division_immunity = FALSE
-                GROUP BY p.name
-                ORDER BY season_total DESC
-            """, (league_id, div1_start, league_id))
-            all_div1 = cursor.fetchall()
+            # Calculate true season totals from raw scores (best-N per week)
+            all_totals = _calc_season_totals(cursor, league_id, 1, div1_start, min_scores, div1_this_week)
 
-            # Add current week's score to each player's season total
-            candidates = []
-            for name, past_total in all_div1:
-                if name in exempt_names:
-                    continue
-                current_week_score = div1_this_week.get(name, 0)
-                full_total = past_total + current_week_score
-                candidates.append((name, full_total))
-
+            # Build candidates list (exclude exempt players)
+            candidates = [(name, total) for name, total in all_totals.items() if name not in exempt_names]
             # Sort worst (highest total) first
             candidates.sort(key=lambda x: -x[1])
 
@@ -452,64 +487,42 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
             relegated_count = cursor.fetchone()[0]
 
             if candidates:
-                # Check for tie at the relegation boundary
-                # The worst `relegated_count` players get relegated
                 if len(candidates) > relegated_count:
                     boundary_total = candidates[relegated_count - 1][1]
                     tied_at_boundary = [c for c in candidates if c[1] == boundary_total]
                     if len(tied_at_boundary) > relegated_count:
                         names = ' and '.join(c[0] for c in tied_at_boundary)
-                        warnings.append(f"Relegation drama: {names} are tied at Season Total {boundary_total} for relegation — a random draw would decide who moves down! 😮")
+                        warnings.append(f"Relegation drama: {names} tied at Season Total {boundary_total} for relegation — a random draw would decide who moves down! 😮")
                     else:
-                        # Clear-cut relegation
                         relegated = candidates[:relegated_count]
                         rel_names = ' and '.join(c[0] for c in relegated)
                         if relegated_count == 1:
-                            warnings.append(f"Relegation: {rel_names} (Season Total {relegated[0][1]}) would be relegated to Division II.")
+                            warnings.append(f"Relegation: If the season ends, {rel_names} (Season Total {relegated[0][1]}) would be relegated to Division II.")
                         else:
-                            warnings.append(f"Relegation: {rel_names} would be relegated to Division II.")
+                            warnings.append(f"Relegation: If the season ends, {rel_names} would be relegated to Division II.")
                 elif len(candidates) == relegated_count:
                     rel_names = ' and '.join(c[0] for c in candidates)
-                    warnings.append(f"Relegation: {rel_names} would be relegated to Division II.")
+                    warnings.append(f"Relegation: If the season ends, {rel_names} would be relegated to Division II.")
 
         # --- Div II promotion check ---
         cursor.execute("SELECT COALESCE(promoted_count, 1) FROM leagues WHERE id = %s", (league_id,))
         promoted_count = cursor.fetchone()[0]
         div2_season = div2_season_info.get('current_season', 1)
         div2_start = div2_season_info.get('season_start_week')
-        # Only relevant if someone could clinch Div II this week
         div2_clinchers = set()
         if div2_weekly_wins:
             div2_clinchers = {name for name, wins in div2_weekly_wins.items() if wins >= DIVISION_WINS_FOR_SEASON}
 
         if div2_start and div2_clinchers:
-            # Season winner(s) always get promoted
             promoted_so_far = list(div2_clinchers)
             extra_spots = promoted_count - len(promoted_so_far)
 
             if extra_spots > 0:
-                # Get remaining Div II players' season totals (lower is better)
-                cursor.execute("""
-                    SELECT p.name, COALESCE(SUM(ww.score), 999) as season_total
-                    FROM players p
-                    LEFT JOIN weekly_winners ww ON ww.player_name = p.name
-                        AND ww.league_id = %s AND ww.division = 2
-                        AND ww.week_wordle_number >= %s
-                    WHERE p.league_id = %s AND p.division = 2 AND p.active = TRUE
-                    GROUP BY p.name
-                    ORDER BY season_total ASC
-                """, (league_id, div2_start, league_id))
-                all_div2 = cursor.fetchall()
+                # Calculate true season totals from raw scores for Div II
+                all_totals = _calc_season_totals(cursor, league_id, 2, div2_start, min_scores, div2_this_week)
 
-                # Add current week scores and exclude clinchers
-                remaining = []
-                for name, past_total in all_div2:
-                    if name in div2_clinchers:
-                        continue
-                    current_week_score = div2_this_week.get(name, 0)
-                    full_total = past_total + current_week_score
-                    remaining.append((name, full_total))
-                # Sort best (lowest total) first
+                # Exclude clinchers, sort best (lowest) first
+                remaining = [(name, total) for name, total in all_totals.items() if name not in div2_clinchers]
                 remaining.sort(key=lambda x: x[1])
 
                 if remaining:
@@ -518,19 +531,17 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
                         tied_at_boundary = [r for r in remaining if r[1] == boundary_total]
                         if len(tied_at_boundary) > extra_spots:
                             names = ' and '.join(r[0] for r in tied_at_boundary)
-                            warnings.append(f"Promotion alert: {names} are tied at Season Total {boundary_total} for the extra promotion spot — a random draw would decide who also moves up!")
+                            warnings.append(f"Promotion alert: {names} tied at Season Total {boundary_total} for the extra promotion spot — a random draw would decide who also moves up!")
                         else:
                             extra_promoted = remaining[:extra_spots]
                             extra_names = ' and '.join(r[0] for r in extra_promoted)
                             clincher_names = ' and '.join(promoted_so_far)
-                            warnings.append(f"Promotion: {clincher_names} wins the season, and {extra_names} would also earn promotion to Division I!")
+                            warnings.append(f"Promotion: {clincher_names} wins the season, and {extra_names} (Season Total {extra_promoted[0][1]}) would also earn promotion to Division I!")
                     else:
-                        # All remaining fit in extra spots
                         extra_names = ' and '.join(r[0] for r in remaining)
                         clincher_names = ' and '.join(promoted_so_far)
                         warnings.append(f"Promotion: {clincher_names} wins the season, and {extra_names} would also earn promotion to Division I!")
             elif promoted_count == 1 and len(promoted_so_far) == 1:
-                # Just the winner gets promoted, mention it clearly
                 pass  # Already handled by SEASON CLINCH text in build_division_scenario
 
     except Exception as e:
