@@ -697,6 +697,8 @@ def check_division_season_transition(league_id, division):
     cursor = conn.cursor()
     
     try:
+        min_scores = get_league_min_scores(league_id, conn=conn)
+
         # Get current division season info
         cursor.execute("""
             SELECT current_season, season_start_week
@@ -809,25 +811,56 @@ def check_division_season_transition(league_id, division):
 
             if len(promoted_names) < promoted_count:
                 # Need more players promoted beyond the winner(s)
-                # Get remaining Div II players ranked by season performance
-                winner_name_list = promoted_names[:]
-                placeholders = ','.join(['%s'] * len(winner_name_list))
-
-                cursor.execute(f"""
-                    SELECT p.name,
-                           COALESCE(SUM(ww.score), 999) as season_total,
-                           COUNT(ww.id) as win_count
-                    FROM players p
-                    LEFT JOIN weekly_winners ww ON ww.player_name = p.name
-                        AND ww.league_id = %s AND ww.division = 2
-                        AND ww.week_wordle_number >= %s AND ww.week_wordle_number <= %s
+                # Get remaining Div II players and calculate true season totals from raw scores
+                winner_name_set = set(promoted_names)
+                cursor.execute("""
+                    SELECT p.id, p.name FROM players p
                     WHERE p.league_id = %s AND p.division = 2 AND p.active = TRUE
-                        AND p.name NOT IN ({placeholders})
-                    GROUP BY p.name
-                    ORDER BY season_total ASC, win_count DESC
-                """, (league_id, season_start, last_week, league_id, *winner_name_list))
+                """, (league_id,))
+                div2_players = cursor.fetchall()
 
-                candidates = cursor.fetchall()
+                candidates = []
+                for pid, pname in div2_players:
+                    if pname in winner_name_set:
+                        continue
+
+                    # Get all raw scores in the ended season
+                    cursor.execute("""
+                        SELECT s.wordle_number, s.score FROM scores s
+                        WHERE s.player_id = %s AND s.wordle_number >= %s AND s.wordle_number <= %s
+                        ORDER BY s.wordle_number
+                    """, (pid, season_start, last_week))
+
+                    # Group by week, sum best-N per week
+                    week_scores = {}
+                    for wn, sc in cursor.fetchall():
+                        ws = wn - ((wn - season_start) % 7)
+                        if ws not in week_scores:
+                            week_scores[ws] = []
+                        week_scores[ws].append(sc)
+
+                    season_total = 0
+                    w = season_start
+                    while w <= last_week:
+                        scores_in_week = week_scores.get(w, [])
+                        valid = sorted([s for s in scores_in_week if s < 7])
+                        season_total += sum(valid[:min_scores]) if valid else 0
+                        w += 7
+
+                    # Get win count for tiebreaker
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM weekly_winners
+                        WHERE league_id = %s AND division = 2
+                          AND player_name = %s AND week_wordle_number >= %s
+                          AND week_wordle_number <= %s
+                    """, (league_id, pname, season_start, last_week))
+                    win_count = cursor.fetchone()[0]
+
+                    candidates.append((pname, season_total, win_count))
+                    logging.info(f"  Promotion candidate: {pname} - season_total={season_total}, wins={win_count}")
+
+                # Sort: best (lowest) season total first, then most wins
+                candidates.sort(key=lambda x: (x[1], -x[2]))
                 spots_remaining = promoted_count - len(promoted_names)
 
                 i = 0
@@ -979,7 +1012,7 @@ def check_division1_relegation(league_id):
             if player_name in season_winner_names:
                 continue  # Season winner is exempt from relegation
             
-            # Get all scores in the ended season to calculate missed weeks
+            # Get all scores in the ended season to calculate missed weeks AND season total
             cursor.execute("""
                 SELECT s.wordle_number, s.score
                 FROM scores s
@@ -996,25 +1029,20 @@ def check_division1_relegation(league_id):
                     week_scores[ws] = []
                 week_scores[ws].append(sc)
             
-            # Count missed weeks (weeks with < min_scores valid non-fail scores)
+            # Count missed weeks AND calculate true season total (best-N per week, ALL weeks)
             missed = 0
+            total = 0
             w = season_start
             while w <= season_end:
                 scores_in_week = week_scores.get(w, [])
-                valid_count = len([s for s in scores_in_week if s < 7])
+                valid = sorted([s for s in scores_in_week if s < 7])
+                valid_count = len(valid)
                 if valid_count < min_scores:
                     missed += 1
+                # Season total = sum of best-N from each week (even partial weeks count)
+                best_n = sum(valid[:min_scores]) if valid else 0
+                total += best_n
                 w += 7
-            
-            # Season Total from weekly_winners (sum of best-5 totals for won weeks)
-            cursor.execute("""
-                SELECT COALESCE(SUM(score), 0)
-                FROM weekly_winners
-                WHERE league_id = %s AND division = 1 
-                  AND player_name = %s AND week_wordle_number >= %s
-                  AND week_wordle_number <= %s
-            """, (league_id, player_name, season_start, season_end))
-            total = cursor.fetchone()[0]
             
             # Count weekly wins for tiebreaker
             cursor.execute("""
