@@ -19,6 +19,11 @@ LEGACY_LEAGUE_IDS = {1, 3, 4, 7, 8, 19}
 # SMS pricing: player_count -> cents/month
 SMS_PRICE_MAP = {4: 800, 5: 1000, 6: 1200, 7: 1400, 8: 1600, 9: 1800}
 
+# SMS bundle tiers (player_count + AI included)
+SMS_BUNDLES = {
+    'sms_9_ai': {'price_cents': 2000, 'player_count': 9, 'ai_included': True},
+}
+
 # Slack tiers
 SLACK_TIERS = {
     'slack_1': {'price_cents': 500, 'league_slots': 1, 'ai_included': False},
@@ -477,6 +482,10 @@ def check_ai_messaging_enabled(league_id):
         tier_info = SLACK_TIERS.get(plan_tier, {})
         if tier_info.get('ai_included'):
             return True
+        # Check SMS bundles (e.g. sms_9_ai)
+        bundle_info = SMS_BUNDLES.get(plan_tier, {})
+        if bundle_info.get('ai_included'):
+            return True
         if has_addon:
             return True
 
@@ -605,6 +614,8 @@ def _on_checkout_completed(session):
         if plan_type == 'slack':
             tier_info = SLACK_TIERS.get(plan_tier, {})
             ai_addon = tier_info.get('ai_included', False)
+        elif plan_tier in SMS_BUNDLES:
+            ai_addon = SMS_BUNDLES[plan_tier].get('ai_included', False)
 
         # Get price ID from the subscription
         price_id = sub['items']['data'][0]['price']['id'] if sub['items']['data'] else ''
@@ -636,7 +647,10 @@ def _on_checkout_completed(session):
 
                 # Set max_players for SMS leagues based on tier
                 if plan_type == 'sms':
-                    player_count = int(plan_tier.replace('sms_', ''))
+                    if plan_tier in SMS_BUNDLES:
+                        player_count = SMS_BUNDLES[plan_tier]['player_count']
+                    else:
+                        player_count = int(plan_tier.replace('sms_', ''))
                     cursor.execute(
                         "UPDATE leagues SET max_players = %s WHERE id = %s",
                         (player_count, league_id)
