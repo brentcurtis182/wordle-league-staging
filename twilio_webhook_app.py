@@ -9120,6 +9120,159 @@ def fix_all_season_starts():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/admin/api/league-state/<int:league_id>')
+def admin_league_state(league_id):
+    """Read-only endpoint returning comprehensive league state for debugging.
+    Includes division info, standings, season wins, season totals, player details."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # League settings
+        cursor.execute("""
+            SELECT id, display_name, division_mode, division_locked,
+                   COALESCE(promoted_count, 1), COALESCE(relegated_count, 1),
+                   COALESCE(min_weekly_scores, 5), channel_type, slug
+            FROM leagues WHERE id = %s
+        """, (league_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'League not found'}), 404
+
+        league = {
+            'id': row[0], 'display_name': row[1], 'division_mode': row[2],
+            'division_locked': row[3], 'promoted_count': row[4],
+            'relegated_count': row[5], 'min_weekly_scores': row[6],
+            'channel_type': row[7], 'slug': row[8]
+        }
+
+        # Players
+        cursor.execute("""
+            SELECT id, name, division, division_immunity, division_joined_week, active
+            FROM players WHERE league_id = %s AND active = TRUE
+            ORDER BY division NULLS LAST, name
+        """, (league_id,))
+        players = [{'id': r[0], 'name': r[1], 'division': r[2],
+                     'immunity': r[3] or False, 'joined_week': r[4], 'active': r[5]}
+                   for r in cursor.fetchall()]
+
+        result = {'league': league, 'players': players}
+
+        if league['division_mode']:
+            # Division season info
+            cursor.execute("""
+                SELECT division, current_season, season_start_week
+                FROM division_seasons WHERE league_id = %s ORDER BY division
+            """, (league_id,))
+            div_seasons = {r[0]: {'current_season': r[1], 'season_start_week': r[2]}
+                          for r in cursor.fetchall()}
+            result['division_seasons'] = div_seasons
+
+            # Per-division weekly wins in current season
+            div_wins = {}
+            for div_num in (1, 2):
+                ds = div_seasons.get(div_num)
+                if ds and ds['season_start_week']:
+                    cursor.execute("""
+                        SELECT player_name, COUNT(*) as wins
+                        FROM weekly_winners
+                        WHERE league_id = %s AND division = %s AND week_wordle_number >= %s
+                        GROUP BY player_name ORDER BY wins DESC
+                    """, (league_id, div_num, ds['season_start_week']))
+                    div_wins[div_num] = {r[0]: r[1] for r in cursor.fetchall()}
+            result['division_weekly_wins'] = div_wins
+
+            # Season totals (from raw scores, matching public page)
+            min_scores = league['min_weekly_scores']
+            from league_data_adapter import calculate_wordle_number, get_week_start_date
+            current_week_start = calculate_wordle_number(get_week_start_date())
+
+            div_season_totals = {}
+            for div_num in (1, 2):
+                ds = div_seasons.get(div_num)
+                if not ds or not ds['season_start_week']:
+                    continue
+                season_start = ds['season_start_week']
+                div_players = [p for p in players if p['division'] == div_num]
+                totals = {}
+                for p in div_players:
+                    if p['immunity']:
+                        totals[p['name']] = 'Immune' if div_num == 1 else 'Relegated'
+                        continue
+                    cursor.execute("""
+                        SELECT s.wordle_number, s.score FROM scores s
+                        WHERE s.player_id = %s AND s.wordle_number >= %s
+                        ORDER BY s.wordle_number
+                    """, (p['id'], season_start))
+                    week_scores = {}
+                    for wn, sc in cursor.fetchall():
+                        ws = wn - ((wn - season_start) % 7)
+                        if ws not in week_scores:
+                            week_scores[ws] = []
+                        week_scores[ws].append(sc)
+                    total = 0
+                    w = season_start
+                    while w <= current_week_start:
+                        scores_in_week = week_scores.get(w, [])
+                        valid = sorted([s for s in scores_in_week if s < 7])
+                        total += sum(valid[:min_scores]) if valid else 0
+                        w += 7
+                    totals[p['name']] = total
+                div_season_totals[div_num] = dict(sorted(totals.items(), key=lambda x: x[1] if isinstance(x[1], int) else 9999))
+            result['season_totals'] = div_season_totals
+
+            # Recent season winners
+            cursor.execute("""
+                SELECT p.name, sw.season_number, sw.wins, sw.division, sw.completed_date
+                FROM season_winners sw JOIN players p ON sw.player_id = p.id
+                WHERE sw.league_id = %s AND sw.division IS NOT NULL
+                ORDER BY sw.completed_date DESC NULLS LAST LIMIT 10
+            """, (league_id,))
+            result['recent_season_winners'] = [
+                {'name': r[0], 'season': r[1], 'wins': r[2], 'division': r[3],
+                 'date': r[4].isoformat() if r[4] else None}
+                for r in cursor.fetchall()
+            ]
+
+        else:
+            # Standard mode
+            cursor.execute("""
+                SELECT current_season, season_start_week
+                FROM league_seasons WHERE league_id = %s
+            """, (league_id,))
+            ls = cursor.fetchone()
+            if ls:
+                result['current_season'] = ls[0]
+                cursor.execute("""
+                    SELECT player_name, COUNT(*) as wins
+                    FROM weekly_winners
+                    WHERE league_id = %s AND week_wordle_number >= %s
+                    GROUP BY player_name ORDER BY wins DESC
+                """, (league_id, ls[1]))
+                result['season_wins'] = {r[0]: r[1] for r in cursor.fetchall()}
+
+        # This week's standings (current week)
+        from league_data_adapter import calculate_wordle_number, get_week_start_date
+        current_week = calculate_wordle_number(get_week_start_date())
+        cursor.execute("""
+            SELECT player_name, score, division
+            FROM weekly_winners
+            WHERE league_id = %s AND week_wordle_number = %s
+        """, (league_id, current_week))
+        this_week_winners = [{'name': r[0], 'score': r[1], 'division': r[2]} for r in cursor.fetchall()]
+        result['this_week_recorded_winners'] = this_week_winners
+
+        cursor.close()
+        conn.close()
+        return jsonify(result)
+
+    except Exception as e:
+        logging.error(f"Error in league-state endpoint: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
