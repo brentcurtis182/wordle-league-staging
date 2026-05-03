@@ -4359,6 +4359,118 @@ def billing_portal():
         return redirect('/dashboard/membership?error=Could not open billing portal')
 
 
+@app.route('/billing/change-plan', methods=['POST'])
+def billing_change_plan():
+    """Change an existing subscription to a different tier (upgrade/downgrade)."""
+    from auth import validate_session, get_config
+    import stripe as stripe_mod
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    subscription_id = request.form.get('subscription_id')
+    new_tier = request.form.get('new_tier')
+
+    if not subscription_id or not new_tier:
+        return redirect('/dashboard/membership?error=Missing plan selection')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the Stripe subscription ID and verify ownership
+        cursor.execute("""
+            SELECT stripe_subscription_id, plan_tier, plan_type FROM subscriptions
+            WHERE id = %s AND user_id = %s AND status = 'active'
+        """, (subscription_id, user['id']))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return redirect('/dashboard/membership?error=Subscription not found')
+
+        stripe_sub_id, current_tier, plan_type = row
+
+        if new_tier == current_tier:
+            return redirect('/dashboard/membership?error=Already on this plan')
+
+        # Get the new price ID from admin_config
+        new_price_id = get_config(f'stripe_price_{new_tier}')
+        if not new_price_id:
+            return redirect(f'/dashboard/membership?error=Price not configured for {new_tier}')
+
+        # Fetch the subscription to get the current item ID
+        stripe_mod.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        current_sub = stripe_mod.Subscription.retrieve(stripe_sub_id)
+
+        # Find the main plan item (not the AI addon)
+        main_item = None
+        for item in current_sub['items']['data']:
+            # The main item is the one that's NOT the AI addon
+            ai_price_id = get_config('stripe_price_sms_ai')
+            if item['price']['id'] != ai_price_id:
+                main_item = item
+                break
+
+        if not main_item:
+            return redirect('/dashboard/membership?error=Could not find current plan item')
+
+        # Swap the price on the existing subscription item
+        stripe_mod.SubscriptionItem.modify(
+            main_item['id'],
+            price=new_price_id,
+            proration_behavior='always_invoice',
+        )
+
+        # If switching to sms_9_ai bundle and currently has separate AI addon, remove the addon
+        from billing import SMS_BUNDLES
+        if new_tier in SMS_BUNDLES and SMS_BUNDLES[new_tier].get('ai_included'):
+            ai_price_id = get_config('stripe_price_sms_ai')
+            for item in current_sub['items']['data']:
+                if item['price']['id'] == ai_price_id:
+                    stripe_mod.SubscriptionItem.delete(item['id'], proration_behavior='always_invoice')
+                    break
+
+        # Update our DB
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Determine new AI status
+        has_ai = new_tier in SMS_BUNDLES and SMS_BUNDLES[new_tier].get('ai_included')
+
+        # Determine new max_players for SMS
+        if plan_type == 'sms':
+            if new_tier in SMS_BUNDLES:
+                new_max = SMS_BUNDLES[new_tier]['player_count']
+            else:
+                new_max = int(new_tier.replace('sms_', ''))
+
+            # Update max_players on assigned leagues
+            cursor.execute("""
+                UPDATE leagues SET max_players = %s
+                WHERE id IN (SELECT league_id FROM subscription_leagues WHERE subscription_id = %s)
+            """, (new_max, subscription_id))
+
+        cursor.execute("""
+            UPDATE subscriptions SET plan_tier = %s, stripe_price_id = %s,
+                   ai_messaging_addon = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (new_tier, new_price_id, has_ai, subscription_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logging.info(f"Plan changed: sub {subscription_id} from {current_tier} to {new_tier} for user {user['id']}")
+        return redirect('/dashboard/membership?message=Plan updated! Prorated charge applied.')
+
+    except Exception as e:
+        logging.error(f"Error changing plan: {e}")
+        return redirect(f'/dashboard/membership?error=Failed to change plan: {str(e)}')
+
+
 @app.route('/billing/add-ai-addon', methods=['POST'])
 def billing_add_ai_addon():
     """Add AI messaging addon ($3/mo) to an existing SMS subscription."""

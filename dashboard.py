@@ -6303,6 +6303,48 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 </form>
                 """
 
+            # Change Plan selector
+            change_plan_html = ""
+            if sub['status'] == 'active':
+                if sub['plan_type'] == 'sms':
+                    options = ""
+                    sms_tiers = [('sms_4', '4 Players — $8/mo'), ('sms_5', '5 Players — $10/mo'), ('sms_6', '6 Players — $12/mo'), ('sms_7', '7 Players — $14/mo'), ('sms_8', '8 Players — $16/mo'), ('sms_9', '9 Players — $18/mo'), ('sms_9_ai', '9 Players + AI — $20/mo')]
+                    for tier_val, tier_label in sms_tiers:
+                        if tier_val == tier:
+                            options += f'<option value="{tier_val}" selected disabled>{tier_label} (current)</option>'
+                        else:
+                            options += f'<option value="{tier_val}">{tier_label}</option>'
+                    change_plan_html = f"""
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid {COLORS['border']};">
+                        <form method="POST" action="/billing/change-plan" style="display: flex; gap: 8px; align-items: center;">
+                            <input type="hidden" name="subscription_id" value="{sub['id']}">
+                            <select name="new_tier" style="flex: 1; padding: 8px 12px; border-radius: 6px; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; font-size: 0.85em;">
+                                {options}
+                            </select>
+                            <button type="submit" class="btn btn-primary" style="font-size: 0.85em; white-space: nowrap;">Change Plan</button>
+                        </form>
+                    </div>
+                    """
+                elif sub['plan_type'] == 'slack':
+                    options = ""
+                    slack_tiers = [('slack_1', '1 League — $5/mo'), ('slack_1_ai', '1 League + AI — $7/mo'), ('slack_2', '2 Leagues + AI — $10/mo'), ('slack_5', '5 Leagues + AI — $20/mo')]
+                    for tier_val, tier_label in slack_tiers:
+                        if tier_val == tier:
+                            options += f'<option value="{tier_val}" selected disabled>{tier_label} (current)</option>'
+                        else:
+                            options += f'<option value="{tier_val}">{tier_label}</option>'
+                    change_plan_html = f"""
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid {COLORS['border']};">
+                        <form method="POST" action="/billing/change-plan" style="display: flex; gap: 8px; align-items: center;">
+                            <input type="hidden" name="subscription_id" value="{sub['id']}">
+                            <select name="new_tier" style="flex: 1; padding: 8px 12px; border-radius: 6px; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; font-size: 0.85em;">
+                                {options}
+                            </select>
+                            <button type="submit" class="btn btn-primary" style="font-size: 0.85em; white-space: nowrap;">Change Plan</button>
+                        </form>
+                    </div>
+                    """
+
             subs_html += f"""
             <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 24px; margin-bottom: 16px; backdrop-filter: blur(20px);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -6317,6 +6359,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 </div>
                 {leagues_html}
                 {ai_addon_html}
+                {change_plan_html}
             </div>
             """
 
@@ -6325,7 +6368,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             <h2 style="color: {COLORS['accent']}; margin-bottom: 16px;">Your Subscriptions</h2>
             {subs_html}
             <form method="POST" action="/billing/portal" style="margin-top: 16px;">
-                <button type="submit" class="btn btn-secondary" style="width: 100%;">Manage Subscriptions (Upgrade, Downgrade, Cancel)</button>
+                <button type="submit" class="btn btn-secondary" style="width: 100%;">Cancel Subscription / Update Payment Method</button>
             </form>
         </div>
         """
