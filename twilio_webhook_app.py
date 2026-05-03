@@ -2604,17 +2604,36 @@ def dashboard():
     
     return render_dashboard(user, leagues, shared_leagues=shared_leagues, message=message, error=error)
 
+@app.route('/dashboard/membership')
+def dashboard_membership():
+    """League Membership page — manage subscriptions and plans"""
+    from auth import validate_session
+    from billing import get_user_subscriptions
+    from dashboard import render_membership_page
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    subscriptions = get_user_subscriptions(user['id'])
+    message = request.args.get('message')
+    error = request.args.get('error')
+
+    return render_membership_page(user, subscriptions, message=message, error=error)
+
+
 @app.route('/dashboard/profile')
 def dashboard_profile():
     """User profile page"""
     from auth import validate_session, get_user_details, get_user_leagues, get_active_session_count
     from dashboard import render_profile_page
-    
+
     session_token = request.cookies.get('session_token')
     user = validate_session(session_token)
     if not user:
         return redirect('/auth/login')
-    
+
     user_details = get_user_details(user['id'])
     leagues = get_user_leagues(user['id'])
     active_sessions = get_active_session_count(user['id'])

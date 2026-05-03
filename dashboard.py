@@ -32,6 +32,7 @@ def get_user_menu_html(user_name, user_email, show_dashboard_link=False, user_ro
     """Return the user icon dropdown menu HTML"""
     dashboard_link = f'<a href="/dashboard">Dashboard</a>' if show_dashboard_link else ''
     admin_link = f'<a href="/admin/dashboard" style="color: {COLORS["accent_orange"]};">Admin</a>' if user_role == 'admin' else ''
+    membership_link = f'<a href="/dashboard/membership">League Membership</a>'
     return f'''
         <div class="user-menu">
             <div class="user-menu-btn" onclick="toggleUserMenu(event)">
@@ -41,6 +42,7 @@ def get_user_menu_html(user_name, user_email, show_dashboard_link=False, user_ro
                 <div class="user-dropdown-name">{user_email}</div>
                 {dashboard_link}
                 {admin_link}
+                {membership_link}
                 <a href="/dashboard/profile">Profile</a>
                 <a href="/auth/logout" class="logout-link">Logout</a>
             </div>
@@ -6246,8 +6248,364 @@ def render_admin_twilio_reports(user, monthly_data):
 
 
 # ---------------------------------------------------------------------------
-# Billing Pages
+# Billing / League Membership Pages
 # ---------------------------------------------------------------------------
+
+def render_membership_page(user, subscriptions, message=None, error=None):
+    """Render the League Membership page — subscription management and plan selection."""
+    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+
+    # Build active subscriptions section
+    if subscriptions:
+        subs_html = ""
+        for sub in subscriptions:
+            status_color = COLORS['success'] if sub['status'] == 'active' else COLORS['accent_orange'] if sub['status'] == 'past_due' else COLORS['error']
+            status_label = sub['status'].replace('_', ' ').title()
+            period_end = sub['current_period_end'].strftime('%b %d, %Y') if sub.get('current_period_end') else '—'
+            cancel_note = ' (cancels at period end)' if sub.get('cancel_at_period_end') else ''
+
+            # Plan display name
+            tier = sub['plan_tier']
+            if tier.startswith('sms_') and tier.endswith('_ai'):
+                plan_display = f"SMS 9-Player + AI Messaging"
+            elif tier.startswith('sms_'):
+                count = tier.replace('sms_', '')
+                plan_display = f"SMS {count}-Player League"
+            elif tier == 'slack_1':
+                plan_display = "Slack — 1 League"
+            elif tier == 'slack_1_ai':
+                plan_display = "Slack — 1 League + AI"
+            elif tier == 'slack_2':
+                plan_display = "Slack — 2 Leagues + AI"
+            elif tier == 'slack_5':
+                plan_display = "Slack — 5 Leagues + AI"
+            else:
+                plan_display = tier
+
+            ai_badge = f'<span style="background: {COLORS["accent"]}20; color: {COLORS["accent"]}; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; margin-left: 8px;">AI Messaging</span>' if sub.get('ai_messaging_addon') or 'ai' in tier else ''
+
+            # Assigned leagues
+            leagues_html = ""
+            if sub.get('leagues'):
+                for lg in sub['leagues']:
+                    leagues_html += f'<div style="padding: 6px 12px; background: {COLORS["bg_dark"]}; border-radius: 6px; margin-top: 6px; font-size: 0.9em; color: {COLORS["text_muted"]};">• {lg["display_name"] or lg["name"]}</div>'
+            else:
+                leagues_html = f'<div style="padding: 6px 12px; color: {COLORS["text_muted"]}; font-size: 0.85em; font-style: italic;">No league assigned yet — activate a league to use this slot</div>'
+
+            subs_html += f"""
+            <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 24px; margin-bottom: 16px; backdrop-filter: blur(20px);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div>
+                        <strong style="color: {COLORS['text']}; font-size: 1.1em;">{plan_display}</strong>
+                        {ai_badge}
+                    </div>
+                    <span style="color: {status_color}; font-size: 0.85em; font-weight: 600;">{status_label}{cancel_note}</span>
+                </div>
+                <div style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-bottom: 12px;">
+                    Renews: {period_end}
+                </div>
+                {leagues_html}
+            </div>
+            """
+
+        subscriptions_section = f"""
+        <div style="margin-bottom: 40px;">
+            <h2 style="color: {COLORS['accent']}; margin-bottom: 16px;">Your Subscriptions</h2>
+            {subs_html}
+            <form method="POST" action="/billing/portal" style="margin-top: 16px;">
+                <button type="submit" class="btn btn-secondary" style="width: 100%;">Manage Subscriptions (Upgrade, Downgrade, Cancel)</button>
+            </form>
+        </div>
+        """
+    else:
+        subscriptions_section = f"""
+        <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 32px; margin-bottom: 40px; text-align: center; backdrop-filter: blur(20px);">
+            <h2 style="color: {COLORS['accent']}; margin-bottom: 12px;">No Active Subscriptions</h2>
+            <p style="color: {COLORS['text_muted']};">You don't have any league subscriptions yet. Choose a plan below to get started!</p>
+        </div>
+        """
+
+    # Message/error banners
+    msg_html = ''
+    if message:
+        msg_html = f'<div style="background: {COLORS["success"]}20; border: 1px solid {COLORS["success"]}; color: {COLORS["text"]}; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">{message}</div>'
+    if error:
+        msg_html = f'<div style="background: {COLORS["error"]}20; border: 1px solid {COLORS["error"]}; color: {COLORS["text"]}; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">{error}</div>'
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>League Membership - WordPlayLeague.com</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            {get_base_styles()}
+            .membership-container {{
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 24px 16px 60px;
+            }}
+            .page-title {{
+                color: {COLORS['text']};
+                font-size: 1.8em;
+                margin-bottom: 8px;
+            }}
+            .page-subtitle {{
+                color: {COLORS['text_muted']};
+                margin-bottom: 32px;
+            }}
+            .plan-section {{
+                margin-bottom: 40px;
+            }}
+            .plan-section h3 {{
+                color: {COLORS['text']};
+                margin-bottom: 16px;
+                font-size: 1.2em;
+            }}
+            .plan-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+            }}
+            .plan-card {{
+                background: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 12px;
+                padding: 24px;
+                text-align: center;
+                backdrop-filter: blur(20px);
+                transition: border-color 0.2s;
+            }}
+            .plan-card:hover {{
+                border-color: {COLORS['accent']};
+            }}
+            .plan-card.featured {{
+                border-color: {COLORS['accent']};
+                position: relative;
+            }}
+            .plan-card.featured::before {{
+                content: 'BEST VALUE';
+                position: absolute;
+                top: -10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: {COLORS['accent']};
+                color: #000;
+                font-size: 0.7em;
+                font-weight: 700;
+                padding: 2px 10px;
+                border-radius: 10px;
+            }}
+            .plan-price {{
+                font-size: 2em;
+                font-weight: 700;
+                color: {COLORS['text']};
+                margin: 12px 0 4px;
+            }}
+            .plan-price span {{
+                font-size: 0.4em;
+                color: {COLORS['text_muted']};
+                font-weight: 400;
+            }}
+            .plan-features {{
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+                margin: 12px 0 20px;
+                line-height: 1.6;
+            }}
+            .btn {{
+                display: inline-block;
+                padding: 10px 20px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                font-size: 0.9em;
+                transition: opacity 0.2s;
+            }}
+            .btn:hover {{ opacity: 0.85; }}
+            .btn-primary {{
+                background: {COLORS['accent']};
+                color: #000;
+            }}
+            .btn-secondary {{
+                background: transparent;
+                border: 1px solid {COLORS['border']};
+                color: {COLORS['text']};
+                padding: 10px 20px;
+            }}
+            .btn-secondary:hover {{
+                border-color: {COLORS['accent']};
+                color: {COLORS['accent']};
+            }}
+            .addon-note {{
+                background: {COLORS['bg_dark']};
+                border-radius: 8px;
+                padding: 16px;
+                margin-top: 16px;
+                color: {COLORS['text_muted']};
+                font-size: 0.85em;
+            }}
+            .addon-note strong {{
+                color: {COLORS['accent']};
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="membership-container">
+            {user_menu}
+            <h1 class="page-title">League Membership</h1>
+            <p class="page-subtitle">Manage your league subscriptions and plans.</p>
+
+            {msg_html}
+            {subscriptions_section}
+
+            <!-- SMS Plans -->
+            <div class="plan-section">
+                <h3>📱 SMS League Plans</h3>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 16px; font-size: 0.9em;">One subscription per league. Choose based on how many players you want.</p>
+                <div class="plan-grid">
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">4 Players</div>
+                        <div class="plan-price">$8<span>/mo</span></div>
+                        <div class="plan-features">Up to 4 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_4">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">5 Players</div>
+                        <div class="plan-price">$10<span>/mo</span></div>
+                        <div class="plan-features">Up to 5 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_5">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">6 Players</div>
+                        <div class="plan-price">$12<span>/mo</span></div>
+                        <div class="plan-features">Up to 6 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_6">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">7 Players</div>
+                        <div class="plan-price">$14<span>/mo</span></div>
+                        <div class="plan-features">Up to 7 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_7">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">8 Players</div>
+                        <div class="plan-price">$16<span>/mo</span></div>
+                        <div class="plan-features">Up to 8 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_8">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">9 Players</div>
+                        <div class="plan-price">$18<span>/mo</span></div>
+                        <div class="plan-features">Up to 9 players<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_9">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card featured">
+                        <div style="color: {COLORS['accent']}; font-size: 0.85em; font-weight: 600;">9 Players + AI</div>
+                        <div class="plan-price">$20<span>/mo</span></div>
+                        <div class="plan-features">Up to 9 players<br>All AI messaging included<br><em>Save $1 vs. separate</em></div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="sms">
+                            <input type="hidden" name="plan_tier" value="sms_9_ai">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="addon-note">
+                    <strong>+ AI Messaging Addon:</strong> $3/mo per league — Unlocks Perfect Score Congrats, Failure Roast, and Monday Recap. Can be added to any SMS plan. Sunday Race Update is always included free.
+                </div>
+            </div>
+
+            <!-- Slack Plans -->
+            <div class="plan-section">
+                <h3>💬 Slack League Plans</h3>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 16px; font-size: 0.9em;">Up to 14 players per league, no limit on player count.</p>
+                <div class="plan-grid">
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">1 League</div>
+                        <div class="plan-price">$5<span>/mo</span></div>
+                        <div class="plan-features">1 Slack league<br>Sunday Race Update included<br>AI messaging not included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="slack">
+                            <input type="hidden" name="plan_tier" value="slack_1">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">1 League + AI</div>
+                        <div class="plan-price">$7<span>/mo</span></div>
+                        <div class="plan-features">1 Slack league<br>All AI messaging included<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="slack">
+                            <input type="hidden" name="plan_tier" value="slack_1_ai">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card featured">
+                        <div style="color: {COLORS['accent']}; font-size: 0.85em; font-weight: 600;">2 Leagues + AI</div>
+                        <div class="plan-price">$10<span>/mo</span></div>
+                        <div class="plan-features">2 Slack leagues<br>All AI messaging included<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="slack">
+                            <input type="hidden" name="plan_tier" value="slack_2">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                    <div class="plan-card">
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.85em;">5 Leagues + AI</div>
+                        <div class="plan-price">$20<span>/mo</span></div>
+                        <div class="plan-features">5 Slack leagues<br>All AI messaging included<br>Sunday Race Update included</div>
+                        <form method="POST" action="/billing/checkout">
+                            <input type="hidden" name="plan_type" value="slack">
+                            <input type="hidden" name="plan_tier" value="slack_5">
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info section -->
+            <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 24px; backdrop-filter: blur(20px);">
+                <h3 style="color: {COLORS['text']}; margin-bottom: 12px;">How It Works</h3>
+                <div style="color: {COLORS['text_muted']}; font-size: 0.9em; line-height: 1.8;">
+                    <p><strong style="color: {COLORS['text']};">1.</strong> Choose a plan that fits your league size.</p>
+                    <p><strong style="color: {COLORS['text']};">2.</strong> Subscribe securely through Stripe — we never see your card details.</p>
+                    <p><strong style="color: {COLORS['text']};">3.</strong> Activate your league and start playing!</p>
+                    <p style="margin-top: 12px;"><strong style="color: {COLORS['text']};">Slot system:</strong> Your subscription gives you league slots. Delete a league? The slot stays — use it for a new league anytime.</p>
+                    <p><strong style="color: {COLORS['text']};">Easy cancel:</strong> Cancel anytime from Manage Subscriptions. No hoops, no hassle.</p>
+                </div>
+            </div>
+        </div>
+        {get_user_menu_script()}
+    </body>
+    </html>
+    """
 
 def render_billing_success_page(user, session_id):
     """Render the post-checkout success page."""
