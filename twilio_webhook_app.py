@@ -4109,7 +4109,12 @@ def admin_dashboard():
         create_auth_tables()
     except Exception:
         pass
-    
+    try:
+        from billing import create_billing_tables
+        create_billing_tables()
+    except Exception:
+        pass
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -4268,13 +4273,147 @@ def admin_config_update():
     key = data.get('key')
     value = data.get('value')
 
-    allowed_keys = ('discord_enabled',)
+    allowed_keys = ('discord_enabled', 'payment_required')
     if key not in allowed_keys:
         return jsonify({'success': False, 'error': f'Unknown config key: {key}'}), 400
 
     result = set_config(key, value)
     logging.info(f"Admin config updated: {key} = {value} (by user {user['id']})")
     return jsonify({'success': result})
+
+
+# ---------------------------------------------------------------------------
+# Billing / Stripe Routes
+# ---------------------------------------------------------------------------
+
+@app.route('/billing/checkout', methods=['POST'])
+def billing_checkout():
+    """Create a Stripe Checkout session and redirect to Stripe."""
+    from auth import validate_session
+    from billing import create_checkout_session
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    plan_type = request.form.get('plan_type')  # 'sms' or 'slack'
+    plan_tier = request.form.get('plan_tier')  # e.g. 'sms_5', 'slack_2'
+    league_id = request.form.get('league_id')  # optional
+
+    if not plan_type or not plan_tier:
+        return redirect('/dashboard/membership?error=Missing plan selection')
+
+    try:
+        checkout_url = create_checkout_session(
+            user_id=user['id'],
+            email=user['email'],
+            plan_type=plan_type,
+            plan_tier=plan_tier,
+            league_id=league_id,
+        )
+        return redirect(checkout_url)
+    except Exception as e:
+        logging.error(f"Error creating checkout session: {e}")
+        return redirect(f'/dashboard/membership?error=Payment setup failed: {str(e)}')
+
+
+@app.route('/billing/portal', methods=['POST'])
+def billing_portal():
+    """Create a Stripe Customer Portal session for managing subscriptions."""
+    from auth import validate_session
+    from billing import create_customer_portal_session
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    try:
+        portal_url = create_customer_portal_session(
+            user_id=user['id'],
+            email=user['email'],
+        )
+        return redirect(portal_url)
+    except Exception as e:
+        logging.error(f"Error creating portal session: {e}")
+        return redirect('/dashboard/membership?error=Could not open billing portal')
+
+
+@app.route('/billing/webhook', methods=['POST'])
+def billing_webhook():
+    """Stripe webhook endpoint — receives subscription lifecycle events."""
+    from billing import handle_webhook_event
+
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature', '')
+
+    success, message = handle_webhook_event(payload, sig_header)
+
+    if success:
+        return jsonify({'status': 'ok'}), 200
+    else:
+        logging.error(f"Webhook error: {message}")
+        return jsonify({'error': message}), 400
+
+
+@app.route('/billing/success')
+def billing_success():
+    """Post-checkout success page."""
+    from auth import validate_session
+    from dashboard import render_billing_success_page
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    session_id = request.args.get('session_id', '')
+    return render_billing_success_page(user, session_id)
+
+
+@app.route('/billing/cancel')
+def billing_cancel():
+    """Post-checkout cancellation page (user backed out of Stripe)."""
+    from auth import validate_session
+    from dashboard import render_billing_cancel_page
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    return render_billing_cancel_page(user)
+
+
+@app.route('/api/billing/status/<int:league_id>')
+def api_billing_status(league_id):
+    """JSON API: get billing status for a league."""
+    from auth import validate_session
+    from billing import get_league_subscription_status, is_legacy_league, get_player_limit_for_league, check_ai_messaging_enabled
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Get league channel type
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel_type FROM leagues WHERE id = %s", (league_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    channel_type = row[0] if row else 'sms'
+
+    return jsonify({
+        'league_id': league_id,
+        'is_legacy': is_legacy_league(league_id),
+        'subscription_status': get_league_subscription_status(league_id),
+        'player_limit': get_player_limit_for_league(league_id, channel_type),
+        'ai_messaging_enabled': check_ai_messaging_enabled(league_id),
+    })
 
 
 @app.route('/admin/league/<int:league_id>')

@@ -6243,3 +6243,153 @@ def render_admin_twilio_reports(user, monthly_data):
     </body>
     </html>
     """
+
+
+# ---------------------------------------------------------------------------
+# Billing Pages
+# ---------------------------------------------------------------------------
+
+def render_billing_success_page(user, session_id):
+    """Render the post-checkout success page."""
+    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payment Successful - Wordle League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            {get_base_styles()}
+            .success-card {{
+                background: {COLORS['bg_card']};
+                border: 1px solid {COLORS['success']};
+                border-radius: 16px;
+                padding: 48px;
+                text-align: center;
+                max-width: 500px;
+                margin: 80px auto;
+                backdrop-filter: blur(20px);
+            }}
+            .success-icon {{
+                font-size: 3em;
+                margin-bottom: 16px;
+            }}
+            .success-card h2 {{
+                color: {COLORS['success']};
+                margin-bottom: 12px;
+            }}
+            .success-card p {{
+                color: {COLORS['text_muted']};
+                margin-bottom: 24px;
+            }}
+            .btn {{
+                display: inline-block;
+                padding: 12px 24px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                font-size: 1em;
+            }}
+            .btn-primary {{
+                background: {COLORS['accent']};
+                color: #000;
+            }}
+            .btn-secondary {{
+                background: transparent;
+                border: 1px solid {COLORS['border']};
+                color: {COLORS['text']};
+                margin-left: 12px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            {user_menu}
+            <div class="success-card">
+                <div class="success-icon">✅</div>
+                <h2>Payment Successful!</h2>
+                <p>Your subscription is now active. You can activate your league or manage your plan from League Membership.</p>
+                <a href="/dashboard/membership" class="btn btn-primary">Go to League Membership</a>
+                <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+        {get_user_menu_script()}
+    </body>
+    </html>
+    """
+
+
+def render_billing_cancel_page(user):
+    """Render the post-checkout cancellation page (user backed out)."""
+    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payment Cancelled - Wordle League</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            {get_base_styles()}
+            .cancel-card {{
+                background: {COLORS['bg_card']};
+                border: 1px solid {COLORS['accent_orange']};
+                border-radius: 16px;
+                padding: 48px;
+                text-align: center;
+                max-width: 500px;
+                margin: 80px auto;
+                backdrop-filter: blur(20px);
+            }}
+            .cancel-icon {{
+                font-size: 3em;
+                margin-bottom: 16px;
+            }}
+            .cancel-card h2 {{
+                color: {COLORS['accent_orange']};
+                margin-bottom: 12px;
+            }}
+            .cancel-card p {{
+                color: {COLORS['text_muted']};
+                margin-bottom: 24px;
+            }}
+            .btn {{
+                display: inline-block;
+                padding: 12px 24px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                font-size: 1em;
+            }}
+            .btn-primary {{
+                background: {COLORS['accent']};
+                color: #000;
+            }}
+            .btn-secondary {{
+                background: transparent;
+                border: 1px solid {COLORS['border']};
+                color: {COLORS['text']};
+                margin-left: 12px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            {user_menu}
+            <div class="cancel-card">
+                <div class="cancel-icon">↩️</div>
+                <h2>Payment Not Completed</h2>
+                <p>No worries — no charge was made. You can try again anytime from League Membership.</p>
+                <a href="/dashboard/membership" class="btn btn-primary">Back to League Membership</a>
+                <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+        {get_user_menu_script()}
+    </body>
+    </html>
+    """
