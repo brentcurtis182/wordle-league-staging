@@ -4359,6 +4359,75 @@ def billing_portal():
         return redirect('/dashboard/membership?error=Could not open billing portal')
 
 
+@app.route('/billing/add-ai-addon', methods=['POST'])
+def billing_add_ai_addon():
+    """Add AI messaging addon ($3/mo) to an existing SMS subscription."""
+    from auth import validate_session, get_config
+    from billing import STRIPE_WEBHOOK_SECRET
+    import stripe as stripe_mod
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return redirect('/auth/login')
+
+    subscription_id = request.form.get('subscription_id')
+    if not subscription_id:
+        return redirect('/dashboard/membership?error=Missing subscription')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the Stripe subscription ID and verify ownership
+        cursor.execute("""
+            SELECT stripe_subscription_id FROM subscriptions
+            WHERE id = %s AND user_id = %s AND status = 'active'
+        """, (subscription_id, user['id']))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return redirect('/dashboard/membership?error=Subscription not found')
+
+        stripe_sub_id = row[0]
+
+        # Get the AI addon price ID from config
+        ai_price_id = get_config('stripe_price_sms_ai')
+        if not ai_price_id:
+            return redirect('/dashboard/membership?error=AI addon price not configured')
+
+        # Add the AI price as a new line item to the existing subscription
+        stripe_mod.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        # Fetch current subscription to get existing items
+        current_sub = stripe_mod.Subscription.retrieve(stripe_sub_id)
+        # Add the AI addon as an additional item (keeps existing items intact)
+        stripe_mod.SubscriptionItem.create(
+            subscription=stripe_sub_id,
+            price=ai_price_id,
+            proration_behavior='create_prorations',
+        )
+
+        # Update our DB
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE subscriptions SET ai_messaging_addon = TRUE, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (subscription_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logging.info(f"Added AI messaging addon to subscription {subscription_id} for user {user['id']}")
+        return redirect('/dashboard/membership?message=AI Messaging added! Your league now has all AI features enabled.')
+
+    except Exception as e:
+        logging.error(f"Error adding AI addon: {e}")
+        return redirect(f'/dashboard/membership?error=Failed to add AI addon: {str(e)}')
+
+
 @app.route('/billing/webhook', methods=['POST'])
 def billing_webhook():
     """Stripe webhook endpoint — receives subscription lifecycle events."""

@@ -6292,6 +6292,17 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             else:
                 leagues_html = f'<div style="padding: 6px 12px; color: {COLORS["text_muted"]}; font-size: 0.85em; font-style: italic;">No league assigned yet — activate a league to use this slot</div>'
 
+            # AI addon button for SMS plans that don't have AI
+            ai_addon_html = ""
+            has_ai = sub.get('ai_messaging_addon') or 'ai' in tier
+            if sub['plan_type'] == 'sms' and not has_ai and sub['status'] == 'active':
+                ai_addon_html = f"""
+                <form method="POST" action="/billing/add-ai-addon" style="margin-top: 12px;">
+                    <input type="hidden" name="subscription_id" value="{sub['id']}">
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.85em;">+ Add AI Messaging ($3/mo)</button>
+                </form>
+                """
+
             subs_html += f"""
             <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 24px; margin-bottom: 16px; backdrop-filter: blur(20px);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -6305,6 +6316,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     Renews: {period_end}
                 </div>
                 {leagues_html}
+                {ai_addon_html}
             </div>
             """
 
@@ -6455,6 +6467,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
     <body>
         <div class="membership-container">
             {user_menu}
+            <a href="/dashboard" style="color: {COLORS['text_muted']}; text-decoration: none; font-size: 0.9em; display: inline-block; margin-bottom: 16px;">&larr; Back to Dashboard</a>
             <h1 class="page-title">League Membership</h1>
             <p class="page-subtitle">Manage your league subscriptions and plans.</p>
 
