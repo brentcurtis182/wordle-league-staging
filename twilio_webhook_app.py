@@ -4406,7 +4406,7 @@ def billing_add_ai_addon():
         stripe_mod.SubscriptionItem.create(
             subscription=stripe_sub_id,
             price=ai_price_id,
-            proration_behavior='create_prorations',
+            proration_behavior='always_invoice',
         )
 
         # Update our DB
