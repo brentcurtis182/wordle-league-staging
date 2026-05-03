@@ -6661,6 +6661,37 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             </div>
         </div>
         {get_user_menu_script()}
+        <script>
+            // Loading spinner for all billing forms
+            document.querySelectorAll('form[action^="/billing"]').forEach(function(form) {{
+                form.addEventListener('submit', function() {{
+                    var btn = form.querySelector('button[type="submit"]');
+                    if (btn && !btn.disabled) {{
+                        btn.disabled = true;
+                        btn.dataset.originalText = btn.textContent;
+                        btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="billing-spinner"></span>Processing...</span>';
+                    }}
+                }});
+            }});
+        </script>
+        <style>
+            .billing-spinner {{
+                display: inline-block;
+                width: 14px;
+                height: 14px;
+                border: 2px solid rgba(0,0,0,0.2);
+                border-top-color: #000;
+                border-radius: 50%;
+                animation: billing-spin 0.6s linear infinite;
+            }}
+            .btn-secondary .billing-spinner {{
+                border-color: rgba(255,255,255,0.2);
+                border-top-color: {COLORS['accent']};
+            }}
+            @keyframes billing-spin {{
+                to {{ transform: rotate(360deg); }}
+            }}
+        </style>
     </body>
     </html>
     """
