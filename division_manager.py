@@ -816,6 +816,7 @@ def check_division_season_transition(league_id, division):
                 cursor.execute("""
                     SELECT p.id, p.name FROM players p
                     WHERE p.league_id = %s AND p.division = 2 AND p.active = TRUE
+                        AND p.division_immunity = FALSE
                 """, (league_id,))
                 div2_players = cursor.fetchall()
 
