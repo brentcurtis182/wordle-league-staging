@@ -8312,6 +8312,41 @@ def admin_twilio_reports():
                     months[start]['phone_numbers'] += price
                     months[start]['phone_numbers_count'] += count
 
+        # Override current month with live Records.json data (Monthly.json can lag)
+        import pytz
+        pacific = pytz.timezone('America/Los_Angeles')
+        now_pacific = datetime.now(pacific)
+        current_month_key = now_pacific.strftime('%Y-%m')
+        current_start_date = now_pacific.replace(day=1).strftime('%Y-%m-%d')
+        live_base = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Usage/Records.json"
+        live_month = {
+            'mms_in_count': 0, 'mms_out_count': 0,
+            'mms_in_price': 0.0, 'mms_out_price': 0.0,
+            'carrier_fees': 0.0, 'a2p_registration': 0.0,
+            'phone_numbers': 0.0, 'phone_numbers_count': 0,
+        }
+        for cat_name in categories:
+            try:
+                url = f"{live_base}?Category={cat_name}&StartDate={current_start_date}"
+                resp = http_requests.get(url, auth=auth, timeout=10)
+                if resp.status_code == 200:
+                    for r in resp.json().get('usage_records', []):
+                        c = int(r.get('count', 0))
+                        p = float(r.get('price', 0))
+                        if cat_name == 'mms-inbound':
+                            live_month['mms_in_count'] += c; live_month['mms_in_price'] += p
+                        elif cat_name == 'mms-outbound':
+                            live_month['mms_out_count'] += c; live_month['mms_out_price'] += p
+                        elif cat_name == 'mms-messages-carrierfees':
+                            live_month['carrier_fees'] += p
+                        elif cat_name == 'a2p-registration-fees':
+                            live_month['a2p_registration'] += p
+                        elif cat_name == 'phonenumbers':
+                            live_month['phone_numbers'] += p; live_month['phone_numbers_count'] += c
+            except Exception as e:
+                logging.warning(f"Live usage fetch for current month failed for {cat_name}: {e}")
+        months[current_month_key] = live_month
+
         # Convert to sorted list (newest first)
         monthly_data = []
         for month_key in sorted(months.keys(), reverse=True):
