@@ -306,11 +306,13 @@ def get_last_week_results(league_id):
         # Per-league configurable minimum scores per week
         min_scores = get_league_min_scores(league_id, conn=conn)
 
-        # Get league display name
-        cursor.execute("SELECT display_name, slug FROM leagues WHERE id = %s", (league_id,))
+        # Get league display name and division settings
+        cursor.execute("SELECT display_name, slug, COALESCE(promoted_count, 1), COALESCE(relegated_count, 1) FROM leagues WHERE id = %s", (league_id,))
         league_info = cursor.fetchone()
         league_display_name = league_info[0] if league_info else f"League {league_id}"
         league_slug = league_info[1] if league_info else f"league{league_id}"
+        promoted_count = league_info[2] if league_info else 1
+        relegated_count = league_info[3] if league_info else 1
 
         # Get recent division movements (promotions/relegations from this week)
         division_movements = []
@@ -361,6 +363,8 @@ def get_last_week_results(league_id):
             'division_current_seasons': division_current_seasons,
             'division_movements': division_movements,
             'min_scores': min_scores,
+            'promoted_count': promoted_count,
+            'relegated_count': relegated_count,
         }
         
     except Exception as e:
@@ -428,21 +432,32 @@ def send_monday_recap(league_id):
                     scenario_parts.append(f"{div_label} Season {div_season_num} standings: {standings_text}")
             
             # Division season clinch announcements
+            promoted_count = results.get('promoted_count', 1)
+            relegated_count = results.get('relegated_count', 1)
             for clinch in div_clinched:
                 if clinch.get('promoted'):
-                    scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! A new season begins!")
+                    if promoted_count > 1:
+                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! The top {promoted_count} players get promoted. A new season begins!")
+                    else:
+                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins and earns a PROMOTION to Division I! A new season begins!")
                 else:
-                    scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The worst Season Total player in Division I gets RELEGATED to Division II. A new season begins!")
+                    if relegated_count > 1:
+                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The {relegated_count} players with the worst Season Totals in Division I get RELEGATED to Division II. A new season begins!")
+                    else:
+                        scenario_parts.append(f"🏆 {clinch['division_label']} SEASON CHAMPION: {clinch['name']} clinched {clinch['division_label']} Season {clinch['season_number']} with {clinch['wins']} wins! The player with the worst Season Total in Division I gets RELEGATED to Division II. A new season begins!")
 
             # Division movement announcements (promotions/relegations with randomization info)
             movements = results.get('division_movements', [])
+            # Track season winner names so we don't double-announce their promotion
+            clinch_names = {c['name'] for c in div_clinched if c.get('promoted')}
             for mv in movements:
                 name = mv['player_name']
                 if mv['movement_type'] == 'promotion' and mv['randomized']:
-                    scenario_parts.append(f"⬆️ PROMOTION (Random Draw): {name} was promoted to Division I! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
+                    scenario_parts.append(f"⬆️ PROMOTION (Random Draw): {name} was also promoted to Division I! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
                 elif mv['movement_type'] == 'promotion' and not mv['randomized']:
-                    # Season winner promotion is already covered by clinch text above
-                    pass
+                    if name not in clinch_names:
+                        # Extra promotion slot (best season total) — announce it
+                        scenario_parts.append(f"⬆️ PROMOTION: {name} also earns promotion to Division I with the best Season Total among remaining Division II players!")
                 elif mv['movement_type'] == 'relegation' and mv['randomized']:
                     scenario_parts.append(f"⬇️ RELEGATION (Random Draw): {name} was relegated to Division II! {name} was tied at a Season Total of {mv['tied_score']} with {mv['tied_with']} — decided by random draw.")
                 elif mv['movement_type'] == 'relegation' and not mv['randomized']:
@@ -512,19 +527,18 @@ def send_monday_recap(league_id):
             system_msg = """You are an exciting sports announcer for a Wordle league with DIVISIONS doing a Monday morning recap. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
 
 IMPORTANT RULES:
-1. Announce each division's weekly WINNER separately - Division I first, then Division II
+1. Announce each division's weekly WINNER separately - Division I first, then Division II.
 2. If someone clinched a DIVISION SEASON (3 weekly wins), make it a HUGE celebration!
-3. Division II season winners get PROMOTED to Division I! When a Division I season ends, the worst Season Total player gets RELEGATED to Division II.
-4. Mention back-to-back wins, win streaks, or first wins if provided
-5. Keep the tone exciting and celebratory
-6. Use emojis for excitement
-7. Don't invent stats or names - only use what's provided
-8. A best-5 total is the sum of their 5 best daily scores that week (lower = better)
-9. Structure: Division I recap, then Division II recap, then shared stats
-10. Use line breaks between divisions
-11. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
-12. NEVER invent win counts, season standings, or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all.
-13. NEVER claim someone "clinched" a season or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
+3. Division II season winners get PROMOTED to Division I. Extra players can also be promoted based on best Season Total (lowest cumulative weekly scores). When a Div I season ends, the player(s) with the worst Season Total get RELEGATED to Div II. Missed weeks put a player first in line for relegation.
+4. If a PROMOTION or RELEGATION announcement appears, mention it! These are BIG moments.
+5. Mention back-to-back wins, win streaks, or first wins if provided.
+6. Keep the tone exciting and celebratory. Use emojis!
+7. Don't invent stats or names - only use what's provided.
+8. A best-N total is the sum of a player's N best daily scores that week (lower = better). N varies per league.
+9. Structure: Division I recap, then Division II recap, then shared stats. Use line breaks between divisions.
+10. ABSOLUTELY FORBIDDEN PHRASES unless explicitly in the scenario: "locked", "out of contention", "eliminated", "in the hunt", "miracle comeback".
+11. NEVER invent win counts, season standings, or "X wins this season" claims unless those exact numbers appear in the scenario text.
+12. NEVER claim someone "clinched" or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
         
         elif results['season_just_clinched']:
             prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} THE SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the season champion! Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."

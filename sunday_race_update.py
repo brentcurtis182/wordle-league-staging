@@ -840,9 +840,14 @@ RACE ANALYSIS:
 {scenario_text}"""
 
             has_season_stakes = div1_has_stakes or div2_has_stakes
+            has_movement_stakes = "Relegation:" in scenario_text or "Promotion:" in scenario_text or "Relegation drama:" in scenario_text or "Promotion alert:" in scenario_text
             
-            if has_season_stakes:
-                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 400 characters. Lower scores are better in Wordle."
+            if has_season_stakes and has_movement_stakes:
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES AND THE RELEGATION/PROMOTION STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+            elif has_season_stakes:
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
+            elif has_movement_stakes:
+                prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} MENTION THE RELEGATION/PROMOTION STAKES! Make it exciting with emojis! Keep it under 500 characters. Lower scores are better in Wordle."
             else:
                 prompt = f"It's Sunday morning Wordle race update for a league with DIVISIONS! Give a brief update for EACH division separately. {div_context} Make it exciting with emojis! Keep it under 400 characters. Lower scores are better in Wordle."
             
@@ -864,9 +869,10 @@ ACCURACY RULES:
 7. If NO "SEASON WINS" section exists for a division, do NOT mention season wins at all.
 8. Use emojis for excitement!
 9. Division I first, then Division II. Line break between them.
-10. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Div I season end = worst player RELEGATED.
-11. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
-12. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
+10. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Extra players can also be promoted based on best Season Total. Div I season end = worst Season Total player(s) RELEGATED to Div II. Missed weeks put a player first in line for relegation.
+11. If "Relegation:" or "Promotion:" text appears in RACE ANALYSIS, mention it! These are the STAKES. Convey who's in line and why.
+12. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
+13. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
@@ -874,7 +880,7 @@ ACCURACY RULES:
                     {"role": "system", "content": sunday_system_msg},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=300,
+                max_tokens=400,
                 temperature=0.3
             )
             
