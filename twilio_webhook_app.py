@@ -9120,6 +9120,41 @@ def fix_all_season_starts():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/admin/api/query')
+def admin_sql_query():
+    """Read-only SQL query endpoint. Only SELECT statements allowed.
+    Usage: /admin/api/query?q=SELECT ...
+    Returns JSON with columns and rows."""
+    try:
+        sql = request.args.get('q', '').strip()
+        if not sql:
+            return jsonify({'error': 'Missing q parameter'}), 400
+
+        # Safety: only allow SELECT statements
+        sql_upper = sql.upper().lstrip()
+        forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE',
+                      'GRANT', 'REVOKE', 'EXEC', 'EXECUTE', 'COPY', 'SET ', 'VACUUM']
+        if not sql_upper.startswith('SELECT') and not sql_upper.startswith('WITH'):
+            return jsonify({'error': 'Only SELECT/WITH queries allowed'}), 403
+        for word in forbidden:
+            if word in sql_upper:
+                return jsonify({'error': f'Forbidden keyword: {word.strip()}'}), 403
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        columns = [desc[0] for desc in cursor.description] if cursor.description else []
+        rows = []
+        for row in cursor.fetchall():
+            rows.append({col: (val.isoformat() if hasattr(val, 'isoformat') else val)
+                        for col, val in zip(columns, row)})
+        cursor.close()
+        conn.close()
+        return jsonify({'columns': columns, 'rows': rows, 'count': len(rows)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/admin/api/league-state/<int:league_id>')
 def admin_league_state(league_id):
     """Read-only endpoint returning comprehensive league state for debugging.
