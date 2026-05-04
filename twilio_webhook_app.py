@@ -22,6 +22,20 @@ logging.basicConfig(
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-in-production')
 
+# Protect all debug/diagnostic endpoints with admin auth
+PROTECTED_PREFIXES = ('/debug-', '/list-all-tables', '/list-files', '/check-table-schema',
+                      '/check-league', '/check-all-weekly', '/check-last-week',
+                      '/send-message-to-league', '/setup-')
+
+@app.before_request
+def guard_debug_endpoints():
+    if request.path.startswith(PROTECTED_PREFIXES):
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user or not user.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+
 # Base URL for links (uses Railway's public domain, falls back to production)
 APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
 
@@ -4799,6 +4813,11 @@ def admin_league_detail(league_id):
 @app.route('/admin/test-daily-loser/<int:league_id>')
 def admin_test_daily_loser(league_id):
     """Test endpoint to manually trigger daily loser check"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         wordle_num = get_todays_wordle_number()
         
@@ -4827,6 +4846,11 @@ def admin_test_daily_loser(league_id):
 @app.route('/admin/league-debug/<int:league_id>')
 def admin_league_debug(league_id):
     """Debug endpoint to check league settings"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -4865,6 +4889,11 @@ def admin_league_debug(league_id):
 @app.route('/admin/delete-conversation', methods=['POST'])
 def admin_delete_conversation():
     """Delete a Twilio conversation by SID (admin only)"""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         data = request.get_json()
         conversation_sid = data.get('conversation_sid')
@@ -9536,6 +9565,11 @@ def admin_sql_query():
     """Read-only SQL query endpoint. Only SELECT statements allowed.
     Usage: /admin/api/query?q=SELECT ...
     Returns JSON with columns and rows."""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         sql = request.args.get('q', '').strip()
         if not sql:
@@ -9570,6 +9604,11 @@ def admin_sql_query():
 @app.route('/admin/api/relegation-debug/<int:league_id>')
 def admin_relegation_debug(league_id):
     """Dry-run relegation diagnostic — traces every step, returns JSON."""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         from league_data_adapter import get_league_min_scores, calculate_wordle_number, get_week_start_date
         conn = get_db_connection()
@@ -9695,6 +9734,11 @@ def admin_relegation_run(league_id):
 def admin_league_state(league_id):
     """Read-only endpoint returning comprehensive league state for debugging.
     Includes division info, standings, season wins, season totals, player details."""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
