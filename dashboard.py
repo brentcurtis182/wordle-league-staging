@@ -6253,7 +6253,7 @@ def render_admin_twilio_reports(user, monthly_data):
 
 def render_membership_page(user, subscriptions, message=None, error=None):
     """Render the League Membership page — subscription management and plan selection."""
-    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+    user_menu = get_user_menu_html(user.get('name', user.get('email', '')), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
 
     # Build active subscriptions section
     if subscriptions:
@@ -6507,12 +6507,44 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             .addon-note strong {{
                 color: {COLORS['accent']};
             }}
+            .plan-section-toggle {{
+                cursor: pointer;
+                user-select: none;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }}
+            .plan-section-toggle:hover {{
+                color: {COLORS['accent']};
+            }}
+            .toggle-arrow {{
+                font-size: 0.7em;
+                transition: transform 0.2s;
+            }}
+            .plan-section.expanded .toggle-arrow {{
+                transform: rotate(90deg);
+            }}
+            .plan-section-content {{
+                display: none;
+            }}
+            .plan-section.expanded .plan-section-content {{
+                display: block;
+            }}
         </style>
     </head>
     <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-logo-row">
+                    <a href="https://www.wordplayleague.com" class="logo" style="text-decoration: none;">WordPlay<span class="orange">League.com</span></a>
+                </div>
+                <div class="header-nav-row">
+                    {user_menu}
+                </div>
+            </div>
+        </div>
         <div class="membership-container">
-            {user_menu}
-            <a href="/dashboard" style="color: {COLORS['text_muted']}; text-decoration: none; font-size: 0.9em; display: inline-block; margin-bottom: 16px;">&larr; Back to Dashboard</a>
+            <a href="/dashboard" style="color: {COLORS['accent']}; text-decoration: none; font-size: 0.9em; display: inline-block; margin-bottom: 16px;">&larr; Back to Dashboard</a>
             <h1 class="page-title">League Membership</h1>
             <p class="page-subtitle">Manage your league subscriptions and plans.</p>
 
@@ -6521,7 +6553,8 @@ def render_membership_page(user, subscriptions, message=None, error=None):
 
             <!-- SMS Plans -->
             <div class="plan-section">
-                <h3>📱 SMS League Plans</h3>
+                <h3 class="plan-section-toggle" onclick="this.parentElement.classList.toggle('expanded')">📱 SMS League Plans <span class="toggle-arrow">&#9654;</span></h3>
+                <div class="plan-section-content">
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 16px; font-size: 0.9em;">One subscription per league. Choose based on how many players you want.</p>
                 <div class="plan-grid">
                     <div class="plan-card">
@@ -6598,11 +6631,13 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 <div class="addon-note">
                     <strong>+ AI Messaging Addon:</strong> $3/mo per league — Unlocks Perfect Score Congrats, Failure Roast, and Monday Recap. Can be added to any SMS plan. Sunday Race Update is always included free.
                 </div>
+                </div>
             </div>
 
             <!-- Slack Plans -->
             <div class="plan-section">
-                <h3>💬 Slack League Plans</h3>
+                <h3 class="plan-section-toggle" onclick="this.parentElement.classList.toggle('expanded')">💬 Slack League Plans <span class="toggle-arrow">&#9654;</span></h3>
+                <div class="plan-section-content">
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 16px; font-size: 0.9em;">Up to 14 players per league, no limit on player count.</p>
                 <div class="plan-grid">
                     <div class="plan-card">
@@ -6645,6 +6680,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                             <button type="submit" class="btn btn-primary">Subscribe</button>
                         </form>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -6698,7 +6734,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
 
 def render_billing_success_page(user, session_id):
     """Render the post-checkout success page."""
-    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+    user_menu = get_user_menu_html(user.get('name', user.get('email', '')), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
 
     return f"""
     <!DOCTYPE html>
@@ -6771,7 +6807,7 @@ def render_billing_success_page(user, session_id):
 
 def render_billing_cancel_page(user):
     """Render the post-checkout cancellation page (user backed out)."""
-    user_menu = get_user_menu_html(user.get('email', ''), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
+    user_menu = get_user_menu_html(user.get('name', user.get('email', '')), user.get('email', ''), show_dashboard_link=True, user_role=user.get('role', 'user'))
 
     return f"""
     <!DOCTYPE html>
