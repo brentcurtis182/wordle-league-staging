@@ -4,10 +4,22 @@ Dashboard and League Management UI for Wordle League
 """
 
 import os
+import json
 import logging
+from html import escape as html_escape
 from flask import Blueprint, request, jsonify, redirect, make_response
 from auth import login_required, can_manage_league, get_user_leagues, validate_session
 from league_data_adapter import get_db_connection
+
+
+def safe(text):
+    """Escape user-provided text for safe HTML insertion."""
+    return html_escape(str(text)) if text else ''
+
+
+def safe_js(text):
+    """Escape user-provided text for safe insertion in JavaScript strings."""
+    return json.dumps(str(text)) if text else '""'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -2001,12 +2013,8 @@ def _render_division_players(league, players, is_chat_platform):
         identifier_value = phone if not is_chat_platform else (player.get('slack_user_id') or player.get('discord_user_id') or '')
         identifier_display = phone or identifier_empty
         
-        # Escape values for JavaScript
-        name_escaped = name.replace("'", "&#39;").replace('"', "&quot;")
-        identifier_escaped = identifier_value.replace("'", "&#39;").replace('"', "&quot;")
-        
         # Per-player edit button (always visible, opens edit modal for name/phone)
-        edit_btn = f'''<button onclick="editPlayer('{pid}', '{name_escaped}', '{identifier_escaped}')" 
+        edit_btn = f'''<button onclick="editPlayer('{pid}', {safe_js(name)}, {safe_js(identifier_value)})"
             style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
             title="Edit player">✏️</button>'''
         
@@ -2018,8 +2026,8 @@ def _render_division_players(league, players, is_chat_platform):
             margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;"
             ondragstart="dragStart(event)" ondragend="dragEnd(event)">
             <div style="flex: 1; min-width: 0; overflow: hidden;">
-                <div style="font-weight: 500; color: {COLORS['text']};">{name}{badge}</div>
-                <div style="color: {COLORS['text_muted']}; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis;">{identifier_display}</div>
+                <div style="font-weight: 500; color: {COLORS['text']};">{safe(name)}{badge}</div>
+                <div style="color: {COLORS['text_muted']}; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis;">{safe(identifier_display)}</div>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
                 {opt_in_badge}
@@ -2225,24 +2233,23 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         
         # For Slack/Discord: player with edit name + remove
         if is_chat_platform:
-            name_escaped = player['name'].replace("'", "\\'")
             player_rows += f"""
             <div style="background: {COLORS['bg_dark']}; border-radius: 8px; margin-bottom: 8px; padding: 12px 16px;" id="player-{player['id']}">
                 <div id="view-{player['id']}" style="display: flex; align-items: center; justify-content: space-between;">
-                    <span style="font-weight: 500; color: {COLORS['text']};">{player['name']}{pending_badge}</span>
+                    <span style="font-weight: 500; color: {COLORS['text']};">{safe(player['name'])}{pending_badge}</span>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         {opt_in_label}
                         <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player" style="background: none; border: none; cursor: pointer; padding: 4px 8px; font-size: 1.1em;">✏️</button>
-                        <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, '{name_escaped}')" title="Remove player">Remove</button>
+                        <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, {safe_js(player['name'])})" title="Remove player">Remove</button>
                     </div>
                 </div>
                 <div id="edit-{player['id']}" style="display: none;">
                     <form id="form-{player['id']}" class="edit-form" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <input type="hidden" name="player_id" value="{player['id']}">
-                        <input type="text" name="name" value="{player['name']}" style="flex: 1; min-width: 120px; padding: 8px 12px; background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 6px; color: {COLORS['text']}; font-size: 0.95em;" placeholder="Name" maxlength="14">
-                        <input type="hidden" name="identifier" value="{identifier_value}">
+                        <input type="text" name="name" value="{safe(player['name'])}" style="flex: 1; min-width: 120px; padding: 8px 12px; background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 6px; color: {COLORS['text']}; font-size: 0.95em;" placeholder="Name" maxlength="14">
+                        <input type="hidden" name="identifier" value="{safe(identifier_value)}">
                         <div style="display: flex; gap: 8px;">
-                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{name_escaped}')">Save</button>
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js(player['name'])})">Save</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
                         </div>
                     </form>
@@ -2255,8 +2262,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <!-- Read-only view -->
                 <div class="player-view" id="view-{player['id']}">
                     <div class="player-info">
-                        <div class="name">{player['name']}{pending_badge}</div>
-                        <div class="phone">{identifier_display}</div>
+                        <div class="name">{safe(player['name'])}{pending_badge}</div>
+                        <div class="phone">{safe(identifier_display)}</div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0; margin-left: auto;">
                         {opt_in_label}
@@ -2270,12 +2277,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <form id="form-{player['id']}" class="edit-form">
                         <input type="hidden" name="player_id" value="{player['id']}">
                         <div class="edit-fields">
-                            <input type="text" name="name" value="{player['name']}" class="edit-input" placeholder="Name" maxlength="14">
-                            <input type="text" name="identifier" value="{identifier_value}" class="edit-input" placeholder="{identifier_placeholder}">
+                            <input type="text" name="name" value="{safe(player['name'])}" class="edit-input" placeholder="Name" maxlength="14">
+                            <input type="text" name="identifier" value="{safe(identifier_value)}" class="edit-input" placeholder="{identifier_placeholder}">
                         </div>
                         <div class="edit-actions">
-                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, '{player['name']}')">Save</button>
-                            <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, '{player['name']}')">Remove</button>
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js(player['name'])})">Save</button>
+                            <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, {safe_js(player['name'])})">Remove</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
                         </div>
                     </form>
@@ -2625,7 +2632,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <h2>📝 League Settings</h2>
                 <div class="form-group">
                     <label>League Display Name</label>
-                    <input type="text" id="leagueDisplayName" value="{league['display_name']}" required>
+                    <input type="text" id="leagueDisplayName" value="{safe(league['display_name'])}" required>
                 </div>
                 <div class="form-group">
                     <label>Minimum Weekly Scores</label>
@@ -3128,7 +3135,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 <p style="color: {COLORS['error']}; font-weight: 600; margin-bottom: 16px;">This action CANNOT be undone!</p>
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label>Type the league name to confirm:</label>
-                    <input type="text" id="deleteLeagueConfirmName" placeholder="{league['display_name']}" style="width: 100%;">
+                    <input type="text" id="deleteLeagueConfirmName" placeholder="{safe(league['display_name'])}" style="width: 100%;">
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="closeDeleteLeagueModal()">Cancel</button>
@@ -3710,7 +3717,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             // Delete League functions
-            const leagueNameToConfirm = "{league['display_name']}";
+            const leagueNameToConfirm = {safe_js(league['display_name'])};
             
             function showDeleteLeagueModal() {{
                 document.getElementById('deleteLeagueModal').classList.add('active');

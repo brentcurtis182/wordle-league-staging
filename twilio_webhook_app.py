@@ -2352,9 +2352,10 @@ def auth_login():
         if result['success']:
             response = make_response(redirect('/dashboard'))
             logging.info(f"Setting session cookie: {result['session_token'][:20]}...")
-            response.set_cookie('session_token', result['session_token'], 
+            response.set_cookie('session_token', result['session_token'],
                               max_age=30*24*60*60,  # 30 days
                               httponly=True,
+                              secure=True,
                               samesite='Lax')
             return response
         elif result.get('error') == 'email_not_verified':
@@ -2562,6 +2563,7 @@ def auth_google_callback():
             response.set_cookie('session_token', result['session_token'],
                               max_age=30*24*60*60,
                               httponly=True,
+                              secure=True,
                               samesite='Lax')
             return response
         else:
@@ -5141,18 +5143,22 @@ def dashboard_message_config(league_id):
     
     if not message_type:
         return jsonify({'success': False, 'error': 'Missing message_type'}), 400
-    
+
+    VALID_MESSAGE_TYPES = {'perfect_score_congrats', 'failure_roast', 'daily_loser', 'monday_recap', 'sunday_race_update', 'message'}
+    if message_type not in VALID_MESSAGE_TYPES:
+        return jsonify({'success': False, 'error': 'Invalid message_type'}), 400
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # Check ai_filter — if ON, force severity to Gentle and strip player overrides
         cursor.execute("SELECT COALESCE(ai_filter, FALSE) FROM leagues WHERE id = %s", (league_id,))
         filter_row = cursor.fetchone()
         ai_filter_on = filter_row and filter_row[0]
         if ai_filter_on:
             severity = 4  # Force Gentle
-        
+
         # Update league-level severity for this message type
         severity_column = f"ai_{message_type}_severity"
         cursor.execute(f"""
