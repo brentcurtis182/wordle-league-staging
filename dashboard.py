@@ -2581,22 +2581,17 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card" style="position: relative;">
                 {f'<span id="linkStatusBadge" style="position: absolute; top: 16px; right: 16px; background: #2ECC71; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">🔗 Linked</span>' if payment_required and linked_subscription else f'<span id="linkStatusBadge" style="position: absolute; top: 16px; right: 16px; background: {COLORS["accent_orange"]}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">⚠ Unlinked</span>' if payment_required and requires_payment else ''}
                 <h2>⚙️ {league['display_name']}</h2>
-                <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; justify-content: space-between;">
-                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
-                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                            {f'<span style="color: {COLORS["text_muted"]};">Channel: #{league["channel_name"]}</span>' if league.get('channel_name') else ''}
-                            <span style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 4px 10px; border-radius: 12px; font-size: 0.8em;">
-                                {'📱 SMS' if channel_type == 'sms' else '💬 Slack' if channel_type == 'slack' else '🎮 Discord'}
-                            </span>
-                            <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
-                                {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
-                            </span>
-                        </div>
-                        {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;" onclick="handleActivateClick()">{"Activate" if channel_type == "sms" else "Connect Channel"}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
-                        {f'<a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get("RAILWAY_PUBLIC_DOMAIN", "app.wordplayleague.com")}/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
-                    </div>
-                    {f'<div style="background: {COLORS["accent_orange"]}; color: #000; padding: 8px 14px; border-radius: 8px; font-size: 0.8em; font-weight: 600; text-align: center; line-height: 1.4;"><div>{_waiting_opt_in_count} Waiting</div><div>OPT-IN</div></div>' if _waiting_opt_in_count > 0 else ''}
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    {f'<span style="color: {COLORS["text_muted"]};">Channel: #{league["channel_name"]}</span>' if league.get('channel_name') else ''}
+                    <span style="background: {COLORS['bg_dark']}; color: {COLORS['text']}; padding: 4px 10px; border-radius: 12px; font-size: 0.8em;">
+                        {'📱 SMS' if channel_type == 'sms' else '💬 Slack' if channel_type == 'slack' else '🎮 Discord'}
+                    </span>
+                    <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
+                        {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
+                    </span>
                 </div>
+                {f'<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">' + f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="handleActivateClick()">{"Activate" if channel_type == "sms" else "Connect Channel"}</button>' + (f'<div style="background: {COLORS["accent_orange"]}; color: #000; padding: 8px 14px; border-radius: 8px; font-size: 0.8em; font-weight: 600; text-align: center; line-height: 1.4;"><div>{_waiting_opt_in_count} Waiting</div><div>OPT-IN</div></div>' if _waiting_opt_in_count > 0 else '') + '</div>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
+                {f'<div style="margin-top: 8px;"><a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get("RAILWAY_PUBLIC_DOMAIN", "app.wordplayleague.com")}/leagues/{league["slug"]}</a></div>' if league.get('slug') else ''}
                 {f"""
                 <div style="margin-top: 16px; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; border-left: 3px solid {COLORS['accent']};">
                     <p style="margin: 0 0 8px 0; color: {COLORS['text']}; font-weight: 600;">📋 How to Submit Scores</p>
