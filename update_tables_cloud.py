@@ -653,7 +653,15 @@ def run_full_update_for_league(league_id):
                     clear_immunity(league_id, div_num)
                     if div_num == 1:
                         # Division I season ended - relegate worst Season Total player
-                        check_division1_relegation(league_id)
+                        try:
+                            relegation_result = check_division1_relegation(league_id)
+                            logging.info(f"check_division1_relegation for league {league_id} returned: {relegation_result}")
+                            if not relegation_result:
+                                logging.warning(f"Relegation returned False for league {league_id} — no player was relegated. Check relegation-debug endpoint.")
+                        except Exception as rel_err:
+                            import traceback
+                            logging.error(f"RELEGATION EXCEPTION for league {league_id}: {rel_err}")
+                            logging.error(traceback.format_exc())
             
             # If both divisions finished simultaneously, the promoted player
             # doesn't need immunity — everyone starts the new season together

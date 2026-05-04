@@ -9669,6 +9669,28 @@ def admin_relegation_debug(league_id):
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 
+@app.route('/admin/api/relegation-run/<int:league_id>', methods=['POST'])
+def admin_relegation_run(league_id):
+    """Manually trigger relegation for a league. Requires admin session."""
+    from auth import validate_session
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user or not user.get('is_admin'):
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        from division_manager import check_division1_relegation
+        result = check_division1_relegation(league_id)
+        # Re-generate HTML after relegation
+        if result:
+            from update_pipeline import run_update_pipeline
+            run_update_pipeline(league_id)
+        return jsonify({'success': result, 'message': 'Relegation executed' if result else 'No relegation occurred (check relegation-debug for details)'})
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 @app.route('/admin/api/league-state/<int:league_id>')
 def admin_league_state(league_id):
     """Read-only endpoint returning comprehensive league state for debugging.
