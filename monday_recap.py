@@ -424,14 +424,7 @@ def send_monday_recap(league_id):
                 else:
                     scenario_parts.append(f"{div_label} WINNER: {dw[0]['name']} won with a {best_n_label} total of {dw[0]['score']}!")
                 
-                # Per-division season standings
-                dsw = div_season_wins.get(div_num, {})
-                if dsw:
-                    standings = sorted(dsw.items(), key=lambda x: x[1], reverse=True)
-                    top_entries = standings[:4]
-                    standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_entries])
-                    div_season_num = div_seasons.get(div_num, 1)
-                    scenario_parts.append(f"{div_label} Season {div_season_num} standings: {standings_text}")
+                # Division season standings omitted — AI tends to misuse/invent win counts. Standings are on the website.
             
             # Division season clinch announcements
             promoted_count = results.get('promoted_count', 1)
@@ -512,12 +505,7 @@ def send_monday_recap(league_id):
             if results['season_just_clinched']:
                 scenario_parts.append(f"🏆 SEASON CHAMPION: {results['season_clincher_name']} just clinched Season {results['clinched_season_number']} with {results['season_clincher_wins']} weekly wins! This is a HUGE accomplishment - a new season begins!")
             
-            # Standard season standings (skip if season was just clinched — new season just started)
-            if results['season_wins'] and not results['season_just_clinched']:
-                standings = sorted(results['season_wins'].items(), key=lambda x: x[1], reverse=True)
-                top_3 = standings[:3]
-                standings_text = ", ".join([f"{name}: {wins} win{'s' if wins > 1 else ''}" for name, wins in top_3])
-                scenario_parts.append(f"Season {results['current_season']} standings: {standings_text}")
+            # Season standings omitted — AI tends to misuse/invent win counts. Standings are on the website.
         
         # ============================================================
         # Shared stats (both modes)
@@ -544,8 +532,7 @@ def send_monday_recap(league_id):
         if results['perfect_scores']:
             scenario_parts.append(f"Perfect score (1/6) last week by: {', '.join(results['perfect_scores'])}!")
         
-        # Participation
-        scenario_parts.append(f"{results['participating_players']} of {results['total_players']} players participated last week.")
+        # Participation — omitted to keep messages concise
         
         scenario_text = " ".join(scenario_parts)
         logging.info(f"League {league_id} Monday recap scenario: {scenario_text}")
@@ -555,63 +542,44 @@ def send_monday_recap(league_id):
         
         if is_div:
             if has_div_clinch:
-                prompt = f"It's Monday morning! Here's last week's Wordle league recap (DIVISIONS): {scenario_text} A DIVISION SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the champion! Use emojis. Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"Monday recap (DIVISIONS): {scenario_text} Keep it concise — under 300 characters. Just state what happened."
             else:
-                prompt = f"It's Monday morning! Here's last week's Wordle league recap (DIVISIONS): {scenario_text} Announce each division's winner separately! Mention any notable stats. Use emojis. Keep it under 500 characters. Lower scores are better in Wordle."
+                prompt = f"Monday recap (DIVISIONS): {scenario_text} Keep it concise — under 250 characters. Just state what happened."
             
-            system_msg = """You are an exciting sports announcer for a Wordle league with DIVISIONS doing a Monday morning recap. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            system_msg = """You are a concise sports announcer for a Wordle league with DIVISIONS. Lower scores are better in Wordle.
 
-IMPORTANT RULES:
-1. Announce each division's weekly WINNER separately - Division I first, then Division II.
-2. If someone clinched a DIVISION SEASON (3 weekly wins), make it a HUGE celebration!
-3. Division II season winners get PROMOTED to Division I. Extra players can also be promoted based on best Season Total (lowest cumulative weekly scores). When a Div I season ends, the player(s) with the worst Season Total get RELEGATED to Div II. Missed weeks put a player first in line for relegation.
-4. If a PROMOTION or RELEGATION announcement appears, mention it! These are BIG moments.
-5. Mention back-to-back wins, win streaks, or first wins if provided.
-6. Keep the tone exciting and celebratory. Use emojis!
-7. Don't invent stats or names - only use what's provided.
-8. A best-N total is the sum of a player's N best daily scores that week (lower = better). N varies per league.
-9. Structure: Division I recap, then Division II recap, then shared stats. Use line breaks between divisions.
-10. ABSOLUTELY FORBIDDEN PHRASES unless explicitly in the scenario: "locked", "out of contention", "eliminated", "in the hunt", "miracle comeback".
-11. NEVER invent win counts, season standings, or "X wins this season" claims unless those exact numbers appear in the scenario text.
-12. NEVER claim someone "clinched" or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
+RULES:
+1. State each division's weekly winner. Division I first, then Division II.
+2. If a SEASON CHAMPION or CO-CHAMPIONS line appears, celebrate it briefly.
+3. If PROMOTION or RELEGATION appears, mention it in one short sentence.
+4. Mention streaks or first wins only if provided.
+5. Use a few emojis but keep it short. No filler.
+6. ONLY state facts from the scenario. NEVER invent stats, win counts, or standings.
+7. NEVER claim someone clinched or won the season unless SEASON CHAMPION appears in the scenario.
+8. Be brief — 2-4 short sentences max."""
         
         elif results['season_just_clinched']:
-            prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} THE SEASON WAS JUST WON - make this the BIGGEST part of the message! Celebrate the season champion! Use emojis. Keep it under 400 characters. Lower scores are better in Wordle."
+            prompt = f"Monday recap: {scenario_text} Keep it concise — under 280 characters. Celebrate the season champion briefly."
             
-            system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            system_msg = """You are a concise sports announcer for a Wordle league. Lower scores are better.
 
-IMPORTANT RULES:
-1. Announce the weekly WINNER prominently - this is the main event!
-2. If someone clinched the SEASON (4 weekly wins), make it a HUGE celebration - this is a major accomplishment!
-3. Mention back-to-back wins, win streaks, or first wins of the season if provided
-4. Keep the tone exciting and celebratory
-5. Use emojis for excitement
-6. Don't invent stats or names - only use what's provided
-7. A best-N total is the sum of their N best daily scores that week (lower = better) — N varies per league
-8. If it's a tie, celebrate both/all winners equally
-9. When a season was just clinched, do NOT mention next season standings or win counts — the new season just started with 0 wins
-10. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
-11. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
-12. NEVER invent win counts or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all."""
+RULES:
+1. Announce the weekly winner and the season champion.
+2. Use a few emojis. Keep it short — 2-3 sentences.
+3. ONLY state facts from the scenario. NEVER invent stats, win counts, or standings.
+4. Do NOT mention next season standings — the new season just started.
+5. Mention streaks or first wins only if provided."""
         
         else:
-            prompt = f"It's Monday morning! Here's last week's Wordle league recap: {scenario_text} Announce the winner enthusiastically! Mention any notable stats. Use emojis. Keep it under 350 characters. Lower scores are better in Wordle."
+            prompt = f"Monday recap: {scenario_text} Keep it concise — under 200 characters. Just state what happened."
             
-            system_msg = """You are an exciting sports announcer for a Wordle league doing a Monday morning recap of last week's results. In Wordle, LOWER scores are BETTER (1/6 is perfect, 6/6 is barely made it).
+            system_msg = """You are a concise sports announcer for a Wordle league. Lower scores are better.
 
-IMPORTANT RULES:
-1. Announce the weekly WINNER prominently - this is the main event!
-2. If someone clinched the SEASON (4 weekly wins), make it a HUGE celebration - this is a major accomplishment!
-3. Mention back-to-back wins, win streaks, or first wins of the season if provided
-4. Keep the tone exciting and celebratory
-5. Use emojis for excitement
-6. Don't invent stats or names - only use what's provided
-7. A best-N total is the sum of their N best daily scores that week (lower = better) — N varies per league
-8. If it's a tie, celebrate both/all winners equally
-9. NEVER invent or guess season standings — only mention them if explicitly provided in the scenario text
-10. ABSOLUTELY FORBIDDEN PHRASES unless explicitly present in the scenario text: "locked", "out of contention", "out of the race", "eliminated", "in the hunt", "miracle comeback". Do not use these as filler.
-11. NEVER invent win counts or "X wins this season" claims unless those exact numbers appear in the scenario text. If not provided, do not mention season wins at all.
-12. NEVER claim someone "clinched the season" or "won the season" unless the scenario text contains "SEASON CHAMPION" or "clinched". Winning a WEEK is different from winning the SEASON."""
+RULES:
+1. Announce the weekly winner. If a tie, celebrate both equally.
+2. Use a few emojis. Keep it short — 1-2 sentences.
+3. ONLY state facts from the scenario. NEVER invent stats, win counts, or standings.
+4. Mention streaks or first wins only if provided."""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -619,8 +587,8 @@ IMPORTANT RULES:
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=350 if is_div else 250,
-            temperature=0.4
+            max_tokens=200,
+            temperature=0.3
         )
         
         recap_message = response.choices[0].message.content.strip()
