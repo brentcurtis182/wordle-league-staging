@@ -9567,6 +9567,108 @@ def admin_sql_query():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/admin/api/relegation-debug/<int:league_id>')
+def admin_relegation_debug(league_id):
+    """Dry-run relegation diagnostic — traces every step, returns JSON."""
+    try:
+        from league_data_adapter import get_league_min_scores, calculate_wordle_number, get_week_start_date
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        trace = []
+
+        min_scores = get_league_min_scores(league_id, conn=conn)
+        trace.append(f"min_scores={min_scores}")
+
+        cursor.execute("SELECT current_season, season_start_week FROM division_seasons WHERE league_id = %s AND division = 1", (league_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'trace': trace, 'result': 'BAIL: no division_seasons row'})
+        current_season = row[0]
+        ended_season = current_season - 1
+        trace.append(f"current_season={current_season}, ended_season={ended_season}")
+        if ended_season < 1:
+            return jsonify({'trace': trace, 'result': 'BAIL: ended_season < 1'})
+
+        cursor.execute("SELECT start_week, end_week FROM division_season_boundaries WHERE league_id = %s AND division = 1 AND season_number = %s", (league_id, ended_season))
+        bounds = cursor.fetchone()
+        trace.append(f"bounds={bounds}")
+        if not bounds or not bounds[1]:
+            return jsonify({'trace': trace, 'result': 'BAIL: no bounds or end_week is NULL'})
+
+        season_start = bounds[0]
+        season_end = bounds[1]
+        trace.append(f"season_start={season_start}, season_end={season_end}")
+
+        cursor.execute("SELECT p.name FROM season_winners sw JOIN players p ON sw.player_id = p.id WHERE sw.league_id = %s AND sw.division = 1 AND sw.season_number = %s", (league_id, ended_season))
+        season_winner_names = {r[0] for r in cursor.fetchall()}
+        trace.append(f"season_winners={list(season_winner_names)}")
+
+        cursor.execute("SELECT p.id, p.name, p.division_immunity FROM players p WHERE p.league_id = %s AND p.division = 1 AND p.active = TRUE", (league_id,))
+        div1_players = cursor.fetchall()
+        trace.append(f"div1_players={[(pid, pn, imm) for pid, pn, imm in div1_players]}")
+
+        player_stats = []
+        for player_id, player_name, is_immune in div1_players:
+            if is_immune:
+                trace.append(f"  SKIP {player_name}: immune")
+                continue
+            if player_name in season_winner_names:
+                trace.append(f"  SKIP {player_name}: season winner")
+                continue
+
+            cursor.execute("SELECT s.wordle_number, s.score FROM scores s WHERE s.player_id = %s AND s.wordle_number >= %s AND s.wordle_number <= %s ORDER BY s.wordle_number", (player_id, season_start, season_end))
+            raw_scores = cursor.fetchall()
+            trace.append(f"  {player_name}: raw_scores count={len(raw_scores)}, range={season_start}-{season_end}")
+
+            week_scores = {}
+            for wn, sc in raw_scores:
+                ws = wn - ((wn - season_start) % 7)
+                if ws not in week_scores:
+                    week_scores[ws] = []
+                week_scores[ws].append(sc)
+
+            missed = 0
+            total = 0
+            w = season_start
+            week_details = []
+            while w <= season_end:
+                scores_in_week = week_scores.get(w, [])
+                valid = sorted([s for s in scores_in_week if s < 7])
+                valid_count = len(valid)
+                is_missed = valid_count < min_scores
+                if is_missed:
+                    missed += 1
+                best_n = sum(valid[:min_scores]) if valid else 0
+                total += best_n
+                week_details.append(f"w{w}: valid={valid_count}, missed={is_missed}, best_n={best_n}")
+                w += 7
+
+            cursor.execute("SELECT COUNT(*) FROM weekly_winners WHERE league_id = %s AND division = 1 AND player_name = %s AND week_wordle_number >= %s AND week_wordle_number <= %s", (league_id, player_name, season_start, season_end))
+            win_count = cursor.fetchone()[0]
+
+            player_stats.append((player_id, player_name, total, win_count, missed))
+            trace.append(f"  {player_name}: missed={missed}, total={total}, wins={win_count}, weeks={week_details}")
+
+        trace.append(f"player_stats count={len(player_stats)}")
+        if not player_stats:
+            return jsonify({'trace': trace, 'result': 'BAIL: no eligible players (all immune or season winners)'})
+
+        cursor.execute("SELECT COALESCE(relegated_count, 1) FROM leagues WHERE id = %s", (league_id,))
+        relegated_count = cursor.fetchone()[0]
+        trace.append(f"relegated_count={relegated_count}")
+
+        player_stats.sort(key=lambda x: (-x[4], -x[2], x[3]))
+        trace.append(f"sorted_candidates={[(ps[1], ps[4], ps[2], ps[3]) for ps in player_stats]}")
+        trace.append(f"WOULD RELEGATE: {player_stats[0][1]} (missed={player_stats[0][4]}, total={player_stats[0][2]})")
+
+        cursor.close()
+        conn.close()
+        return jsonify({'trace': trace, 'result': f'Would relegate: {player_stats[0][1]}'})
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 @app.route('/admin/api/league-state/<int:league_id>')
 def admin_league_state(league_id):
     """Read-only endpoint returning comprehensive league state for debugging.
