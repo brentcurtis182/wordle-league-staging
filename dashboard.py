@@ -6558,6 +6558,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             <a href="/dashboard" style="color: {COLORS['accent']}; text-decoration: none; font-size: 0.9em; display: inline-block; margin-bottom: 16px;">&larr; Back to Dashboard</a>
             <h1 class="page-title">League Membership</h1>
             <p class="page-subtitle">Manage your league subscriptions and plans.</p>
+            <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin-top: -20px; margin-bottom: 28px;">Sunday Morning AI Race Update included in all plans.</p>
 
             {msg_html}
             {subscriptions_section}
