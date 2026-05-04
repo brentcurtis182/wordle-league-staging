@@ -6284,7 +6284,17 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             else:
                 plan_display = tier
 
-            ai_badge = f'<span style="background: {COLORS["accent"]}20; color: {COLORS["accent"]}; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; margin-left: 8px;">AI Messaging</span>' if sub.get('ai_messaging_addon') or 'ai' in tier else ''
+            has_ai = sub.get('ai_messaging_addon') or 'ai' in tier
+            if has_ai:
+                ai_badge = f'<div style="margin-top: 4px;"><span style="background: {COLORS["accent"]}20; color: {COLORS["accent"]}; padding: 2px 8px; border-radius: 10px; font-size: 0.75em;">AI Messaging</span></div>'
+                # Show cost breakdown for addon (not for bundled plans like sms_9_ai or slack tiers with AI built in)
+                if sub.get('ai_messaging_addon') and not tier.endswith('_ai'):
+                    ai_cost_line = f'<div style="color: {COLORS["text_muted"]}; font-size: 0.85em; margin-top: 4px;">+ AI Messaging: <span style="color: {COLORS["accent"]};">$3/mo</span></div>'
+                else:
+                    ai_cost_line = ''
+            else:
+                ai_badge = ''
+                ai_cost_line = ''
 
             # Assigned leagues
             leagues_html = ""
@@ -6296,7 +6306,6 @@ def render_membership_page(user, subscriptions, message=None, error=None):
 
             # AI addon button for SMS plans that don't have AI
             ai_addon_html = ""
-            has_ai = sub.get('ai_messaging_addon') or 'ai' in tier
             if sub['plan_type'] == 'sms' and not has_ai and sub['status'] == 'active':
                 ai_addon_html = f"""
                 <form method="POST" action="/billing/add-ai-addon" style="margin-top: 12px;">
@@ -6349,10 +6358,11 @@ def render_membership_page(user, subscriptions, message=None, error=None):
 
             subs_html += f"""
             <div style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 12px; padding: 24px; margin-bottom: 16px; backdrop-filter: blur(20px);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                     <div>
                         <strong style="color: {COLORS['text']}; font-size: 1.1em;">{plan_display}</strong>
                         {ai_badge}
+                        {ai_cost_line}
                     </div>
                     <span style="color: {status_color}; font-size: 0.85em; font-weight: 600;">{status_label}{cancel_note}</span>
                 </div>
