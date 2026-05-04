@@ -9543,13 +9543,14 @@ def admin_sql_query():
 
         # Safety: only allow SELECT statements
         sql_upper = sql.upper().lstrip()
-        forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE',
-                      'GRANT', 'REVOKE', 'EXEC', 'EXECUTE', 'COPY', 'SET ', 'VACUUM']
         if not sql_upper.startswith('SELECT') and not sql_upper.startswith('WITH'):
             return jsonify({'error': 'Only SELECT/WITH queries allowed'}), 403
+        import re
+        forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE',
+                      'TRUNCATE', 'GRANT', 'REVOKE', 'EXECUTE', 'COPY', 'VACUUM']
         for word in forbidden:
-            if word in sql_upper:
-                return jsonify({'error': f'Forbidden keyword: {word.strip()}'}), 403
+            if re.search(r'\b' + word + r'\b', sql_upper):
+                return jsonify({'error': f'Forbidden keyword: {word}'}), 403
 
         conn = get_db_connection()
         cursor = conn.cursor()
