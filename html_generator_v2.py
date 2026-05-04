@@ -1455,7 +1455,7 @@ def generate_rules_html(league_data):
     if not division_active:
         html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">⚔️ Division Mode <span style="font-size:0.75em; color:#818384; font-weight:400;">(Available)</span></h3>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Want more competition? Your league manager can enable <strong style="color:#00E8DA;">Division Mode</strong>, which splits the league into two divisions. Each division has its own season race, and at the end of each season the top players from Division II get <strong style="color:#FFA64D;">promoted</strong> while the bottom players from Division I get <strong style="color:#FFA64D;">relegated</strong>.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Want more competition? Your league manager can enable <strong style="color:#00E8DA;">Division Mode</strong>, which splits the league into two divisions. Each division has its own season race, and at the end of each season the top players from Division II get <strong style="color:#FFA64D;">promoted</strong> while the bottom players from Division I get <strong style="color:#FFA64D;">relegated</strong>. The number promoted and relegated is configurable (1&ndash;3).</p>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Newly promoted players receive <strong style="color:#d7dadc;">immunity</strong> from relegation for their first season, and players who miss a full week move to the front of the relegation line.</p>
 <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">Requires at least <strong style="color:#FFA64D;">6 active players</strong>. League managers can enable this from the league settings page.</p>
 </div>
@@ -1467,13 +1467,13 @@ def generate_rules_html(league_data):
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I. {"The season winner and the player(s) with the best season total (lowest cumulative score) move up." if promoted_count > 1 else "The season winner moves up."}</p>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Meanwhile, the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II, based on the highest season total (worst cumulative score).</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I, and the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II based on the highest season total (worst cumulative score).</p>
+<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.5;">Your league is currently set to promote <strong style="color:#FFA64D;">{promoted_count}</strong> and relegate <strong style="color:#00E8DA;">{relegated_count}</strong> each season. This is configurable by the league manager (1&ndash;3).</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If a player misses a week (fewer than {min_scores} scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
-<p style="margin:0; color:#818384; font-size:0.85em;">The manager can adjust promotion and relegation counts (1&ndash;3) at any time. Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
+<p style="margin:0; color:#818384; font-size:0.85em;">Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
 </div>
 '''
 
