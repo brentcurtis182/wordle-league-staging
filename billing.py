@@ -451,10 +451,11 @@ def assign_league_to_slot(user_id, league_id, plan_type):
         conn.close()
 
 
-def check_ai_messaging_enabled(league_id):
+def check_ai_messaging_enabled(league_id, payment_required=False):
     """
     Check if AI messaging (the 3 optional messages) is enabled for a league.
-    Returns True if: legacy league, or subscription includes AI, or has AI addon.
+    Returns True if: legacy league, grandfathered, or subscription includes AI/addon.
+    When payment_required is ON and league has no subscription, returns False.
     """
     from auth import get_db_connection
 
@@ -475,7 +476,9 @@ def check_ai_messaging_enabled(league_id):
 
         row = cursor.fetchone()
         if not row:
-            return True  # No subscription = grandfathered, allow AI messaging
+            # No subscription linked — if payment is required, AI is locked
+            # If payment is NOT required, allow (grandfathered/free mode)
+            return not payment_required
 
         plan_tier, has_addon = row
         # Check if the plan tier includes AI messaging

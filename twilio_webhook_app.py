@@ -2914,14 +2914,15 @@ def dashboard_league(league_id):
     error = request.args.get('error')
 
     # Billing context
-    payment_required = get_config('payment_required', 'false') == 'true'
     channel_type = league.get('channel_type') or 'sms'
+    payment_config_key = 'payment_required_sms' if channel_type == 'sms' else 'payment_required_slack'
+    payment_required = get_config(payment_config_key, 'false') == 'true'
     linked_sub = get_league_linked_subscription(league_id)
     billing_context = {
         'payment_required': payment_required,
         'requires_payment': league_requires_payment(league, payment_required),
         'subscription_status': get_league_subscription_status(league_id),
-        'ai_messaging_enabled': check_ai_messaging_enabled(league_id),
+        'ai_messaging_enabled': check_ai_messaging_enabled(league_id, payment_required=payment_required),
         'player_limit': get_player_limit_for_league(league_id, channel_type),
         'linked_subscription': linked_sub,
         'available_subscriptions': get_user_subscriptions_for_linking(user['id'], channel_type) if payment_required and not linked_sub else [],
@@ -4307,7 +4308,7 @@ def admin_config_update():
     key = data.get('key')
     value = data.get('value')
 
-    allowed_keys = ('discord_enabled', 'payment_required')
+    allowed_keys = ('discord_enabled', 'payment_required_sms', 'payment_required_slack')
     if key not in allowed_keys:
         return jsonify({'success': False, 'error': f'Unknown config key: {key}'}), 400
 
@@ -4678,7 +4679,7 @@ def api_billing_status(league_id):
         'is_legacy': is_legacy_league(league_id),
         'subscription_status': get_league_subscription_status(league_id),
         'player_limit': get_player_limit_for_league(league_id, channel_type),
-        'ai_messaging_enabled': check_ai_messaging_enabled(league_id),
+        'ai_messaging_enabled': check_ai_messaging_enabled(league_id, payment_required=payment_required),
     })
 
 

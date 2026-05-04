@@ -2676,16 +2676,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             <!-- Add Player Section -->
             <div class="card section">
-                <h2 style="display: flex; align-items: center; gap: 12px;">➕ Add Player <span style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['error'] if len(players) > player_limit else COLORS['border']}; padding: 4px 10px; border-radius: 16px; font-size: 0.55em; color: {COLORS['error'] if len(players) > player_limit else COLORS['text_muted']}; font-weight: 500;">{len(players)}/{player_limit}</span></h2>
+                <h2 style="display: flex; align-items: center; gap: 12px;">➕ Add Player <span style="background: {COLORS['error'] if len(players) > player_limit else COLORS['accent']}20; border: 1px solid {COLORS['error'] if len(players) > player_limit else COLORS['accent']}; padding: 6px 14px; border-radius: 16px; font-size: 0.65em; color: {COLORS['error'] if len(players) > player_limit else COLORS['accent']}; font-weight: 600;">{len(players)}/{player_limit}</span></h2>
                 {f'<div style="background: {COLORS["error"]}20; border: 1px solid {COLORS["error"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Over Player Limit:</strong> This league has {len(players)} players but your plan supports {player_limit}. Please remove {len(players) - player_limit} player{"s" if len(players) - player_limit > 1 else ""} or <a href="/dashboard/membership" style="color: {COLORS["accent"]};">upgrade your plan</a>.</div>' if len(players) > player_limit else f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> {"SMS leagues are limited to 9 players (Twilio group MMS maximum)." if channel_type == "sms" else "Leagues are limited to " + str(player_limit) + " players."} Remove a player before adding a new one.</div>' if len(players) >= player_limit else ''}
                 {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px; font-size: 0.9em;">Add players by name. Their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' account will be linked automatically when they post their first score.</p>' if channel_type in ('slack', 'discord') else ''}
-                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if len(players) >= player_limit else ''}>
+                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); if(!validateAddPlayer()) return false; showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if len(players) >= player_limit else ''}>
                     {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
                         <div class="form-group">
                             <label>Player Name</label>
                             <input type="text" name="name" required maxlength="14" placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}" {f'disabled' if len(players) >= player_limit else ''}>
                         </div>
-                        {f'<div class="form-group"><label>{identifier_label}</label><input type="text" name="identifier" required placeholder="{identifier_placeholder}" {"disabled" if len(players) >= player_limit else ""}></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
+                        {f'<div class="form-group"><label>{identifier_label}</label><input type="tel" name="identifier" id="phoneInput" required placeholder="{identifier_placeholder}" {"disabled" if len(players) >= player_limit else ""}><div id="phoneError" style="display:none; color: {COLORS["error"]}; font-size: 0.8em; margin-top: 4px;"></div></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
                     </div>
                     <button type="submit" class="btn btn-primary" {f'disabled' if len(players) >= player_limit else ''}>Add Player</button>
                 </form>
@@ -3795,6 +3795,31 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     if (data.success) {{ window.location.reload(); }}
                     else {{ alert(data.error || 'Failed to update'); window.location.reload(); }}
                 }}).catch(function() {{ alert('Network error'); window.location.reload(); }});
+            }}
+
+            // Phone number validation for SMS leagues
+            (function() {{
+                var pi = document.getElementById('phoneInput');
+                if (pi) {{
+                    pi.addEventListener('input', function() {{
+                        this.value = this.value.replace(/[^0-9() +\\-]/g, '');
+                    }});
+                }}
+            }})();
+            function validateAddPlayer() {{
+                var phoneInput = document.getElementById('phoneInput');
+                if (!phoneInput) return true; // Not SMS, skip
+                var phoneErr = document.getElementById('phoneError');
+                var raw = phoneInput.value.replace(/[^0-9]/g, '');
+                if (raw.length === 11 && raw[0] === '1') raw = raw.substring(1);
+                if (raw.length !== 10) {{
+                    phoneErr.textContent = 'Please enter a valid 10-digit phone number.';
+                    phoneErr.style.display = 'block';
+                    phoneInput.focus();
+                    return false;
+                }}
+                phoneErr.style.display = 'none';
+                return true;
             }}
 
             // Link League to Subscription
@@ -5579,20 +5604,41 @@ def render_admin_dashboard(user, leagues, config=None):
               </label>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:16px;">
-              <div>
-                <span style="color:{COLORS['text']}; font-weight:500;">💳 Payment Required</span>
-                <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Require subscription to activate new leagues</span>
+            <div style="border-top:1px solid {COLORS['border']}; padding-top:16px; margin-top:16px;">
+              <h4 style="color:{COLORS['text']}; margin:0 0 12px 0; font-size:0.95em;">💳 Payment Control</h4>
+              <p style="color:{COLORS['text_muted']}; font-size:0.82em; margin:0 0 16px 0;">Require a subscription to activate new leagues. Existing active leagues are grandfathered.</p>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:10px;">
+                <div>
+                  <span style="color:{COLORS['text']}; font-weight:500;">📱 SMS Leagues</span>
+                  <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Require payment for SMS</span>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+                  <input type="checkbox" id="configPaymentSms" {'checked' if config.get('payment_required_sms', 'false') == 'true' else ''} onchange="confirmConfigChange('payment_required_sms', this)" style="opacity:0; width:0; height:0;">
+                  <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('payment_required_sms', 'false') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
+                  <span style="position:absolute; top:2px; left:{'22px' if config.get('payment_required_sms', 'false') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
+                </label>
               </div>
-              <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
-                <input type="checkbox" id="configPaymentRequired" {'checked' if config.get('payment_required', 'false') == 'true' else ''} onchange="confirmConfigChange('payment_required', this)" style="opacity:0; width:0; height:0;">
-                <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('payment_required', 'false') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
-                <span style="position:absolute; top:2px; left:{'22px' if config.get('payment_required', 'false') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
-              </label>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:10px;">
+                <div>
+                  <span style="color:{COLORS['text']}; font-weight:500;">💬 Slack Leagues</span>
+                  <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Require payment for Slack</span>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+                  <input type="checkbox" id="configPaymentSlack" {'checked' if config.get('payment_required_slack', 'false') == 'true' else ''} onchange="confirmConfigChange('payment_required_slack', this)" style="opacity:0; width:0; height:0;">
+                  <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('payment_required_slack', 'false') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
+                  <span style="position:absolute; top:2px; left:{'22px' if config.get('payment_required_slack', 'false') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
+                </label>
+              </div>
             </div>
 
-            <div style="border-top:1px solid {COLORS['border']}; padding-top:16px; margin-top:8px;">
-              <p style="color:{COLORS['text_muted']}; font-size:0.8em; margin:0;">Changes take effect immediately. Payment Required only affects new league activations — existing active leagues are grandfathered.</p>
+            <div style="border-top:1px solid {COLORS['border']}; padding-top:16px; margin-top:16px;">
+              <p style="color:{COLORS['text_muted']}; font-size:0.8em; margin:0;">Changes take effect immediately for new league activations.</p>
+            </div>
+
+            <div style="margin-top:16px; text-align:center;">
+              <span onclick="document.getElementById('configModal').style.display='none'" style="color:{COLORS['accent']}; cursor:pointer; font-size:0.9em;">&larr; Back to Admin Dashboard</span>
             </div>
           </div>
         </div>
@@ -5623,9 +5669,13 @@ def render_admin_dashboard(user, leagues, config=None):
                     on: ['Enable Discord?', 'Discord will appear as an option when users create a new league.'],
                     off: ['Disable Discord?', 'Discord will be hidden from the Create League page. Existing Discord leagues will continue to work.']
                 }},
-                'payment_required': {{
-                    on: ['Require Payment?', 'New league activations will require an active subscription. Existing active leagues and legacy leagues are not affected.'],
-                    off: ['Disable Payment Requirement?', 'All new leagues can be activated with just the passcode — no subscription needed.']
+                'payment_required_sms': {{
+                    on: ['Require Payment for SMS?', 'New SMS league activations will require a subscription. Existing active SMS leagues are not affected.'],
+                    off: ['Disable SMS Payment?', 'New SMS leagues can be activated with just the passcode — no subscription needed.']
+                }},
+                'payment_required_slack': {{
+                    on: ['Require Payment for Slack?', 'New Slack league activations will require a subscription. Existing active Slack leagues are not affected.'],
+                    off: ['Disable Slack Payment?', 'New Slack leagues can be activated without a subscription.']
                 }}
             }};
             var label = labels[key] || {{}};
