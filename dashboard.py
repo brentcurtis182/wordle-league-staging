@@ -6513,6 +6513,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 display: flex;
                 align-items: center;
                 gap: 8px;
+                font-size: 1.4em;
             }}
             .plan-section-toggle:hover {{
                 color: {COLORS['accent']};
