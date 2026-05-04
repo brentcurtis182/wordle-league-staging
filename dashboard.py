@@ -6720,6 +6720,17 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     }}
                 }});
             }});
+            // Reset buttons when returning from Stripe Portal (bfcache)
+            window.addEventListener('pageshow', function(e) {{
+                if (e.persisted) {{
+                    document.querySelectorAll('form[action^="/billing"] button[type="submit"]').forEach(function(btn) {{
+                        if (btn.dataset.originalText) {{
+                            btn.innerHTML = btn.dataset.originalText;
+                            btn.disabled = false;
+                        }}
+                    }});
+                }}
+            }});
         </script>
         <style>
             .billing-spinner {{
