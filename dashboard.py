@@ -6696,8 +6696,8 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 </div>
             </div>
         </div>
-        {get_user_menu_script()}
         <script>
+            {get_user_menu_script()}
             // Loading spinner for all billing forms
             document.querySelectorAll('form[action^="/billing"]').forEach(function(form) {{
                 form.addEventListener('submit', function() {{
@@ -6799,7 +6799,7 @@ def render_billing_success_page(user, session_id):
                 <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
             </div>
         </div>
-        {get_user_menu_script()}
+        <script>{get_user_menu_script()}</script>
     </body>
     </html>
     """
@@ -6872,7 +6872,7 @@ def render_billing_cancel_page(user):
                 <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
             </div>
         </div>
-        {get_user_menu_script()}
+        <script>{get_user_menu_script()}</script>
     </body>
     </html>
     """
