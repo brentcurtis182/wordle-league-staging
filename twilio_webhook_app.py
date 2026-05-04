@@ -2887,32 +2887,44 @@ def dashboard_create_league():
 @app.route('/dashboard/league/<int:league_id>')
 def dashboard_league(league_id):
     """League management page"""
-    from auth import validate_session, can_manage_league
+    from auth import validate_session, can_manage_league, get_config
     from dashboard import render_league_management, get_league_players, get_league_info, get_pending_removal_players
-    
+    from billing import check_ai_messaging_enabled, get_player_limit_for_league, league_requires_payment, get_league_subscription_status
+
     session_token = request.cookies.get('session_token')
     logging.info(f"League page: session_token present: {bool(session_token)}")
     user = validate_session(session_token)
     logging.info(f"League page: user validated: {bool(user)}")
-    
+
     if not user:
         logging.warning(f"League page: No valid user, redirecting to login")
         return redirect('/auth/login')
-    
+
     if not can_manage_league(user['id'], league_id):
         return redirect('/dashboard?error=You do not have access to this league')
-    
+
     league = get_league_info(league_id)
     if not league:
         return redirect('/dashboard?error=League not found')
-    
+
     players = get_league_players(league_id)
     removed_players = get_pending_removal_players(league_id)
     player_ai_settings = get_all_player_ai_settings(league_id)
     message = request.args.get('message')
     error = request.args.get('error')
-    
-    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players)
+
+    # Phase 4: billing context
+    payment_required = get_config('payment_required', 'false') == 'true'
+    channel_type = league.get('channel_type') or 'sms'
+    billing_context = {
+        'payment_required': payment_required,
+        'requires_payment': league_requires_payment(league, payment_required),
+        'subscription_status': get_league_subscription_status(league_id),
+        'ai_messaging_enabled': check_ai_messaging_enabled(league_id),
+        'player_limit': get_player_limit_for_league(league_id, channel_type),
+    }
+
+    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):

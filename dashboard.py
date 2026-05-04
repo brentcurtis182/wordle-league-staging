@@ -2139,21 +2139,29 @@ def _render_division_players(league, players, is_chat_platform):
     '''
 
 
-def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None, removed_players=None):
+def render_league_management(user, league, players, player_ai_settings=None, message=None, error=None, removed_players=None, billing_context=None):
     """Render the league management page"""
-    
+
     if player_ai_settings is None:
         player_ai_settings = {}
-    
+    if billing_context is None:
+        billing_context = {}
+
     # Get channel type for platform-specific UI
     channel_type = league.get('channel_type') or 'sms'
-    
+
+    # Billing context
+    ai_messaging_enabled = billing_context.get('ai_messaging_enabled', True)
+    player_limit = billing_context.get('player_limit', 9 if channel_type == 'sms' else 14)
+    requires_payment = billing_context.get('requires_payment', False)
+    subscription_status = billing_context.get('subscription_status')
+
     # Pre-compute AI settings checkbox states
     ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
     ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
     ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
     ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
-    
+
     # Division promotion/relegation counts (used in JS)
     promo_count = league.get('promoted_count', 1)
     releg_count = league.get('relegated_count', 1)
@@ -2664,18 +2672,18 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             <!-- Add Player Section -->
             <div class="card section">
-                <h2>➕ Add Player</h2>
-                {f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> SMS leagues are limited to 9 players (Twilio group MMS maximum). Remove a player before adding a new one.</div>' if channel_type == 'sms' and len(players) >= 9 else f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> Leagues are limited to 14 players. Remove a player before adding a new one.</div>' if channel_type in ('slack', 'discord') and len(players) >= 14 else ''}
+                <h2 style="display: flex; align-items: center; gap: 12px;">➕ Add Player <span style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; padding: 4px 10px; border-radius: 16px; font-size: 0.55em; color: {COLORS['text_muted']}; font-weight: 500;">{len(players)}/{player_limit}</span></h2>
+                {f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> {"SMS leagues are limited to 9 players (Twilio group MMS maximum)." if channel_type == "sms" else "Leagues are limited to " + str(player_limit) + " players."} Remove a player before adding a new one.</div>' if len(players) >= player_limit else ''}
                 {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px; font-size: 0.9em;">Add players by name. Their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' account will be linked automatically when they post their first score.</p>' if channel_type in ('slack', 'discord') else ''}
-                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if (channel_type == 'sms' and len(players) >= 9) or (channel_type in ('slack', 'discord') and len(players) >= 14) else ''}>
+                <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if len(players) >= player_limit else ''}>
                     {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
                         <div class="form-group">
                             <label>Player Name</label>
-                            <input type="text" name="name" required maxlength="14" placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}" {f'disabled' if (channel_type == 'sms' and len(players) >= 9) or (channel_type in ('slack', 'discord') and len(players) >= 14) else ''}>
+                            <input type="text" name="name" required maxlength="14" placeholder="{'John Doe' if channel_type == 'sms' else 'Display Name (must match their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' name)'}" {f'disabled' if len(players) >= player_limit else ''}>
                         </div>
-                        {f'<div class="form-group"><label>{identifier_label}</label><input type="text" name="identifier" required placeholder="{identifier_placeholder}" {"disabled" if len(players) >= 9 else ""}></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
+                        {f'<div class="form-group"><label>{identifier_label}</label><input type="text" name="identifier" required placeholder="{identifier_placeholder}" {"disabled" if len(players) >= player_limit else ""}></div>' if channel_type == 'sms' else '<input type="hidden" name="identifier" value="">'}
                     </div>
-                    <button type="submit" class="btn btn-primary" {f'disabled' if (channel_type == 'sms' and len(players) >= 9) or (channel_type in ('slack', 'discord') and len(players) >= 14) else ''}>Add Player</button>
+                    <button type="submit" class="btn btn-primary" {f'disabled' if len(players) >= player_limit else ''}>Add Player</button>
                 </form>
             </div>
             
@@ -2683,12 +2691,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card section">
                 <h2>🤖 AI Automated Messaging</h2>
                 <p style="color: {COLORS['text_muted']}; margin-bottom: 16px;">Control which AI-generated messages are sent to this league's group chat.</p>
-                
+
+                {f'<div style="background: {COLORS["accent"]}20; border: 1px solid {COLORS["accent"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9em;">🔒 <strong>Extra AI Messaging</strong> requires the AI addon or an AI-included plan. <a href="/dashboard/membership" style="color: {COLORS["accent"]};">Upgrade in League Membership</a></div>' if not ai_messaging_enabled else ''}
+
                 <div class="ai-toggle-list">
-                    <div class="ai-toggle-item">
+                    <div class="ai-toggle-item" {f'style="opacity: 0.4; pointer-events: none;"' if not ai_messaging_enabled else ''}>
                         <div class="ai-toggle-header">
                             <label class="toggle-label">
-                                <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked}>
+                                <input type="checkbox" id="ai_perfect_score" {ai_perfect_checked} {f'disabled' if not ai_messaging_enabled else ''}>
                                 <span class="toggle-text">
                                     <strong>🎯 Perfect Score Congrats</strong>
                                     <small>Celebrate amazing 1/6 or 2/6 scores</small>
@@ -2701,11 +2711,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <span>Players: <strong id="perfect_score_players_label">All</strong></span>
                         </div>
                     </div>
-                    
-                    <div class="ai-toggle-item">
+
+                    <div class="ai-toggle-item" {f'style="opacity: 0.4; pointer-events: none;"' if not ai_messaging_enabled else ''}>
                         <div class="ai-toggle-header">
                             <label class="toggle-label">
-                                <input type="checkbox" id="ai_failure_roast" {ai_failure_checked}>
+                                <input type="checkbox" id="ai_failure_roast" {ai_failure_checked} {f'disabled' if not ai_messaging_enabled else ''}>
                                 <span class="toggle-text">
                                     <strong>🔥 Failure Roast</strong>
                                     <small>Roast players who fail with X/6</small>
@@ -2718,7 +2728,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <span>Players: <strong id="failure_roast_players_label">All</strong></span>
                         </div>
                     </div>
-                    
+
                     <div class="ai-toggle-item">
                         <div class="ai-toggle-header">
                             <label class="toggle-label">
@@ -2730,14 +2740,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             </label>
                         </div>
                         <div class="ai-toggle-meta">
-                            <span class="tone-na">Tone: N/A (informational)</span>
+                            <span class="tone-na">Tone: N/A (informational) — <em style="color: {COLORS['success']};">included free</em></span>
                         </div>
                     </div>
-                    
-                    <div class="ai-toggle-item">
+
+                    <div class="ai-toggle-item" {f'style="opacity: 0.4; pointer-events: none;"' if not ai_messaging_enabled else ''}>
                         <div class="ai-toggle-header">
                             <label class="toggle-label">
-                                <input type="checkbox" id="ai_monday_recap" {ai_monday_checked}>
+                                <input type="checkbox" id="ai_monday_recap" {ai_monday_checked} {f'disabled' if not ai_messaging_enabled else ''}>
                                 <span class="toggle-text">
                                     <strong>📅 Monday Morning Recap</strong>
                                     <small>10am Monday recap: weekly winner, season clinch, streaks &amp; fun stats</small>
@@ -2749,7 +2759,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         </div>
                     </div>
                 </div>
-                
+
                 <button type="button" class="btn btn-primary" onclick="saveAISettings()" style="margin-top: 16px;">Save AI Settings</button>
             </div>
             
@@ -2979,6 +2989,16 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 <!-- Passcode Gate -->
                 <div id="activatePasscodeGate">
+                    {f"""
+                    <div style="background: {COLORS['accent']}20; border: 1px solid {COLORS['accent']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="color: {COLORS['text']}; margin: 0 0 12px 0;"><strong>💳 Subscription Required</strong></p>
+                        <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.9em;">To activate this league, you need an active subscription. Head to League Membership to choose a plan.</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
+                        <a href="/dashboard/membership?league_id={league['id']}" class="btn btn-primary" style="text-decoration:none;">Go to League Membership</a>
+                    </div>
+                    """ if requires_payment and subscription_status != 'active' else f"""
                     <div style="background: {COLORS['accent_orange']}20; border: 1px solid {COLORS['accent_orange']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <p style="color: {COLORS['text']}; margin: 0 0 12px 0;"><strong>🔒 Activation Locked</strong></p>
                         <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.9em;">League activation is currently restricted. Enter the admin passcode to continue, or contact support to get access.</p>
@@ -2991,6 +3011,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
                         <button type="button" class="btn btn-primary" onclick="checkActivatePasscode()">Unlock</button>
                     </div>
+                    """}
                 </div>
                 
                 <!-- Activation Steps (hidden until passcode entered) -->
@@ -5483,8 +5504,20 @@ def render_admin_dashboard(user, leagues, config=None):
               </label>
             </div>
 
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:{COLORS['bg_dark']}; border-radius:8px; margin-bottom:16px;">
+              <div>
+                <span style="color:{COLORS['text']}; font-weight:500;">💳 Payment Required</span>
+                <span style="color:{COLORS['text_muted']}; font-size:0.8em; margin-left:8px;">Require subscription to activate new leagues</span>
+              </div>
+              <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+                <input type="checkbox" id="configPaymentRequired" {'checked' if config.get('payment_required', 'false') == 'true' else ''} onchange="confirmConfigChange('payment_required', this)" style="opacity:0; width:0; height:0;">
+                <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:{'#2ECC71' if config.get('payment_required', 'false') == 'true' else '#555'}; border-radius:24px; transition:0.3s;"></span>
+                <span style="position:absolute; top:2px; left:{'22px' if config.get('payment_required', 'false') == 'true' else '2px'}; width:20px; height:20px; background:#fff; border-radius:50%; transition:0.3s;"></span>
+              </label>
+            </div>
+
             <div style="border-top:1px solid {COLORS['border']}; padding-top:16px; margin-top:8px;">
-              <p style="color:{COLORS['text_muted']}; font-size:0.8em; margin:0;">Changes take effect immediately for new league creation.</p>
+              <p style="color:{COLORS['text_muted']}; font-size:0.8em; margin:0;">Changes take effect immediately. Payment Required only affects new league activations — existing active leagues are grandfathered.</p>
             </div>
           </div>
         </div>
@@ -5514,6 +5547,10 @@ def render_admin_dashboard(user, leagues, config=None):
                 'discord_enabled': {{
                     on: ['Enable Discord?', 'Discord will appear as an option when users create a new league.'],
                     off: ['Disable Discord?', 'Discord will be hidden from the Create League page. Existing Discord leagues will continue to work.']
+                }},
+                'payment_required': {{
+                    on: ['Require Payment?', 'New league activations will require an active subscription. Existing active leagues and legacy leagues are not affected.'],
+                    off: ['Disable Payment Requirement?', 'All new leagues can be activated with just the passcode — no subscription needed.']
                 }}
             }};
             var label = labels[key] || {{}};
