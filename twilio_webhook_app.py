@@ -20,7 +20,11 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'wordle-league-secret-key-change-in-production')
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    import secrets as _secrets
+    app.secret_key = _secrets.token_hex(32)
+    logging.warning('SECRET_KEY not set — using random key (sessions will not persist across restarts)')
 
 # Protect all debug/diagnostic endpoints with admin auth
 PROTECTED_PREFIXES = ('/debug-', '/list-all-tables', '/list-files', '/check-table-schema',
@@ -35,12 +39,17 @@ def guard_debug_endpoints():
         user = validate_session(session_token)
         if not user or not user.get('is_admin'):
             return jsonify({'error': 'Admin access required'}), 403
+    if request.path.startswith('/api/forward-'):
+        key = request.headers.get('X-Forward-Key', '')
+        if not FORWARD_API_KEY or key != FORWARD_API_KEY:
+            return jsonify({'error': 'Invalid forward key'}), 403
 
 # Base URL for links (uses Railway's public domain, falls back to production)
 APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
 
 # Staging URL for score forwarding (only active on production)
 STAGING_URL = os.environ.get('STAGING_URL', '')
+FORWARD_API_KEY = os.environ.get('FORWARD_API_KEY', '')
 
 
 def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoji_pattern, wordle_date):
@@ -52,6 +61,7 @@ def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoj
         return
     try:
         import requests as req
+        headers = {'X-Forward-Key': FORWARD_API_KEY} if FORWARD_API_KEY else {}
         resp = req.post(f"{STAGING_URL}/api/forward-score", json={
             'player_phone': player_phone,
             'league_id': league_id,
@@ -59,7 +69,7 @@ def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoj
             'score': score,
             'emoji_pattern': emoji_pattern,
             'date': str(wordle_date)
-        }, timeout=5)
+        }, headers=headers, timeout=5)
         if resp.status_code == 200:
             logging.info(f"Forwarded score to staging: phone ...{player_phone[-4:]}, league {league_id}, wordle {wordle_number}")
         else:
@@ -74,13 +84,14 @@ def forward_weekly_winner_to_staging(league_id, player_name, week_wordle_number,
         return
     try:
         import requests as req
+        headers = {'X-Forward-Key': FORWARD_API_KEY} if FORWARD_API_KEY else {}
         req.post(f"{STAGING_URL}/api/forward-weekly-winner", json={
             'league_id': league_id,
             'player_name': player_name,
             'week_wordle_number': week_wordle_number,
             'score': score,
             'division': division,
-        }, timeout=5)
+        }, headers=headers, timeout=5)
         logging.info(f"Forwarded weekly winner to staging: {player_name}, league {league_id}, week {week_wordle_number}")
     except Exception as e:
         logging.warning(f"Staging weekly winner forward failed (non-fatal): {e}")
@@ -92,13 +103,14 @@ def forward_season_winner_to_staging(league_id, player_name, season_number, wins
         return
     try:
         import requests as req
+        headers = {'X-Forward-Key': FORWARD_API_KEY} if FORWARD_API_KEY else {}
         req.post(f"{STAGING_URL}/api/forward-season-winner", json={
             'league_id': league_id,
             'player_name': player_name,
             'season_number': season_number,
             'wins': wins,
             'division': division,
-        }, timeout=5)
+        }, headers=headers, timeout=5)
         logging.info(f"Forwarded season winner to staging: {player_name}, league {league_id}, season {season_number}")
     except Exception as e:
         logging.warning(f"Staging season winner forward failed (non-fatal): {e}")
