@@ -6356,10 +6356,10 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             if sub['status'] == 'active':
                 if sub['plan_type'] == 'sms':
                     options = ""
-                    sms_tiers = [('sms_4', '4 Players — $8/mo'), ('sms_5', '5 Players — $10/mo'), ('sms_6', '6 Players — $12/mo'), ('sms_7', '7 Players — $14/mo'), ('sms_8', '8 Players — $16/mo'), ('sms_9', '9 Players — $18/mo'), ('sms_9_ai', '9 Players + AI — $20/mo')]
+                    sms_tiers = [('sms_4', '4 Players — $8/mo'), ('sms_5', '5 Players — $10/mo'), ('sms_6', '6 Players — $12/mo'), ('sms_7', '7 Players — $14/mo'), ('sms_8', '8 Players — $16/mo'), ('sms_9', '9 Players — $18/mo'), ('sms_9_ai', '9 + AI — $20/mo')]
                     for tier_val, tier_label in sms_tiers:
                         if tier_val == tier:
-                            options += f'<option value="{tier_val}" selected disabled>{tier_label} (current)</option>'
+                            options += f'<option value="{tier_val}" selected disabled>{tier_label}</option>'
                         else:
                             options += f'<option value="{tier_val}">{tier_label}</option>'
                     change_plan_html = f"""
@@ -6375,10 +6375,10 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     """
                 elif sub['plan_type'] == 'slack':
                     options = ""
-                    slack_tiers = [('slack_1', '1 League — $5/mo'), ('slack_1_ai', '1 League + AI — $7/mo'), ('slack_2', '2 Leagues + AI — $10/mo'), ('slack_5', '5 Leagues + AI — $20/mo')]
+                    slack_tiers = [('slack_1', '1 League — $5/mo'), ('slack_1_ai', '1 + AI — $7/mo'), ('slack_2', '2 + AI — $10/mo'), ('slack_5', '5 + AI — $20/mo')]
                     for tier_val, tier_label in slack_tiers:
                         if tier_val == tier:
-                            options += f'<option value="{tier_val}" selected disabled>{tier_label} (current)</option>'
+                            options += f'<option value="{tier_val}" selected disabled>{tier_label}</option>'
                         else:
                             options += f'<option value="{tier_val}">{tier_label}</option>'
                     change_plan_html = f"""
