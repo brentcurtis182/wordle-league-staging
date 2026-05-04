@@ -528,6 +528,246 @@ def get_player_limit_for_league(league_id, channel_type):
 
 
 # ---------------------------------------------------------------------------
+# League ↔ Subscription Linking
+# ---------------------------------------------------------------------------
+
+def get_league_linked_subscription(league_id):
+    """
+    Get the subscription linked to a league, if any.
+    Returns dict with subscription info or None.
+    """
+    from auth import get_db_connection
+
+    if is_legacy_league(league_id):
+        return None
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT s.id, s.plan_tier, s.plan_type, s.status, s.ai_messaging_addon
+            FROM subscription_leagues sl
+            JOIN subscriptions s ON s.id = sl.subscription_id
+            WHERE sl.league_id = %s
+            ORDER BY s.created_at DESC
+            LIMIT 1
+        """, (league_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'subscription_id': row[0],
+            'plan_tier': row[1],
+            'plan_type': row[2],
+            'status': row[3],
+            'ai_messaging_addon': row[4],
+        }
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_user_subscriptions_for_linking(user_id, channel_type):
+    """
+    Get active subscriptions with available slots for linking a league.
+    channel_type: 'sms', 'slack', or 'discord' (discord maps to 'slack' plan_type).
+    Returns list of dicts for dropdown display.
+    """
+    from auth import get_db_connection
+
+    plan_type = 'slack' if channel_type in ('slack', 'discord') else 'sms'
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT s.id, s.plan_tier
+            FROM subscriptions s
+            WHERE s.user_id = %s AND s.plan_type = %s AND s.status = 'active'
+            ORDER BY s.created_at ASC
+        """, (user_id, plan_type))
+
+        results = []
+        for sub_id, plan_tier in cursor.fetchall():
+            # Count assigned leagues
+            cursor.execute(
+                "SELECT COUNT(*) FROM subscription_leagues WHERE subscription_id = %s",
+                (sub_id,)
+            )
+            used = cursor.fetchone()[0]
+
+            # Determine max slots and player limit
+            if plan_type == 'sms':
+                max_slots = 1
+                # Extract player count from tier name
+                bundle = SMS_BUNDLES.get(plan_tier)
+                if bundle:
+                    max_players = bundle['player_count']
+                else:
+                    try:
+                        max_players = int(plan_tier.replace('sms_', ''))
+                    except ValueError:
+                        max_players = 9
+                display = f"SMS {max_players}-Player — ${SMS_PRICE_MAP.get(max_players, 0) // 100}/mo" if plan_tier != 'sms_9_ai' else "SMS 9-Player + AI — $20/mo"
+            else:
+                tier_info = SLACK_TIERS.get(plan_tier, {})
+                max_slots = tier_info.get('league_slots', 1)
+                max_players = 14
+                tier_labels = {
+                    'slack_1': 'Slack 1 League — $5/mo',
+                    'slack_1_ai': 'Slack 1 League + AI — $7/mo',
+                    'slack_2': 'Slack 2 Leagues + AI — $10/mo',
+                    'slack_5': 'Slack 5 Leagues + AI — $20/mo',
+                }
+                display = tier_labels.get(plan_tier, plan_tier)
+
+            if used < max_slots:
+                results.append({
+                    'subscription_id': sub_id,
+                    'plan_tier': plan_tier,
+                    'display': display,
+                    'max_players': max_players,
+                    'slots_used': used,
+                    'slots_total': max_slots,
+                })
+
+        return results
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def link_league_to_subscription(subscription_id, league_id, player_count):
+    """
+    Link a league to a subscription slot. Validates player count against plan tier.
+    Returns {'success': True} or {'success': False, 'error': '...'}.
+    """
+    from auth import get_db_connection
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get subscription info
+        cursor.execute("""
+            SELECT s.plan_tier, s.plan_type, s.status
+            FROM subscriptions s WHERE s.id = %s
+        """, (subscription_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {'success': False, 'error': 'Subscription not found.'}
+        plan_tier, plan_type, status = row
+        if status != 'active':
+            return {'success': False, 'error': 'Subscription is not active.'}
+
+        # Check if league is already linked
+        cursor.execute(
+            "SELECT id FROM subscription_leagues WHERE league_id = %s", (league_id,)
+        )
+        if cursor.fetchone():
+            return {'success': False, 'error': 'League is already linked to a subscription.'}
+
+        # Determine max players for this tier
+        if plan_type == 'sms':
+            bundle = SMS_BUNDLES.get(plan_tier)
+            if bundle:
+                max_players = bundle['player_count']
+            else:
+                try:
+                    max_players = int(plan_tier.replace('sms_', ''))
+                except ValueError:
+                    max_players = 9
+        else:
+            max_players = 14  # Slack/Discord have no per-tier player limit
+
+        # Validate player count
+        if player_count > max_players:
+            return {
+                'success': False,
+                'error': f'This league has {player_count} players but the plan supports {max_players}. Remove {player_count - max_players} player{"s" if player_count - max_players > 1 else ""} or choose a larger plan.'
+            }
+
+        # Check slot availability
+        cursor.execute(
+            "SELECT COUNT(*) FROM subscription_leagues WHERE subscription_id = %s",
+            (subscription_id,)
+        )
+        used = cursor.fetchone()[0]
+        if plan_type == 'sms':
+            max_slots = 1
+        else:
+            tier_info = SLACK_TIERS.get(plan_tier, {})
+            max_slots = tier_info.get('league_slots', 1)
+        if used >= max_slots:
+            return {'success': False, 'error': 'No available slots on this subscription.'}
+
+        # Link it
+        cursor.execute("""
+            INSERT INTO subscription_leagues (subscription_id, league_id)
+            VALUES (%s, %s)
+            ON CONFLICT (subscription_id, league_id) DO NOTHING
+        """, (subscription_id, league_id))
+
+        # Set max_players on the league
+        cursor.execute(
+            "UPDATE leagues SET max_players = %s WHERE id = %s",
+            (max_players, league_id)
+        )
+
+        conn.commit()
+        logging.info(f"Linked league {league_id} to subscription {subscription_id} (tier={plan_tier}, max_players={max_players})")
+        return {'success': True, 'max_players': max_players}
+
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error linking league to subscription: {e}")
+        return {'success': False, 'error': 'An unexpected error occurred.'}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def unlink_league(league_id):
+    """
+    Unlink a league from its subscription and deactivate it.
+    Returns {'success': True} or {'success': False, 'error': '...'}.
+    """
+    from auth import get_db_connection
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Remove the link
+        cursor.execute(
+            "DELETE FROM subscription_leagues WHERE league_id = %s", (league_id,)
+        )
+        if cursor.rowcount == 0:
+            return {'success': False, 'error': 'League is not linked to any subscription.'}
+
+        # Reset max_players and deactivate
+        cursor.execute("""
+            UPDATE leagues
+            SET max_players = NULL,
+                twilio_conversation_sid = NULL,
+                slack_channel_id = NULL,
+                discord_channel_id = NULL,
+                verification_code = NULL
+            WHERE id = %s
+        """, (league_id,))
+
+        conn.commit()
+        logging.info(f"Unlinked and deactivated league {league_id}")
+        return {'success': True}
+
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error unlinking league: {e}")
+        return {'success': False, 'error': 'An unexpected error occurred.'}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Webhook Handling
 # ---------------------------------------------------------------------------
 

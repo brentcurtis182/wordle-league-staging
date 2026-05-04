@@ -2155,6 +2155,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     player_limit = billing_context.get('player_limit', 9 if channel_type == 'sms' else 14)
     requires_payment = billing_context.get('requires_payment', False)
     subscription_status = billing_context.get('subscription_status')
+    linked_subscription = billing_context.get('linked_subscription')
+    available_subscriptions = billing_context.get('available_subscriptions', [])
+    payment_required = billing_context.get('payment_required', False)
 
     # Pre-compute AI settings checkbox states
     ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
@@ -2585,8 +2588,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
                     </span>
+                    {f'<span style="background: #2ECC71; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">🔗 Linked</span>' if payment_required and linked_subscription else f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">⚠ Unlinked</span>' if payment_required and requires_payment else ''}
                     {f'<span style="background: {COLORS["accent_orange"]}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">⏳ {_waiting_opt_in_count} Waiting OPT-IN</span>' if _waiting_opt_in_count > 0 else ''}
-                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="showActivateModal()">{'Activate' if channel_type == 'sms' else 'Connect Channel'}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
+                    {f'<button type="button" class="btn btn-small" style="background: {COLORS["accent"]}; color: #000; padding: 6px 12px;" onclick="handleActivateClick()">{'Activate' if channel_type == 'sms' else 'Connect Channel'}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{league["slug"]}</a>' if league.get('slug') else ''}
                 </div>
                 {f"""
@@ -2672,8 +2676,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             
             <!-- Add Player Section -->
             <div class="card section">
-                <h2 style="display: flex; align-items: center; gap: 12px;">➕ Add Player <span style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; padding: 4px 10px; border-radius: 16px; font-size: 0.55em; color: {COLORS['text_muted']}; font-weight: 500;">{len(players)}/{player_limit}</span></h2>
-                {f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> {"SMS leagues are limited to 9 players (Twilio group MMS maximum)." if channel_type == "sms" else "Leagues are limited to " + str(player_limit) + " players."} Remove a player before adding a new one.</div>' if len(players) >= player_limit else ''}
+                <h2 style="display: flex; align-items: center; gap: 12px;">➕ Add Player <span style="background: {COLORS['bg_dark']}; border: 1px solid {COLORS['error'] if len(players) > player_limit else COLORS['border']}; padding: 4px 10px; border-radius: 16px; font-size: 0.55em; color: {COLORS['error'] if len(players) > player_limit else COLORS['text_muted']}; font-weight: 500;">{len(players)}/{player_limit}</span></h2>
+                {f'<div style="background: {COLORS["error"]}20; border: 1px solid {COLORS["error"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Over Player Limit:</strong> This league has {len(players)} players but your plan supports {player_limit}. Please remove {len(players) - player_limit} player{"s" if len(players) - player_limit > 1 else ""} or <a href="/dashboard/membership" style="color: {COLORS["accent"]};">upgrade your plan</a>.</div>' if len(players) > player_limit else f'<div style="background: {COLORS["accent_orange"]}20; border: 1px solid {COLORS["accent_orange"]}; color: {COLORS["text"]}; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong>⚠️ Player Limit Reached:</strong> {"SMS leagues are limited to 9 players (Twilio group MMS maximum)." if channel_type == "sms" else "Leagues are limited to " + str(player_limit) + " players."} Remove a player before adding a new one.</div>' if len(players) >= player_limit else ''}
                 {'<p style="color: ' + COLORS['text_muted'] + '; margin-bottom: 12px; font-size: 0.9em;">Add players by name. Their ' + ('Slack' if channel_type == 'slack' else 'Discord') + ' account will be linked automatically when they post their first score.</p>' if channel_type in ('slack', 'discord') else ''}
                 <form method="POST" action="/dashboard/league/{league['id']}/add-player" id="addPlayerForm" onsubmit="event.preventDefault(); showLoading('Adding player...'); var f=this; requestAnimationFrame(function(){{requestAnimationFrame(function(){{f.submit();}});}}); return false;" {f'style="opacity: 0.5; pointer-events: none;"' if len(players) >= player_limit else ''}>
                     {'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' if channel_type == 'sms' else '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 400px;">'}
@@ -2982,6 +2986,25 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             </div>
         </div>
         
+        <!-- Link League to Subscription Modal -->
+        <div class="modal-overlay" id="linkModal">
+            <div class="modal" style="max-width: 440px;">
+                <h3 style="color: {COLORS['accent']};">🔗 Link League to Subscription</h3>
+                <p style="color: {COLORS['text_muted']}; margin-bottom: 16px; font-size: 0.9em;">Select a subscription to link this league to before activating.</p>
+                <div id="linkError" style="display: none; background: {COLORS['error']}20; border: 1px solid {COLORS['error']}; color: {COLORS['text']}; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9em;"></div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>Subscription</label>
+                    <select id="linkSubscriptionSelect" style="width: 100%; padding: 10px 12px; border-radius: 6px; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; font-size: 0.9em;">
+                        {''.join(f'<option value="{s["subscription_id"]}" data-max-players="{s["max_players"]}">{s["display"]} ({s["slots_used"]}/{s["slots_total"]} slots used)</option>' for s in available_subscriptions) if available_subscriptions else '<option disabled>No subscriptions available</option>'}
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeLinkModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="linkConfirmBtn" onclick="linkLeague()" {'disabled' if not available_subscriptions else ''}>Link &amp; Continue</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Activate League Modal -->
         <div class="modal-overlay" id="activateModal">
             <div class="modal" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
@@ -2989,16 +3012,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 
                 <!-- Passcode Gate -->
                 <div id="activatePasscodeGate">
-                    {f"""
-                    <div style="background: {COLORS['accent']}20; border: 1px solid {COLORS['accent']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                        <p style="color: {COLORS['text']}; margin: 0 0 12px 0;"><strong>💳 Subscription Required</strong></p>
-                        <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.9em;">To activate this league, you need an active subscription. Head to League Membership to choose a plan.</p>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
-                        <a href="/dashboard/membership?league_id={league['id']}" class="btn btn-primary" style="text-decoration:none;">Go to League Membership</a>
-                    </div>
-                    """ if requires_payment and subscription_status != 'active' else f"""
                     <div style="background: {COLORS['accent_orange']}20; border: 1px solid {COLORS['accent_orange']}; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                         <p style="color: {COLORS['text']}; margin: 0 0 12px 0;"><strong>🔒 Activation Locked</strong></p>
                         <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.9em;">League activation is currently restricted. Enter the admin passcode to continue, or contact support to get access.</p>
@@ -3011,7 +3024,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <button type="button" class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
                         <button type="button" class="btn btn-primary" onclick="checkActivatePasscode()">Unlock</button>
                     </div>
-                    """}
                 </div>
                 
                 <!-- Activation Steps (hidden until passcode entered) -->
@@ -3783,6 +3795,69 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     if (data.success) {{ window.location.reload(); }}
                     else {{ alert(data.error || 'Failed to update'); window.location.reload(); }}
                 }}).catch(function() {{ alert('Network error'); window.location.reload(); }});
+            }}
+
+            // Link League to Subscription
+            var leagueIsLinked = {'true' if linked_subscription else 'false'};
+            var paymentRequired = {'true' if payment_required else 'false'};
+            var requiresPayment = {'true' if requires_payment else 'false'};
+            var hasAvailableSubs = {'true' if available_subscriptions else 'false'};
+
+            function handleActivateClick() {{
+                if (!requiresPayment || leagueIsLinked) {{
+                    showActivateModal();
+                    return;
+                }}
+                if (!hasAvailableSubs) {{
+                    window.location.href = '/dashboard/membership?league_id={league["id"]}';
+                    return;
+                }}
+                // Show link modal
+                document.getElementById('linkModal').classList.add('active');
+                document.getElementById('linkError').style.display = 'none';
+            }}
+
+            function closeLinkModal() {{
+                document.getElementById('linkModal').classList.remove('active');
+            }}
+
+            function linkLeague() {{
+                var select = document.getElementById('linkSubscriptionSelect');
+                var subId = select.value;
+                var btn = document.getElementById('linkConfirmBtn');
+                btn.disabled = true;
+                btn.textContent = 'Linking...';
+                document.getElementById('linkError').style.display = 'none';
+
+                fetch('/billing/link-league', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{subscription_id: parseInt(subId), league_id: {league['id']}}})
+                }})
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.success) {{
+                        closeLinkModal();
+                        leagueIsLinked = true;
+                        // Show toast
+                        var toast = document.createElement('div');
+                        toast.textContent = '✓ League linked!';
+                        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#2ECC71;color:#000;padding:12px 24px;border-radius:8px;font-weight:600;z-index:2000;';
+                        document.body.appendChild(toast);
+                        setTimeout(function() {{ toast.remove(); showActivateModal(); }}, 1200);
+                    }} else {{
+                        document.getElementById('linkError').textContent = data.error || 'Failed to link league.';
+                        document.getElementById('linkError').style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Link & Continue';
+                    }}
+                }})
+                .catch(function() {{
+                    document.getElementById('linkError').textContent = 'Network error. Please try again.';
+                    document.getElementById('linkError').style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Link & Continue';
+                }});
             }}
 
             // Activate League functions
@@ -6337,9 +6412,10 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             leagues_html = ""
             if sub.get('leagues'):
                 for lg in sub['leagues']:
-                    leagues_html += f'<div style="padding: 6px 12px; background: {COLORS["bg_dark"]}; border-radius: 6px; margin-top: 6px; font-size: 0.9em; color: {COLORS["text_muted"]};">• {lg["display_name"] or lg["name"]}</div>'
+                    lg_name = lg["display_name"] or lg["name"]
+                    leagues_html += f'<div style="padding: 6px 12px; background: {COLORS["bg_dark"]}; border-radius: 6px; margin-top: 6px; font-size: 0.9em; color: {COLORS["text_muted"]}; display: flex; justify-content: space-between; align-items: center;">• {lg_name} <button type="button" onclick="confirmUnlink({lg["id"]}, \'{lg_name.replace(chr(39), chr(92)+chr(39))}\')" style="background: none; border: none; color: {COLORS["text_muted"]}; cursor: pointer; font-size: 0.85em; padding: 2px 6px; border-radius: 4px; opacity: 0.6;" onmouseover="this.style.opacity=1;this.style.color=\'{COLORS["error"]}\'" onmouseout="this.style.opacity=0.6;this.style.color=\'{COLORS["text_muted"]}\'">✕ Unlink</button></div>'
             else:
-                leagues_html = f'<div style="padding: 6px 12px; color: {COLORS["text_muted"]}; font-size: 0.85em; font-style: italic;">No league assigned yet — activate a league to use this slot</div>'
+                leagues_html = f'<div style="padding: 6px 12px; color: {COLORS["text_muted"]}; font-size: 0.85em; font-style: italic;">No league linked yet — link a league when you activate it</div>'
 
             # AI addon button for SMS plans that don't have AI
             ai_addon_html = ""
@@ -6788,6 +6864,57 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                 to {{ transform: rotate(360deg); }}
             }}
         </style>
+
+        <!-- Unlink Confirmation Modal -->
+        <div id="unlinkModal" onclick="if(event.target===this)closeUnlinkModal()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1100; justify-content:center; align-items:center;">
+          <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:24px; max-width:400px; width:90%; text-align:center;">
+            <h3 style="color:{COLORS['accent_orange']}; margin:0 0 12px 0;">Unlink League?</h3>
+            <p id="unlinkText" style="color:{COLORS['text_muted']}; margin:0 0 20px 0; font-size:0.9em; line-height:1.5;"></p>
+            <div style="display:flex; gap:12px; justify-content:center;">
+              <button onclick="closeUnlinkModal()" style="background:{COLORS['bg_dark']}; color:{COLORS['text']}; border:1px solid {COLORS['border']}; padding:10px 24px; border-radius:8px; cursor:pointer; font-weight:600;">Cancel</button>
+              <button id="unlinkConfirmBtn" onclick="executeUnlink()" style="background:{COLORS['error']}; color:#fff; border:none; padding:10px 24px; border-radius:8px; cursor:pointer; font-weight:600;">Unlink</button>
+            </div>
+          </div>
+        </div>
+
+        <script>
+        var pendingUnlinkLeagueId = null;
+        function confirmUnlink(leagueId, leagueName) {{
+            pendingUnlinkLeagueId = leagueId;
+            document.getElementById('unlinkText').textContent = 'Unlinking "' + leagueName + '" will deactivate it. Players won\\'t be able to submit scores until you re-link and reactivate.';
+            document.getElementById('unlinkModal').style.display = 'flex';
+        }}
+        function closeUnlinkModal() {{
+            pendingUnlinkLeagueId = null;
+            document.getElementById('unlinkModal').style.display = 'none';
+        }}
+        function executeUnlink() {{
+            if (!pendingUnlinkLeagueId) return;
+            var btn = document.getElementById('unlinkConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = 'Unlinking...';
+            fetch('/billing/unlink-league', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{league_id: pendingUnlinkLeagueId}})
+            }})
+            .then(function(r) {{ return r.json(); }})
+            .then(function(data) {{
+                if (data.success) {{
+                    window.location.reload();
+                }} else {{
+                    alert(data.error || 'Failed to unlink league.');
+                    btn.disabled = false;
+                    btn.textContent = 'Unlink';
+                }}
+            }})
+            .catch(function() {{
+                alert('Network error. Please try again.');
+                btn.disabled = false;
+                btn.textContent = 'Unlink';
+            }});
+        }}
+        </script>
     </body>
     </html>
     """

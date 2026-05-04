@@ -2889,7 +2889,7 @@ def dashboard_league(league_id):
     """League management page"""
     from auth import validate_session, can_manage_league, get_config
     from dashboard import render_league_management, get_league_players, get_league_info, get_pending_removal_players
-    from billing import check_ai_messaging_enabled, get_player_limit_for_league, league_requires_payment, get_league_subscription_status
+    from billing import check_ai_messaging_enabled, get_player_limit_for_league, league_requires_payment, get_league_subscription_status, get_league_linked_subscription, get_user_subscriptions_for_linking
 
     session_token = request.cookies.get('session_token')
     logging.info(f"League page: session_token present: {bool(session_token)}")
@@ -2913,15 +2913,18 @@ def dashboard_league(league_id):
     message = request.args.get('message')
     error = request.args.get('error')
 
-    # Phase 4: billing context
+    # Billing context
     payment_required = get_config('payment_required', 'false') == 'true'
     channel_type = league.get('channel_type') or 'sms'
+    linked_sub = get_league_linked_subscription(league_id)
     billing_context = {
         'payment_required': payment_required,
         'requires_payment': league_requires_payment(league, payment_required),
         'subscription_status': get_league_subscription_status(league_id),
         'ai_messaging_enabled': check_ai_messaging_enabled(league_id),
         'player_limit': get_player_limit_for_league(league_id, channel_type),
+        'linked_subscription': linked_sub,
+        'available_subscriptions': get_user_subscriptions_for_linking(user['id'], channel_type) if payment_required and not linked_sub else [],
     }
 
     return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)
@@ -4481,6 +4484,57 @@ def billing_change_plan():
     except Exception as e:
         logging.error(f"Error changing plan: {e}")
         return redirect(f'/dashboard/membership?error=Failed to change plan: {str(e)}')
+
+
+@app.route('/billing/link-league', methods=['POST'])
+def billing_link_league():
+    """Link a league to a subscription slot."""
+    from auth import validate_session, can_manage_league
+    from billing import link_league_to_subscription
+    from dashboard import get_league_players
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+    data = request.get_json(force=True)
+    subscription_id = data.get('subscription_id')
+    league_id = data.get('league_id')
+
+    if not subscription_id or not league_id:
+        return jsonify({'success': False, 'error': 'Missing parameters'}), 400
+
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    players = get_league_players(league_id)
+    result = link_league_to_subscription(subscription_id, league_id, len(players))
+    return jsonify(result)
+
+
+@app.route('/billing/unlink-league', methods=['POST'])
+def billing_unlink_league():
+    """Unlink a league from its subscription and deactivate it."""
+    from auth import validate_session, can_manage_league
+    from billing import unlink_league
+
+    session_token = request.cookies.get('session_token')
+    user = validate_session(session_token)
+    if not user:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+    data = request.get_json(force=True)
+    league_id = data.get('league_id')
+
+    if not league_id:
+        return jsonify({'success': False, 'error': 'Missing league_id'}), 400
+
+    if not can_manage_league(user['id'], league_id):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    result = unlink_league(league_id)
+    return jsonify(result)
 
 
 @app.route('/billing/add-ai-addon', methods=['POST'])
