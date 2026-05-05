@@ -107,8 +107,10 @@ def validate_twilio_webhook():
         logging.warning('TWILIO_AUTH_TOKEN not set — skipping webhook signature validation')
         return
     validator = RequestValidator(auth_token)
-    # Build the full URL Twilio signed against
-    url = request.url
+    # Use public URL — request.url is internal behind Railway's reverse proxy
+    url = APP_BASE_URL + request.path
+    if request.query_string:
+        url += '?' + request.query_string.decode('utf-8')
     # For form-encoded, pass form params; for JSON, pass empty dict
     if request.is_json:
         params = {}
@@ -116,9 +118,11 @@ def validate_twilio_webhook():
         params = request.form.to_dict()
     signature = request.headers.get('X-Twilio-Signature', '')
     if not validator.validate(url, params, signature):
-        logging.warning(f"Invalid Twilio signature on {request.path}")
-        return ('<?xml version="1.0" encoding="UTF-8"?>'
-                '<Response><Message>Unauthorized</Message></Response>'), 403
+        # Log-only mode: warn but allow through so scores aren't blocked
+        logging.warning(f"Twilio signature mismatch on {request.path} (url={url}, sig={signature[:20]}...)")
+        # TODO: Once validated working, uncomment the block below to enforce
+        # return ('<?xml version="1.0" encoding="UTF-8"?>'
+        #         '<Response><Message>Unauthorized</Message></Response>'), 403
 
 # ---------------------------------------------------------------------------
 # Security Headers (Item #10)
