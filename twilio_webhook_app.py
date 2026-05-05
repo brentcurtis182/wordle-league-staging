@@ -8,9 +8,11 @@ Updated: 2026-04-10
 import os
 import re
 import logging
+import secrets
 from datetime import datetime, date, timedelta
 from flask import Flask, request, jsonify, redirect, make_response, send_from_directory, flash
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.request_validator import RequestValidator
 import psycopg2
 
 # Configure logging
@@ -26,10 +28,58 @@ if not app.secret_key:
     app.secret_key = _secrets.token_hex(32)
     logging.warning('SECRET_KEY not set — using random key (sessions will not persist across restarts)')
 
+# ---------------------------------------------------------------------------
+# Rate Limiting (Item #9)
+# ---------------------------------------------------------------------------
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["120 per minute"],          # generous global default
+    storage_uri="memory://",                     # in-process; fine for single-dyno
+)
+
 # Protect all debug/diagnostic endpoints with admin auth
 PROTECTED_PREFIXES = ('/debug-', '/list-all-tables', '/list-files', '/check-table-schema',
                       '/check-league', '/check-all-weekly', '/check-last-week',
                       '/send-message-to-league', '/setup-')
+
+# ---------------------------------------------------------------------------
+# CSRF Protection — double-submit cookie (Item #8)
+# ---------------------------------------------------------------------------
+# Paths that are exempt from CSRF (machine-to-machine / external webhooks)
+CSRF_EXEMPT_PREFIXES = (
+    '/webhook',             # Twilio inbound SMS (validated separately)
+    '/slack/',              # Slack events / commands
+    '/discord/',            # Discord interactions
+    '/billing/webhook',     # Stripe webhook (validated by signature)
+    '/api/forward-',        # Server-to-server forwarding (validated by X-Forward-Key)
+    '/daily-reset',         # Cron endpoints
+    '/trigger-',            # Cron endpoints
+    '/setup-',              # Admin setup/migration endpoints (admin-guarded)
+    '/debug-',              # Admin debug endpoints (admin-guarded)
+    '/send-message-to-league',  # Admin endpoint (admin-guarded)
+)
+
+def _csrf_exempt(path):
+    """Return True if this path should skip CSRF validation."""
+    return path.startswith(CSRF_EXEMPT_PREFIXES)
+
+@app.before_request
+def csrf_protect():
+    """Validate CSRF token on state-changing requests."""
+    if request.method in ('GET', 'HEAD', 'OPTIONS'):
+        return  # safe methods — no check needed
+    if _csrf_exempt(request.path):
+        return  # webhook / API endpoints use their own auth
+    cookie_token = request.cookies.get('csrf_token')
+    # Accept token from header (fetch calls) or form field (traditional forms)
+    submitted = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
+    if not cookie_token or not submitted or cookie_token != submitted:
+        logging.warning(f"CSRF validation failed for {request.path}")
+        return jsonify({'error': 'CSRF validation failed'}), 403
 
 @app.before_request
 def guard_debug_endpoints():
@@ -43,6 +93,111 @@ def guard_debug_endpoints():
         key = request.headers.get('X-Forward-Key', '')
         if not FORWARD_API_KEY or key != FORWARD_API_KEY:
             return jsonify({'error': 'Invalid forward key'}), 403
+
+# ---------------------------------------------------------------------------
+# Twilio Webhook Signature Validation (Item #11)
+# ---------------------------------------------------------------------------
+@app.before_request
+def validate_twilio_webhook():
+    """Verify inbound Twilio requests are genuine using X-Twilio-Signature."""
+    if not request.path.startswith('/webhook'):
+        return
+    auth_token = os.environ.get('TWILIO_AUTH_TOKEN')
+    if not auth_token:
+        logging.warning('TWILIO_AUTH_TOKEN not set — skipping webhook signature validation')
+        return
+    validator = RequestValidator(auth_token)
+    # Build the full URL Twilio signed against
+    url = request.url
+    # For form-encoded, pass form params; for JSON, pass empty dict
+    if request.is_json:
+        params = {}
+    else:
+        params = request.form.to_dict()
+    signature = request.headers.get('X-Twilio-Signature', '')
+    if not validator.validate(url, params, signature):
+        logging.warning(f"Invalid Twilio signature on {request.path}")
+        return ('<?xml version="1.0" encoding="UTF-8"?>'
+                '<Response><Message>Unauthorized</Message></Response>'), 403
+
+# ---------------------------------------------------------------------------
+# Security Headers (Item #10)
+# ---------------------------------------------------------------------------
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to every response."""
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://accounts.google.com https://apis.google.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "frame-src https://js.stripe.com https://accounts.google.com; "
+        "connect-src 'self' https://api.stripe.com https://accounts.google.com;"
+    )
+    # Set CSRF cookie if not present (so JS can read it for fetch calls)
+    if 'csrf_token' not in request.cookies:
+        csrf_token = secrets.token_hex(32)
+        response.set_cookie('csrf_token', csrf_token,
+                          max_age=30*24*60*60,
+                          httponly=False,   # JS needs to read this
+                          secure=True,
+                          samesite='Lax')
+    # Auto-inject CSRF script into HTML pages (adds token to all forms + fetch)
+    if (response.content_type and 'text/html' in response.content_type
+            and response.status_code == 200):
+        _inject_csrf_script(response)
+    return response
+
+# CSRF auto-injection script — adds hidden field to every form and patches fetch()
+_CSRF_SCRIPT = """
+<script>
+(function(){
+  function getCookie(n){var m=document.cookie.match('(^|;)\\\\s*'+n+'=([^;]+)');return m?m[2]:'';}
+  var tk=getCookie('csrf_token');
+  if(!tk) return;
+  // Inject hidden input into every form on the page (and future forms via observer)
+  function addTokenToForm(f){
+    if(!f.querySelector('input[name="csrf_token"]')){
+      var inp=document.createElement('input');inp.type='hidden';inp.name='csrf_token';inp.value=tk;
+      f.appendChild(inp);
+    }
+  }
+  document.querySelectorAll('form[method="POST"],form[method="post"]').forEach(addTokenToForm);
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){m.addedNodes.forEach(function(n){
+      if(n.tagName==='FORM') addTokenToForm(n);
+      if(n.querySelectorAll) n.querySelectorAll('form').forEach(addTokenToForm);
+    });});
+  }).observe(document.body,{childList:true,subtree:true});
+  // Patch fetch to include the token header on same-origin requests
+  var _fetch=window.fetch;
+  window.fetch=function(url,opts){
+    opts=opts||{};
+    if(!opts.headers) opts.headers={};
+    if(opts.headers instanceof Headers){opts.headers.set('X-CSRF-Token',tk);}
+    else{opts.headers['X-CSRF-Token']=tk;}
+    return _fetch.call(this,url,opts);
+  };
+})();
+</script>
+"""
+
+def _inject_csrf_script(response):
+    """Inject CSRF JS into HTML responses before </body>."""
+    try:
+        data = response.get_data(as_text=True)
+        if '</body>' in data:
+            data = data.replace('</body>', _CSRF_SCRIPT + '</body>', 1)
+            response.set_data(data)
+            # Update content-length after injection
+            response.headers['Content-Length'] = len(response.get_data())
+    except Exception:
+        pass  # non-critical — don't break responses
 
 # Base URL for links (uses Railway's public domain, falls back to production)
 APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
@@ -2323,6 +2478,7 @@ def discord_register_commands():
 # =============================================================================
 
 @app.route('/auth/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=["POST"])
 def auth_login():
     """Login page and handler"""
     try:
@@ -2383,6 +2539,7 @@ def auth_login():
         return render_login_page(error='An unexpected error occurred. Please try again.')
 
 @app.route('/auth/register', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])
 def auth_register():
     """Registration page and handler"""
     try:
@@ -2434,6 +2591,7 @@ def auth_register():
         return render_register_page(error='An unexpected error occurred. Please try again.')
 
 @app.route('/auth/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])
 def auth_forgot_password():
     """Forgot password page and handler"""
     try:
@@ -2455,6 +2613,7 @@ def auth_forgot_password():
         return render_forgot_password_page(error='An unexpected error occurred. Please try again.')
 
 @app.route('/auth/reset-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])
 def auth_reset_password():
     """Reset password page and handler"""
     try:
@@ -2523,6 +2682,7 @@ def auth_verify_email():
         return render_verify_email_page(success=False, error='An unexpected error occurred.')
 
 @app.route('/auth/resend-verification', methods=['POST'])
+@limiter.limit("3 per minute")
 def auth_resend_verification():
     """Resend verification email"""
     try:
