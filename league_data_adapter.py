@@ -53,23 +53,53 @@ def get_league_min_scores(league_id, conn=None):
     return 5
 
 
-def get_min_scores_effective_week(league_id, conn=None):
-    """Return the wordle week number when min_weekly_scores took effect (None = always default 5)."""
-    own_conn = conn is None
-    if own_conn:
-        conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT min_weekly_scores_effective_week FROM leagues WHERE id = %s", (league_id,))
-        row = cursor.fetchone()
-        cursor.close()
-        return row[0] if row else None
-    except Exception as e:
-        logging.warning(f"get_min_scores_effective_week fallback for league {league_id}: {e}")
-        return None
-    finally:
+def get_min_scores_for_week(league_id, week_wordle, conn=None, _cache={}):
+    """Return the min_scores threshold that was in effect for a given week.
+
+    Looks up league_min_scores_history to find the most recent setting
+    that took effect on or before the given week. Falls back to 5 (default)
+    if no history exists for that period.
+    """
+    cache_key = league_id
+    if cache_key not in _cache:
+        own_conn = conn is None
         if own_conn:
-            conn.close()
+            conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT effective_week, min_scores
+                FROM league_min_scores_history
+                WHERE league_id = %s
+                ORDER BY effective_week ASC
+            """, (league_id,))
+            _cache[cache_key] = cursor.fetchall()  # [(effective_week, min_scores), ...]
+            cursor.close()
+        except Exception as e:
+            logging.warning(f"get_min_scores_for_week fallback for league {league_id}: {e}")
+            _cache[cache_key] = []
+        finally:
+            if own_conn:
+                conn.close()
+
+    # Walk history to find the threshold in effect for this week
+    history = _cache[cache_key]
+    threshold = 5  # default before any changes
+    for eff_week, min_sc in history:
+        if eff_week <= week_wordle:
+            threshold = min_sc
+        else:
+            break
+    return threshold
+
+
+def clear_min_scores_cache(league_id=None):
+    """Clear the per-league min_scores history cache."""
+    cache = get_min_scores_for_week.__defaults__[0]
+    if league_id:
+        cache.pop(league_id, None)
+    else:
+        cache.clear()
 
 def calculate_wordle_number(target_date=None):
     """Calculate the Wordle number based on the date (from export_leaderboard.py)"""
@@ -449,10 +479,12 @@ def get_complete_league_data(league_id):
 
         # Calculate missed weeks for all players (standard league display)
         # A missed week = past completed week in current season with < threshold valid scores
-        # Use the default (5) for weeks before min_weekly_scores was changed,
-        # and the current min_scores for weeks on/after the effective week.
+        # Each completed week is evaluated against the threshold that was in
+        # effect when that week concluded (from league_min_scores_history).
+        # This prevents changing the setting from retroactively altering
+        # missed week counts for already-completed weeks.
         missed_weeks = {}
-        effective_week = get_min_scores_effective_week(league_id, conn=conn)
+        clear_min_scores_cache(league_id)  # ensure fresh data
         season_start_for_missed = season_data.get('season_start_week') if season_data else None
         if not season_start_for_missed:
             # Fallback: try to get from seasons table via season_data
@@ -498,8 +530,8 @@ def get_complete_league_data(league_id):
                 while w < current_week_start:
                     scores_in_week = week_scores.get(w, [])
                     valid_count = len([s for s in scores_in_week if s < 7])
-                    # Use default (5) for weeks before the setting was changed
-                    threshold = min_scores if (effective_week and w >= effective_week) else 5
+                    # Look up the threshold that was in effect for this specific week
+                    threshold = get_min_scores_for_week(league_id, w, conn=conn)
                     if valid_count < threshold:
                         player_missed += 1
                     w += 7
@@ -865,7 +897,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
         # This is used for relegation (worst/highest total in Div I gets relegated)
         season_totals = {}
         missed_weeks = {}
-        effective_week = get_min_scores_effective_week(league_id, conn=conn)
+        clear_min_scores_cache(league_id)
 
         # Determine current week start wordle from weekly_stats
         current_week_start = None
@@ -905,7 +937,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                 for ws_start, scores in week_scores.items():
                     if current_week_start and ws_start >= current_week_start:
                         continue  # Skip current week, handled via weekly_stats
-                    threshold = min_scores if (effective_week and ws_start >= effective_week) else 5
+                    threshold = get_min_scores_for_week(league_id, ws_start, conn=conn)
                     valid = sorted([s for s in scores if s < 7])
                     best5 = sum(valid[:min_scores]) if len(valid) >= min_scores else sum(valid)
                     past_total += best5
