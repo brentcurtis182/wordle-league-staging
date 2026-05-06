@@ -3658,6 +3658,17 @@ def dashboard_rename_league(league_id):
         if new_min_scores is not None:
             set_clauses.append("min_weekly_scores = %s")
             params.append(new_min_scores)
+            if new_min_scores != prev_min_scores:
+                # Record when the setting takes effect so missed weeks
+                # aren't retroactively recalculated for historical weeks
+                from league_data_adapter import calculate_wordle_number, get_week_start_date
+                from datetime import timedelta as _td
+                # Effective from next Monday (start of next week)
+                today = get_week_start_date()
+                next_monday = today + _td(days=7)
+                effective_wordle = calculate_wordle_number(next_monday)
+                set_clauses.append("min_weekly_scores_effective_week = %s")
+                params.append(effective_wordle)
         if header_emoji_field_present:
             set_clauses.append("header_emoji = %s")
             params.append(new_header_emoji)

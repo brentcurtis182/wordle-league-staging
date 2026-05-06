@@ -144,6 +144,10 @@ def create_billing_tables():
             cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS lapsed_notified BOOLEAN DEFAULT FALSE")
         except Exception:
             pass
+        try:
+            cursor.execute("ALTER TABLE leagues ADD COLUMN IF NOT EXISTS min_weekly_scores_effective_week INTEGER")
+        except Exception:
+            pass
 
         conn.commit()
         logging.info("Billing tables created/verified successfully")

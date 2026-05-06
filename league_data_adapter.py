@@ -52,6 +52,25 @@ def get_league_min_scores(league_id, conn=None):
             conn.close()
     return 5
 
+
+def get_min_scores_effective_week(league_id, conn=None):
+    """Return the wordle week number when min_weekly_scores took effect (None = always default 5)."""
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT min_weekly_scores_effective_week FROM leagues WHERE id = %s", (league_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        return row[0] if row else None
+    except Exception as e:
+        logging.warning(f"get_min_scores_effective_week fallback for league {league_id}: {e}")
+        return None
+    finally:
+        if own_conn:
+            conn.close()
+
 def calculate_wordle_number(target_date=None):
     """Calculate the Wordle number based on the date (from export_leaderboard.py)"""
     # First Wordle (Wordle 0) was on June 19, 2021
@@ -429,8 +448,11 @@ def get_complete_league_data(league_id):
             division_data = get_division_season_data(league_id, weekly_stats=weekly_stats, conn=conn, min_scores=min_scores)
 
         # Calculate missed weeks for all players (standard league display)
-        # A missed week = past completed week in current season with < min_scores valid scores
+        # A missed week = past completed week in current season with < threshold valid scores
+        # Use the default (5) for weeks before min_weekly_scores was changed,
+        # and the current min_scores for weeks on/after the effective week.
         missed_weeks = {}
+        effective_week = get_min_scores_effective_week(league_id, conn=conn)
         season_start_for_missed = season_data.get('season_start_week') if season_data else None
         if not season_start_for_missed:
             # Fallback: try to get from seasons table via season_data
@@ -443,9 +465,9 @@ def get_complete_league_data(league_id):
             if sr:
                 season_start_for_missed = sr[0]
             sd_cursor.close()
-        
+
         current_week_start = week_wordles[0] if week_wordles else None
-        
+
         if season_start_for_missed and current_week_start:
             mw_cursor = conn.cursor()
             for player_name, pstats in weekly_stats.items():
@@ -453,7 +475,7 @@ def get_complete_league_data(league_id):
                 if not player_id:
                     missed_weeks[player_name] = 0
                     continue
-                
+
                 mw_cursor.execute("""
                     SELECT s.wordle_number, s.score
                     FROM scores s
@@ -462,7 +484,7 @@ def get_complete_league_data(league_id):
                       AND s.wordle_number < %s
                     ORDER BY s.wordle_number
                 """, (player_id, season_start_for_missed, current_week_start))
-                
+
                 # Group by week
                 week_scores = {}
                 for wn, sc in mw_cursor.fetchall():
@@ -470,16 +492,18 @@ def get_complete_league_data(league_id):
                     if ws not in week_scores:
                         week_scores[ws] = []
                     week_scores[ws].append(sc)
-                
+
                 player_missed = 0
                 w = season_start_for_missed
                 while w < current_week_start:
                     scores_in_week = week_scores.get(w, [])
                     valid_count = len([s for s in scores_in_week if s < 7])
-                    if valid_count < min_scores:
+                    # Use default (5) for weeks before the setting was changed
+                    threshold = min_scores if (effective_week and w >= effective_week) else 5
+                    if valid_count < threshold:
                         player_missed += 1
                     w += 7
-                
+
                 missed_weeks[player_name] = player_missed
             mw_cursor.close()
     finally:
@@ -841,7 +865,8 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
         # This is used for relegation (worst/highest total in Div I gets relegated)
         season_totals = {}
         missed_weeks = {}
-        
+        effective_week = get_min_scores_effective_week(league_id, conn=conn)
+
         # Determine current week start wordle from weekly_stats
         current_week_start = None
         if weekly_stats:
@@ -849,7 +874,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                 if pstats.get('daily_scores'):
                     current_week_start = min(pstats['daily_scores'].keys())
                     break
-        
+
         for p in div_players:
             if p['immunity']:
                 season_totals[p['name']] = None  # Will display as "Immune"
@@ -863,7 +888,7 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                       AND s.wordle_number >= %s
                     ORDER BY s.wordle_number
                 """, (p['id'], season_start))
-                
+
                 # Group scores by week (7-day blocks from season_start)
                 week_scores = {}
                 for wn, sc in cursor.fetchall():
@@ -871,20 +896,22 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                     if week_start not in week_scores:
                         week_scores[week_start] = []
                     week_scores[week_start].append(sc)
-                
+
                 # Sum best-N from each past week (exclude current week)
-                # Also count missed weeks (past weeks with fewer than min_scores valid scores)
+                # Also count missed weeks (past weeks with fewer than threshold valid scores)
+                # Use default (5) for weeks before min_weekly_scores was changed
                 past_total = 0
                 player_missed = 0
                 for ws_start, scores in week_scores.items():
                     if current_week_start and ws_start >= current_week_start:
                         continue  # Skip current week, handled via weekly_stats
+                    threshold = min_scores if (effective_week and ws_start >= effective_week) else 5
                     valid = sorted([s for s in scores if s < 7])
                     best5 = sum(valid[:min_scores]) if len(valid) >= min_scores else sum(valid)
                     past_total += best5
-                    if len(valid) < min_scores:
+                    if len(valid) < threshold:
                         player_missed += 1
-                
+
                 # Also check past weeks where the player had zero scores
                 # (they won't appear in week_scores at all)
                 if current_week_start and season_start < current_week_start:
