@@ -17,9 +17,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- Configuration ---
 ALERT_PHONE = os.environ.get('ALERT_PHONE', '+18587359353')  # Brent's number
-ALERT_EMAIL = os.environ.get('ALERT_EMAIL', 'brentcurtis182@hotmail.com')
-CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/party/index.html'  # League 4
-HEALTH_CHECK_INTERVAL = 300  # 5 minutes
+ALERT_EMAILS = [
+    'brentcurtis182@gmail.com',
+    'brentcurtis182@hotmail.com',
+]
+# TODO: revert to real URL after testing
+# CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/party/index.html'  # League 4
+CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/fake-test-page/index.html'  # TEST: triggers alert
+HEALTH_CHECK_INTERVAL = 60  # TODO: revert to 300 after testing
 SCORE_VERIFY_DELAY = 45  # seconds to wait for GitHub Pages propagation
 
 # Track alert state to avoid spamming
@@ -50,7 +55,7 @@ def _send_alert_sms(message):
 
 
 def _send_alert_email(subject, message):
-    """Send an email alert via Brevo."""
+    """Send an email alert via Brevo to all ALERT_EMAILS."""
     try:
         from email_utils import _send_email_sync
         html = f'<div style="font-family:monospace;padding:20px;background:#1a1a2e;color:#e0e0e0;">'
@@ -58,10 +63,20 @@ def _send_alert_email(subject, message):
         html += f'<p>{message}</p>'
         html += f'<p style="color:#888;">Sent: {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}</p>'
         html += '</div>'
-        _send_email_sync(ALERT_EMAIL, subject, html)
-        logging.info(f'Monitoring: Email alert sent to {ALERT_EMAIL}')
+        for email in ALERT_EMAILS:
+            _send_alert_email_single(email, subject, html)
     except Exception as e:
-        logging.error(f'Monitoring: Failed to send email alert: {e}')
+        logging.error(f'Monitoring: Failed to send email alerts: {e}')
+
+
+def _send_alert_email_single(email, subject, html):
+    """Send to a single email address."""
+    try:
+        from email_utils import _send_email_sync
+        _send_email_sync(email, subject, html)
+        logging.info(f'Monitoring: Email alert sent to {email}')
+    except Exception as e:
+        logging.error(f'Monitoring: Failed to send email to {email}: {e}')
 
 
 def _send_alert(subject, message):
