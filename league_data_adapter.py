@@ -95,7 +95,7 @@ def get_min_scores_for_week(league_id, week_wordle, conn=None, _cache={}):
 
 def clear_min_scores_cache(league_id=None):
     """Clear the per-league min_scores history cache."""
-    cache = get_min_scores_for_week.__defaults__[0]
+    cache = get_min_scores_for_week.__defaults__[-1]  # _cache={} is last default
     if league_id:
         cache.pop(league_id, None)
     else:
