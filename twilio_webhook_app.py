@@ -229,6 +229,14 @@ APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayl
 STAGING_URL = os.environ.get('STAGING_URL', '')
 FORWARD_API_KEY = os.environ.get('FORWARD_API_KEY', '')
 
+# Start background site health monitor (production only)
+if 'staging' not in APP_BASE_URL:
+    try:
+        from monitoring import start_health_monitor
+        start_health_monitor()
+    except Exception as _mon_err:
+        logging.warning(f'Monitoring: Failed to start health monitor: {_mon_err}')
+
 
 def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoji_pattern, wordle_date):
     """Forward a saved score to staging environment (fire-and-forget, never affects production)"""
@@ -1715,14 +1723,21 @@ def webhook():
                 import threading
                 def run_pipeline_async():
                     run_pipeline_with_retry(league_id, max_retries=3)
-                
+
                 thread = threading.Thread(target=run_pipeline_async, daemon=True)
                 thread.start()
                 logging.info(f"Pipeline triggered in background thread for league {league_id}")
             except Exception as pipeline_error:
                 logging.error(f"Error starting pipeline thread: {pipeline_error}")
                 # Don't fail the webhook if pipeline fails
-                
+
+            # Verify score appears on public page (first score of day per league)
+            try:
+                from monitoring import verify_score_on_page
+                verify_score_on_page(league_id, wordle_num)
+            except Exception:
+                pass  # monitoring is non-critical
+
         elif result == "updated":
             logging.info(f"✅ Score updated! {player_name}: Wordle #{wordle_num} - {score if score != 7 else 'X'}/6")
             
