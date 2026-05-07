@@ -111,7 +111,8 @@ def check_site_health():
 
 
 def run_health_check():
-    """Run a single health check and alert if there's a problem."""
+    """Run a single health check and alert if there's a problem.
+    On first failure, does 2 rapid retries (30s apart) to filter transient blips."""
     global _last_health_alert_time
 
     healthy, detail = check_site_health()
@@ -122,15 +123,25 @@ def run_health_check():
             _last_health_alert_time = None
         return
 
-    # Site is down — check cooldown before alerting
+    # First failure — do rapid retries before alerting
+    logging.warning(f'Monitoring: First check failed ({detail}) — running rapid retries...')
+    for retry in range(2):
+        time.sleep(30)
+        healthy, detail = check_site_health()
+        if healthy:
+            logging.info(f'Monitoring: Retry {retry + 1} passed — transient blip, no alert')
+            return
+        logging.warning(f'Monitoring: Retry {retry + 1} also failed ({detail})')
+
+    # 3 consecutive failures (initial + 2 retries) — this is real
     now = time.time()
     if _last_health_alert_time and (now - _last_health_alert_time) < _health_alert_cooldown:
         logging.warning(f'Monitoring: Site still down ({detail}) — alert on cooldown')
         return
 
     _last_health_alert_time = now
-    logging.error(f'Monitoring: SITE DOWN — {detail}')
-    _send_alert('Site Down', f'League pages are not rendering correctly. Detail: {detail}. URL: {CANARY_LEAGUE_URL}')
+    logging.error(f'Monitoring: SITE DOWN (confirmed after 3 checks) — {detail}')
+    _send_alert('Site Down', f'League pages are not rendering correctly (confirmed after 3 checks over 60s). Detail: {detail}. URL: {CANARY_LEAGUE_URL}')
 
 
 def verify_score_on_page(league_id, wordle_number):
