@@ -229,13 +229,13 @@ APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayl
 STAGING_URL = os.environ.get('STAGING_URL', '')
 FORWARD_API_KEY = os.environ.get('FORWARD_API_KEY', '')
 
-# Start background site health monitor
-# TODO: revert to prod-only after testing — currently enabled on staging for test
-try:
-    from monitoring import start_health_monitor
-    start_health_monitor()
-except Exception as _mon_err:
-    logging.warning(f'Monitoring: Failed to start health monitor: {_mon_err}')
+# Start background site health monitor (production only)
+if 'staging' not in APP_BASE_URL:
+    try:
+        from monitoring import start_health_monitor
+        start_health_monitor()
+    except Exception as _mon_err:
+        logging.warning(f'Monitoring: Failed to start health monitor: {_mon_err}')
 
 
 def forward_score_to_staging(player_phone, league_id, wordle_number, score, emoji_pattern, wordle_date):

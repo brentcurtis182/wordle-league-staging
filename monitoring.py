@@ -21,10 +21,8 @@ ALERT_EMAILS = [
     'brentcurtis182@gmail.com',
     'brentcurtis182@hotmail.com',
 ]
-# TODO: revert to real URL after testing
-# CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/party/index.html'  # League 4
-CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/fake-test-page/index.html'  # TEST: triggers alert
-HEALTH_CHECK_INTERVAL = 60  # TODO: revert to 300 after testing
+CANARY_LEAGUE_URL = 'https://brentcurtis182.github.io/wordle-league/party/index.html'  # League 4
+HEALTH_CHECK_INTERVAL = 300  # 5 minutes
 SCORE_VERIFY_DELAY = 45  # seconds to wait for GitHub Pages propagation
 
 # Track alert state to avoid spamming
