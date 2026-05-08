@@ -3839,12 +3839,10 @@ def dashboard_add_player(league_id):
             if was_pending_removal:
                 reactivate_pending = False
             elif channel_type == 'sms':
+                # SMS needs re-linking when group chat participants change
                 reactivate_pending = league_result[1] is not None
-            elif channel_type == 'slack':
-                reactivate_pending = league_result[2] is not None
-            elif channel_type == 'discord':
-                reactivate_pending = league_result[3] is not None
             else:
+                # Slack/Discord don't need re-linking — players are matched by name/ID
                 reactivate_pending = False
             
             if channel_type == 'sms' and identifier:
@@ -4140,9 +4138,9 @@ def dashboard_remove_player(league_id):
             elif ch_type == 'discord':
                 is_active = league_row[3] is not None
         
-        # Soft delete - only flag pending_removal if league is active AND player wasn't pending
-        # (pending players were never in the group chat, so no re-link needed)
-        needs_removal_banner = is_active and not was_pending
+        # Soft delete - only flag pending_removal for SMS (needs group chat re-link)
+        # Slack/Discord don't need re-linking, so no removal banner needed
+        needs_removal_banner = is_active and not was_pending and ch_type == 'sms'
         cursor.execute("UPDATE players SET active = FALSE, pending_activation = FALSE, pending_removal = %s WHERE id = %s AND league_id = %s", 
                        (needs_removal_banner, player_id, league_id))
         conn.commit()

@@ -2344,16 +2344,22 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         _rp_verb = 'have' if _rp_plural else 'has'
         _rp_pronoun = 'their' if _rp_plural else "this player's"
         _rp_obj = 'them' if _rp_plural else 'this player'
+        if channel_type == 'sms':
+            _rp_next_steps = (
+                f'<div style="margin-top: 8px;">'
+                f'<strong>Next steps:</strong> Remove {_rp_obj} from your group chat, then re-link to update the connection.'
+                f'<button type="button" class="btn btn-small" style="background: #ff5c5c; color: #000; margin-left: 12px;" onclick="showActivateModal()">Re-link Group Chat</button>'
+                f'</div>'
+            )
+        else:
+            _rp_next_steps = ''
         _removed_banner = (
             f'<div class="alert" style="background: #ff5c5c20; border: 1px solid #ff5c5c; color: {COLORS["text"]};">'
             f'<strong>\U0001f5d1\ufe0f {_rp_label}:</strong> '
             f'<strong style="color: #ff5c5c;">{_rp_names}</strong> '
             f'{_rp_verb} been removed. '
-            f'Your current group chat will continue to work, but {_rp_pronoun} scores will no longer be recorded or posted.'
-            f'<div style="margin-top: 8px;">'
-            f'<strong>Next steps:</strong> Remove {_rp_obj} from your group chat, then re-link to update the connection.'
-            f'<button type="button" class="btn btn-small" style="background: #ff5c5c; color: #000; margin-left: 12px;" onclick="showActivateModal()">Re-link Group Chat</button>'
-            f'</div>'
+            f'{_rp_pronoun.capitalize()} scores will no longer be recorded.'
+            f'{_rp_next_steps}'
             f'</div>'
         )
 
