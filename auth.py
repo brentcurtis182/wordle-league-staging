@@ -11,30 +11,91 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, redirect, url_for, session, make_response
 import psycopg2
+import psycopg2.pool
 from werkzeug.security import generate_password_hash, check_password_hash
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# ---------------------------------------------------------------------------
+# Connection pool — reuses connections instead of opening a new one per call
+# ---------------------------------------------------------------------------
+_pool = None
+
+def _get_pool():
+    """Lazy-init the connection pool on first use."""
+    global _pool
+    if _pool is None:
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            _pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=2, maxconn=10,
+                dsn=database_url,
+                connect_timeout=10,
+            )
+        else:
+            _pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=2, maxconn=10,
+                host=os.environ.get('PGHOST'),
+                database=os.environ.get('PGDATABASE'),
+                user=os.environ.get('PGUSER'),
+                password=os.environ.get('PGPASSWORD'),
+                port=os.environ.get('PGPORT', 5432),
+                connect_timeout=10,
+            )
+        logging.info('DB connection pool initialized (2-10 connections)')
+    return _pool
+
+class _PooledConnection:
+    """Wrapper that returns connection to pool on close() instead of destroying it."""
+    def __init__(self, conn, pool):
+        self._conn = conn
+        self._pool = pool
+    def close(self):
+        try:
+            self._conn.rollback()  # reset any uncommitted state
+            self._pool.putconn(self._conn)
+        except Exception:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        self.close()
+
 def get_db_connection():
-    """Get PostgreSQL database connection"""
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        conn = psycopg2.connect(database_url, connect_timeout=10)
-    else:
-        conn = psycopg2.connect(
-            host=os.environ.get('PGHOST'),
-            database=os.environ.get('PGDATABASE'),
-            user=os.environ.get('PGUSER'),
-            password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT', 5432),
-            connect_timeout=10
-        )
-    
-    # Set statement timeout to 20 seconds to prevent hanging queries
-    cursor = conn.cursor()
-    cursor.execute("SET statement_timeout = '20s'")
-    cursor.close()
-    return conn
+    """Get a PostgreSQL connection from the pool."""
+    try:
+        pool = _get_pool()
+        conn = pool.getconn()
+        # Reset connection state and set statement timeout
+        conn.autocommit = False
+        cursor = conn.cursor()
+        cursor.execute("SET statement_timeout = '20s'")
+        cursor.close()
+        return _PooledConnection(conn, pool)
+    except Exception:
+        # Pool exhausted or stale — fall back to direct connection
+        logging.warning('DB pool unavailable, falling back to direct connection')
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            conn = psycopg2.connect(database_url, connect_timeout=10)
+        else:
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST'),
+                database=os.environ.get('PGDATABASE'),
+                user=os.environ.get('PGUSER'),
+                password=os.environ.get('PGPASSWORD'),
+                port=os.environ.get('PGPORT', 5432),
+                connect_timeout=10,
+            )
+        cursor = conn.cursor()
+        cursor.execute("SET statement_timeout = '20s'")
+        cursor.close()
+        return conn
 
 def create_auth_tables():
     """Create users and user_leagues tables if they don't exist"""

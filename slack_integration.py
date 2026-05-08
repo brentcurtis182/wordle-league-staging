@@ -295,15 +295,24 @@ def get_slack_user_info(bot_token: str, user_id: str) -> dict:
         return {}
 
 
+_slack_channel_cache = {}  # {channel_id: (timestamp, data)}
+_SLACK_CHANNEL_CACHE_TTL = 600  # 10 minutes
+
 def get_slack_channel_info(bot_token: str, channel_id: str) -> dict:
     """
-    Get channel info from Slack API.
+    Get channel info from Slack API (cached for 10 minutes).
     """
+    import time as _time
+    now = _time.time()
+    cached = _slack_channel_cache.get(channel_id)
+    if cached and (now - cached[0]) < _SLACK_CHANNEL_CACHE_TTL:
+        return cached[1]
+
     headers = {
         "Authorization": f"Bearer {bot_token}",
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = requests.get(
             f"{SLACK_API_BASE}/conversations.info",
@@ -312,9 +321,11 @@ def get_slack_channel_info(bot_token: str, channel_id: str) -> dict:
             timeout=10
         )
         result = response.json()
-        
+
         if result.get("ok"):
-            return result.get("channel", {})
+            data = result.get("channel", {})
+            _slack_channel_cache[channel_id] = (now, data)
+            return data
         else:
             logging.error(f"Failed to get Slack channel info: {result.get('error')}")
             return {}
