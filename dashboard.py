@@ -3137,7 +3137,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         <div class="modal-overlay" id="deleteLeagueModal">
             <div class="modal">
                 <h3 style="color: {COLORS['error']};">🗑️ Delete League Permanently?</h3>
-                <p style="margin-bottom: 16px;">This will permanently delete <strong>{league['display_name']}</strong> and all associated data including:</p>
+                <p style="margin-bottom: 16px;">This will permanently delete <strong>{safe(league['display_name'])}</strong> and all associated data including:</p>
                 <ul style="text-align: left; margin: 0 0 16px 20px; color: {COLORS['text_muted']};">
                     <li>All player records</li>
                     <li>All score history</li>
@@ -3587,9 +3587,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
             
             // League settings functions
-            const _ORIG_LEAGUE_NAME = {repr(league['display_name'])};
+            const _ORIG_LEAGUE_NAME = {safe_js(league['display_name'])};
             const _ORIG_MIN_SCORES = {_current_min_scores};
-            const _ORIG_HEADER_EMOJI = {repr(_current_header_emoji)};
+            const _ORIG_HEADER_EMOJI = {safe_js(_current_header_emoji)};
             const _MIN_SCORES_LABELS = {{ 3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Hard Mode', 7: 'Elite' }};
 
             async function generateMascot() {{
@@ -3793,8 +3793,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 _publicListedPending = cb.checked;
                 var action = cb.checked ? 'show' : 'hide';
                 document.getElementById('publicListedModalText').innerHTML = cb.checked
-                    ? 'This will make <strong>{league["display_name"]}</strong> visible on the public leagues directory at wordplayleague.com/leagues.'
-                    : 'This will hide <strong>{league["display_name"]}</strong> from the public leagues directory. Players can still access the league via its direct URL.';
+                    ? 'This will make <strong>' + leagueNameToConfirm + '</strong> visible on the public leagues directory at wordplayleague.com/leagues.'
+                    : 'This will hide <strong>' + leagueNameToConfirm + '</strong> from the public leagues directory. Players can still access the league via its direct URL.';
                 document.getElementById('publicListedModal').classList.add('active');
             }}
             function closePublicListedModal() {{
