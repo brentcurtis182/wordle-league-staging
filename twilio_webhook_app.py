@@ -3134,7 +3134,9 @@ def dashboard_league(league_id):
         return redirect('/dashboard?error=League not found')
 
     players = get_league_players(league_id)
-    removed_players = get_pending_removal_players(league_id)
+    # Only SMS leagues need the "re-link" removal banner; Slack/Discord removals are instant
+    channel_type_check = league.get('channel_type') or 'sms'
+    removed_players = get_pending_removal_players(league_id) if channel_type_check == 'sms' else []
     player_ai_settings = get_all_player_ai_settings(league_id)
     message = request.args.get('message')
     error = request.args.get('error')
