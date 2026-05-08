@@ -18,8 +18,14 @@ def safe(text):
 
 
 def safe_js(text):
-    """Escape user-provided text for safe insertion in JavaScript strings."""
+    """Escape user-provided text for safe insertion in JavaScript strings (inside <script> blocks)."""
     return json.dumps(str(text)) if text else '""'
+
+def safe_js_attr(text):
+    """Escape user-provided text for safe insertion in onclick HTML attributes.
+    HTML-encodes the JSON output so double quotes don't break the attribute."""
+    import html as _html
+    return _html.escape(json.dumps(str(text))) if text else '""'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -2014,7 +2020,7 @@ def _render_division_players(league, players, is_chat_platform):
         identifier_display = phone or identifier_empty
         
         # Per-player edit button (always visible, opens edit modal for name/phone)
-        edit_btn = f'''<button onclick="editPlayer('{pid}', {safe_js(name)}, {safe_js(identifier_value)})"
+        edit_btn = f'''<button onclick="editPlayer('{pid}', {safe_js_attr(name)}, {safe_js_attr(identifier_value)})"
             style="background: none; border: none; color: {COLORS['text_muted']}; cursor: pointer; padding: 4px 8px; font-size: 1.1em;"
             title="Edit player">✏️</button>'''
         
@@ -2240,7 +2246,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <div style="display: flex; align-items: center; gap: 12px;">
                         {opt_in_label}
                         <button type="button" class="btn-icon" onclick="enterEditMode({player['id']})" title="Edit player" style="background: none; border: none; cursor: pointer; padding: 4px 8px; font-size: 1.1em;">✏️</button>
-                        <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, {safe_js(player['name'])})" title="Remove player">Remove</button>
+                        <button type="button" class="btn btn-danger btn-small" style="padding: 4px 12px;" onclick="showRemoveModal({player['id']}, {safe_js_attr(player['name'])})" title="Remove player">Remove</button>
                     </div>
                 </div>
                 <div id="edit-{player['id']}" style="display: none;">
@@ -2249,7 +2255,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <input type="text" name="name" value="{safe(player['name'])}" style="flex: 1; min-width: 120px; padding: 8px 12px; background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; border-radius: 6px; color: {COLORS['text']}; font-size: 0.95em;" placeholder="Name" maxlength="14">
                         <input type="hidden" name="identifier" value="{safe(identifier_value)}">
                         <div style="display: flex; gap: 8px;">
-                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js(player['name'])})">Save</button>
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js_attr(player['name'])})">Save</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
                         </div>
                     </form>
@@ -2281,8 +2287,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                             <input type="text" name="identifier" value="{safe(identifier_value)}" class="edit-input" placeholder="{identifier_placeholder}">
                         </div>
                         <div class="edit-actions">
-                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js(player['name'])})">Save</button>
-                            <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, {safe_js(player['name'])})">Remove</button>
+                            <button type="button" class="btn btn-primary btn-small" onclick="showSaveModal({player['id']}, {safe_js_attr(player['name'])})">Save</button>
+                            <button type="button" class="btn btn-danger btn-small" onclick="showRemoveModal({player['id']}, {safe_js_attr(player['name'])})">Remove</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({player['id']})">Cancel</button>
                         </div>
                     </form>
