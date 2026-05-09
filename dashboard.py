@@ -6513,6 +6513,13 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.85em;">+ Add AI Messaging ($3/mo)</button>
                 </form>
                 """
+            elif sub['plan_type'] == 'sms' and sub.get('ai_messaging_addon') and not tier.endswith('_ai') and sub['status'] == 'active':
+                ai_addon_html = f"""
+                <form method="POST" action="/billing/remove-ai-addon" style="margin-top: 12px;" onsubmit="return confirm('Remove AI Messaging? Your AI features will be disabled and a prorated credit will be applied.');">
+                    <input type="hidden" name="subscription_id" value="{sub['id']}">
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.85em; color: {COLORS['error']}; border-color: {COLORS['error']}40;">− Remove AI Messaging</button>
+                </form>
+                """
 
             # Change Plan selector
             change_plan_html = ""
