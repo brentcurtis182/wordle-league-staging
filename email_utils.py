@@ -234,7 +234,7 @@ def send_welcome_email(to_email, first_name=None):
         <tr>
             <td style="padding: 12px 0; color: #e0e0e0; line-height: 1.6;">
                 <span style="color: #00E8DA; font-weight: bold; font-size: 1.1em;">🏆 Create a League</span><br>
-                <span style="color: #bbb; font-size: 0.95em;">Set up a league for your group in seconds. Works with SMS, Slack, or Discord.</span>
+                <span style="color: #bbb; font-size: 0.95em;">Set up a league for your group in seconds. Works with SMS or Slack.</span>
             </td>
         </tr>
         <tr>
@@ -351,7 +351,7 @@ def send_admin_league_created_email(league_name, league_slug, channel_type, leag
     from datetime import datetime
     
     league_url = f"{APP_URL}/leagues/{league_slug}" if league_slug else ""
-    admin_url = f"{APP_URL}/admin"
+    admin_url = f"{APP_URL}/dashboard"
     created_at = datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')
     
     platform_map = {'sms': 'SMS', 'slack': 'Slack', 'discord': 'Discord'}
