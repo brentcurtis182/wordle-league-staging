@@ -165,12 +165,65 @@ def main():
     set_config(cursor, conn, 'stripe_price_sms_9_ai', bundle_price.id)
     print(f"  Updated admin_config: stripe_price_sms_9_ai = {bundle_price.id}")
 
+    # --- Slack tiers: one product per tier ---
+    slack_tiers = [
+        ('slack_1', 500, 'Slack League - 1 League', '1 Slack league', {'plan_type': 'slack', 'plan_tier': 'slack_1'}),
+        ('slack_1_ai', 700, 'Slack League - 1 League + AI', '1 Slack league + AI messaging', {'plan_type': 'slack', 'plan_tier': 'slack_1_ai', 'ai_included': 'true'}),
+        ('slack_2', 1000, 'Slack League - 2 Leagues + AI', '2 Slack leagues + AI messaging', {'plan_type': 'slack', 'plan_tier': 'slack_2', 'ai_included': 'true'}),
+        ('slack_5', 2000, 'Slack League - 5 Leagues + AI', '5 Slack leagues + AI messaging', {'plan_type': 'slack', 'plan_tier': 'slack_5', 'ai_included': 'true'}),
+    ]
+
+    for tier_name, cents, product_name, nickname, metadata in slack_tiers:
+        config_key = f'stripe_price_{tier_name}'
+        old_price_id = get_config(cursor, config_key)
+
+        print(f"\n--- {product_name} (${cents/100:.0f}/mo) ---")
+        print(f"  Old price ID: {old_price_id}")
+
+        product = stripe.Product.create(
+            name=product_name,
+            description=f"Monthly Slack league subscription: {nickname}",
+            metadata={'product_type': 'slack_league', **metadata}
+        )
+        print(f"  New product: {product.id} ({product.name})")
+
+        price = stripe.Price.create(
+            product=product.id,
+            unit_amount=cents,
+            currency='usd',
+            recurring={'interval': 'month'},
+            nickname=nickname,
+            metadata=metadata
+        )
+        print(f"  New price:   {price.id}")
+
+        if old_price_id:
+            migrated = 0
+            subs = stripe.Subscription.list(price=old_price_id, status='active', limit=100)
+            for sub in subs.auto_paging_iter():
+                for item in sub['items']['data']:
+                    if item['price']['id'] == old_price_id:
+                        stripe.SubscriptionItem.modify(
+                            item['id'],
+                            price=price.id,
+                            proration_behavior='none',
+                        )
+                        migrated += 1
+            if migrated:
+                print(f"  Migrated {migrated} active subscription(s)")
+
+            stripe.Price.modify(old_price_id, active=False)
+            print(f"  Archived old price: {old_price_id}")
+
+        set_config(cursor, conn, config_key, price.id)
+        print(f"  Updated admin_config: {config_key} = {price.id}")
+
     # --- Done ---
     cursor.close()
     conn.close()
 
     print("\n" + "=" * 60)
-    print("DONE! Each SMS tier now has its own product in Stripe.")
+    print("DONE! Each SMS and Slack tier now has its own product in Stripe.")
     print("Old prices archived (kept for invoice history).")
     print("Active subscriptions migrated to new prices.")
     print("=" * 60)
