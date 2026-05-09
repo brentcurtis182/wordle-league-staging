@@ -48,9 +48,11 @@ COLORS = {
 
 def get_user_menu_html(user_name, user_email, show_dashboard_link=False, user_role='user'):
     """Return the user icon dropdown menu HTML"""
+    from auth import get_config
     dashboard_link = f'<a href="/dashboard">Dashboard</a>' if show_dashboard_link else ''
     admin_link = f'<a href="/admin/dashboard" style="color: {COLORS["accent_orange"]};">Admin</a>' if user_role == 'admin' else ''
-    membership_link = f'<a href="/dashboard/membership">League Membership</a>'
+    payments_enabled = get_config('payment_required_sms', 'false') == 'true' or get_config('payment_required_slack', 'false') == 'true'
+    membership_link = f'<a href="/dashboard/membership">League Membership</a>' if payments_enabled else ''
     return f'''
         <div class="user-menu">
             <div class="user-menu-btn" onclick="toggleUserMenu(event)">
@@ -6578,7 +6580,7 @@ def render_membership_page(user, subscriptions, message=None, error=None):
             <h2 style="color: {COLORS['accent']}; margin-bottom: 16px;">Your Subscriptions</h2>
             {subs_html}
             <form method="POST" action="/billing/portal" style="margin-top: 16px;">
-                <button type="submit" class="btn btn-secondary" style="width: 100%;">Cancel Subscription / Update Payment Method</button>
+                <button type="submit" class="btn btn-secondary" style="width: 100%;">Manage Subscription / Update Payment Method</button>
             </form>
         </div>
         """
@@ -6590,10 +6592,10 @@ def render_membership_page(user, subscriptions, message=None, error=None):
         </div>
         """
 
-    # Message/error banners
+    # Message/error banners (messages auto-dismiss after 10 seconds, errors persist)
     msg_html = ''
     if message:
-        msg_html = f'<div style="background: {COLORS["success"]}20; border: 1px solid {COLORS["success"]}; color: {COLORS["text"]}; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">{message}</div>'
+        msg_html = f'<div id="membershipMsg" style="background: {COLORS["success"]}20; border: 1px solid {COLORS["success"]}; color: {COLORS["text"]}; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; transition: opacity 0.5s;">{message}</div><script>setTimeout(function(){{ var m=document.getElementById("membershipMsg"); if(m){{ m.style.opacity="0"; setTimeout(function(){{ m.style.display="none"; }}, 500); }} }}, 10000);</script>'
     if error:
         msg_html = f'<div style="background: {COLORS["error"]}20; border: 1px solid {COLORS["error"]}; color: {COLORS["text"]}; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">{error}</div>'
 
@@ -6919,15 +6921,11 @@ def render_membership_page(user, subscriptions, message=None, error=None):
                     }}
                 }});
             }});
-            // Reset buttons when returning from Stripe Portal (bfcache)
+            // Reload page when returning from Stripe Portal (bfcache) so
+            // subscription status updates immediately (e.g. Active → Canceling)
             window.addEventListener('pageshow', function(e) {{
                 if (e.persisted) {{
-                    document.querySelectorAll('form[action^="/billing"] button[type="submit"]').forEach(function(btn) {{
-                        if (btn.dataset.originalText) {{
-                            btn.innerHTML = btn.dataset.originalText;
-                            btn.disabled = false;
-                        }}
-                    }});
+                    window.location.reload();
                 }}
             }});
         </script>

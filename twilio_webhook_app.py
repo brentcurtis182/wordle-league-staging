@@ -2837,6 +2837,15 @@ def dashboard_membership():
     message = request.args.get('message')
     error = request.args.get('error')
 
+    # If redirected from activate with a league_id, hint that they need a new plan
+    league_id = request.args.get('league_id')
+    if league_id and not message and not error:
+        # Check if all existing subscriptions are already linked to leagues
+        active_subs = [s for s in subscriptions if s.get('status') in ('active', 'trialing')]
+        all_linked = all(s.get('league_id') for s in active_subs) if active_subs else True
+        if all_linked:
+            message = "You'll need to add a new subscription plan to activate this league."
+
     return render_membership_page(user, subscriptions, message=message, error=error)
 
 
