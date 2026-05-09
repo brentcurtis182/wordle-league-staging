@@ -3146,9 +3146,6 @@ def dashboard_league(league_id):
     payment_config_key = 'payment_required_sms' if channel_type == 'sms' else 'payment_required_slack'
     payment_required = get_config(payment_config_key, 'false') == 'true'
     linked_sub = get_league_linked_subscription(league_id)
-    available_subs = get_user_subscriptions_for_linking(user['id'], channel_type) if payment_required and not linked_sub else []
-    from billing import get_user_subscriptions
-    all_user_subs = get_user_subscriptions(user['id']) if payment_required and not linked_sub and not available_subs else []
     billing_context = {
         'payment_required': payment_required,
         'requires_payment': league_requires_payment(league, payment_required),
@@ -3156,8 +3153,7 @@ def dashboard_league(league_id):
         'ai_messaging_enabled': check_ai_messaging_enabled(league_id, payment_required=payment_required),
         'player_limit': get_player_limit_for_league(league_id, channel_type),
         'linked_subscription': linked_sub,
-        'available_subscriptions': available_subs,
-        'has_full_subscriptions': len(all_user_subs) > 0,
+        'available_subscriptions': get_user_subscriptions_for_linking(user['id'], channel_type) if payment_required and not linked_sub else [],
     }
 
     return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)

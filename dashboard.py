@@ -2173,7 +2173,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     subscription_status = billing_context.get('subscription_status')
     linked_subscription = billing_context.get('linked_subscription')
     available_subscriptions = billing_context.get('available_subscriptions', [])
-    has_full_subscriptions = billing_context.get('has_full_subscriptions', False)
     payment_required = billing_context.get('payment_required', False)
 
     # Pre-compute AI settings checkbox states
@@ -3851,7 +3850,6 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             var paymentRequired = {'true' if payment_required else 'false'};
             var requiresPayment = {'true' if requires_payment else 'false'};
             var hasAvailableSubs = {'true' if available_subscriptions else 'false'};
-            var hasFullSubs = {'true' if has_full_subscriptions else 'false'};
             var playerCount = {len(players)};
             var playerLimit = {player_limit};
 
@@ -3870,15 +3868,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     return;
                 }}
                 if (!hasAvailableSubs) {{
-                    if (hasFullSubs) {{
-                        var toast = document.createElement('div');
-                        toast.textContent = '⚠️ All plan slots are in use. Add a new plan to activate this league.';
-                        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#E74C3C;color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;z-index:2000;max-width:90%;text-align:center;';
-                        document.body.appendChild(toast);
-                        setTimeout(function() {{ toast.remove(); window.location.href = '/dashboard/membership?league_id={league["id"]}'; }}, 4500);
-                    }} else {{
-                        window.location.href = '/dashboard/membership?league_id={league["id"]}';
-                    }}
+                    window.location.href = '/dashboard/membership?league_id={league["id"]}';
                     return;
                 }}
                 // Show link modal
