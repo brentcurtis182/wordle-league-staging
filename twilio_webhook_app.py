@@ -4410,7 +4410,8 @@ def admin_dashboard():
                    l.slug, ul.created_at,
                    u.email as owner_email,
                    (SELECT COUNT(*) FROM players p WHERE p.league_id = l.id AND p.active = TRUE) as player_count,
-                   COALESCE(l.ai_filter, FALSE) as ai_filter
+                   COALESCE(l.ai_filter, FALSE) as ai_filter,
+                   (SELECT s.id FROM subscription_leagues sl JOIN subscriptions s ON s.id = sl.subscription_id WHERE sl.league_id = l.id LIMIT 1) as linked_subscription_id
             FROM leagues l
             LEFT JOIN user_leagues ul ON l.id = ul.league_id
             LEFT JOIN users u ON ul.user_id = u.id
@@ -4433,6 +4434,7 @@ def admin_dashboard():
                 'owner_email': row[9] or 'No owner',
                 'player_count': row[10] or 0,
                 'ai_filter': row[11] or False,
+                'linked_subscription_id': row[12],
                 'twilio_inbound': '-',
                 'twilio_outbound': '-',
             })

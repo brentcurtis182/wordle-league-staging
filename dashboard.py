@@ -5112,6 +5112,18 @@ def render_admin_dashboard(user, leagues, config=None):
         type_color = type_colors.get(channel_type, COLORS['text_muted'])
         type_label = channel_type.upper()
         
+        # Payment link status
+        legacy_ids = {1, 3, 4, 7, 8, 19}
+        if lg['id'] in legacy_ids:
+            payment_color = '#F1C40F'
+            payment_text = 'Legacy'
+        elif lg.get('linked_subscription_id'):
+            payment_color = '#2ECC71'
+            payment_text = 'Linked'
+        else:
+            payment_color = '#E74C3C'
+            payment_text = 'Unlinked'
+
         # AI Filter toggle
         ai_filter = lg.get('ai_filter', False)
         filter_color = '#2ECC71' if ai_filter else COLORS['text_muted']
@@ -5129,13 +5141,14 @@ def render_admin_dashboard(user, leagues, config=None):
         league_rows += f'''
             <tr onclick="window.location='/admin/league/{lg['id']}'" style="cursor: pointer; transition: background 0.15s;"
                 data-id="{lg['id']}" data-name="{lg['display_name']}" data-status="{'1' if is_active else '0'}"
-                data-type="{channel_type}" data-created="{created_sort}" data-owner="{lg.get('owner_email', 'Unknown')}"
+                data-type="{channel_type}" data-payment="{payment_text}" data-created="{created_sort}" data-owner="{lg.get('owner_email', 'Unknown')}"
                 data-players="{lg.get('player_count', 0)}"
                 data-inbound="{lg.get('twilio_inbound', '-')}" data-outbound="{lg.get('twilio_outbound', '-')}" data-cost="0">
                 <td class="col-id" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">#{lg['id']}</td>
                 <td class="col-name frozen-col" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; font-weight: 500;">{lg['display_name']}</td>
                 <td class="col-status" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="color: {status_color}; font-weight: 500;">{status_text}</span></td>
                 <td class="col-type" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {type_color}20; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{type_label}</span></td>
+                <td class="col-payment" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']};"><span style="background: {payment_color}20; color: {payment_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">{payment_text}</span></td>
                 <td class="col-filter" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; text-align: center;" onclick="event.stopPropagation(); toggleAiFilter({lg['id']}, this)"><span class="ai-filter-badge" style="background: {filter_color}20; color: {filter_color}; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; cursor: pointer;">{filter_text}</span></td>
                 <td class="col-created" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{created_str}</td>
                 <td class="col-owner" style="padding: 14px 16px; border-bottom: 1px solid {COLORS['border']}; color: {COLORS['text_muted']}; font-size: 0.9em;">{lg.get('owner_email', 'Unknown')}</td>
@@ -5323,6 +5336,7 @@ def render_admin_dashboard(user, leagues, config=None):
                                 <th class="frozen-col-header" data-sort="name" onclick="sortTable('name')">League Name <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="status" onclick="sortTable('status')">Status <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="type" onclick="sortTable('type')">Type <span class="sort-arrow">&#9650;</span></th>
+                                <th data-sort="payment" onclick="sortTable('payment')">Payment <span class="sort-arrow">&#9650;</span></th>
                                 <th style="text-align: center;">AI Filter</th>
                                 <th data-sort="created" onclick="sortTable('created')">Created <span class="sort-arrow">&#9650;</span></th>
                                 <th data-sort="owner" onclick="sortTable('owner')">Owner <span class="sort-arrow">&#9650;</span></th>
@@ -5333,29 +5347,29 @@ def render_admin_dashboard(user, leagues, config=None):
                             </tr>
                         </thead>
                         <tbody>
-                            {league_rows if league_rows else f'<tr><td colspan="11" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
+                            {league_rows if league_rows else f'<tr><td colspan="12" style="padding: 24px; text-align: center; color: {COLORS["text_muted"]};">No leagues found</td></tr>'}
                         </tbody>
                         <tfoot>
                             <tr id="totalsRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['border']};">
-                                <td colspan="8" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">MMS Messaging</td>
+                                <td colspan="9" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">MMS Messaging</td>
                                 <td class="total-inbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-outbound" style="padding: 14px 16px; font-weight: bold; color: #00E8DA; text-align: center;">...</td>
                                 <td class="total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center;">...</td>
                             </tr>
                             <tr id="carrierFeesRow" style="background-color: {COLORS['bg_card']};">
-                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Carrier Fees</td>
+                                <td colspan="11" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Carrier Fees</td>
                                 <td class="carrier-fees-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
                             <tr id="a2pRow" style="background-color: {COLORS['bg_card']};">
-                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
+                                <td colspan="11" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">A2P Registration</td>
                                 <td class="a2p-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
                             <tr id="phoneNumbersRow" style="background-color: {COLORS['bg_card']};">
-                                <td colspan="10" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Phone Numbers (<span class="phone-numbers-count">...</span>)</td>
+                                <td colspan="11" style="padding: 10px 16px; color: {COLORS['text_muted']}; text-align: right; font-size: 0.9em;">Phone Numbers (<span class="phone-numbers-count">...</span>)</td>
                                 <td class="phone-numbers-cost" style="padding: 10px 16px; color: #FFA64D; text-align: center; font-size: 0.9em;">...</td>
                             </tr>
                             <tr id="grandTotalRow" style="background-color: {COLORS['bg_card']}; border-top: 2px solid {COLORS['accent']};">
-                                <td colspan="10" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
+                                <td colspan="11" style="padding: 14px 16px; font-weight: bold; color: {COLORS['text']}; text-align: right;">Total Cost</td>
                                 <td class="grand-total-cost" style="padding: 14px 16px; font-weight: bold; color: #FFA64D; text-align: center; font-size: 1.1em;">...</td>
                             </tr>
                         </tfoot>
