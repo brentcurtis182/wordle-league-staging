@@ -298,8 +298,10 @@ def send_league_created_email(to_email, first_name=None, league_name=None, leagu
         platform_name = "SMS"
         activation_steps = """
         <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">1. Add the <strong style="color: #e0e0e0;">phone number</strong> shown on your league page to your group chat</td></tr>
-        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">2. Add your players from the dashboard</td></tr>
-        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">3. Players share their Wordle results in the group chat — we handle the rest!</td></tr>
+        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">2. Send the <strong style="color: #e0e0e0;">passphrase</strong> in your SMS group thread to link it to your league</td></tr>
+        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">3. Players type <strong style="color: #e0e0e0;">"opt in"</strong> in the group chat to join the league</td></tr>
+        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">4. Add your players from the dashboard</td></tr>
+        <tr><td style="padding: 6px 0; color: #bbb; font-size: 0.95em;">5. Players share their Wordle results in the group chat — we handle the rest!</td></tr>
         """
     
     league_display = f'<strong style="color: #00E8DA;">{league_name}</strong>' if league_name else "Your league"
