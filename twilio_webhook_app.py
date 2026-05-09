@@ -2842,7 +2842,7 @@ def dashboard_membership():
     if league_id and not message and not error:
         # Check if all existing subscriptions are already linked to leagues
         active_subs = [s for s in subscriptions if s.get('status') in ('active', 'trialing')]
-        all_linked = all(s.get('league_id') for s in active_subs) if active_subs else True
+        all_linked = all(s.get('leagues') for s in active_subs) if active_subs else True
         if all_linked:
             message = "You'll need to add a new subscription plan to activate this league."
 
