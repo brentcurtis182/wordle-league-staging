@@ -53,7 +53,8 @@ def send_league_message(league_id: int, text: str, media_url: str = None,
             return _send_twilio_message(
                 conversation_sid=row[1],
                 text=text,
-                media_url=media_url
+                media_url=media_url,
+                league_id=league_id
             )
         
         elif channel_type == 'slack':
@@ -81,23 +82,28 @@ def send_league_message(league_id: int, text: str, media_url: str = None,
             db_connection.close()
 
 
-def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None) -> dict:
+def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None, league_id: int = None) -> dict:
     """Send message via Twilio Conversations API"""
     from twilio.rest import Client
-    
+
     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
-    
+
+    if league_id:
+        from auth import get_league_phone_number
+        twilio_phone, _ = get_league_phone_number(league_id)
+    else:
+        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+
     if not twilio_sid or not twilio_token:
         return {"success": False, "error": "Twilio credentials not configured"}
-    
+
     if not conversation_sid:
         return {"success": False, "error": "No Twilio conversation SID"}
-    
+
     try:
         client = Client(twilio_sid, twilio_token)
-        
+
         message_params = {"body": text, "author": twilio_phone}
         if media_url:
             message_params["media_sid"] = media_url  # Assumes this is a media SID

@@ -2299,6 +2299,10 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     # Get channel type for platform-specific UI
     channel_type = league.get('channel_type') or 'sms'
 
+    # Get assigned phone number for SMS leagues
+    from auth import get_league_phone_number
+    league_phone, league_phone_display = get_league_phone_number(league['id'])
+
     # Billing context
     ai_messaging_enabled = billing_context.get('ai_messaging_enabled', True)
     player_limit = billing_context.get('player_limit', 9 if channel_type == 'sms' else 14)
@@ -2741,6 +2745,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <span style="background: {'#2ECC71' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else COLORS['accent_orange']}; color: #000; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
                         {('✓ Active' if (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ('⚠ Inactive' if channel_type == 'sms' else '⚠ Setup Required'))}
                     </span>
+                    {f'<span style="color: {COLORS["text_muted"]}; font-size: 0.8em;">via +1 {league_phone_display}</span>' if channel_type == 'sms' and league.get('conversation_sid') and league_phone_display else ''}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px;">
                     {f'<button type="button" class="btn" style="background: {COLORS["accent"]}; color: #000; padding: 10px 24px; border-radius: 8px; font-size: 1em; font-weight: 700; cursor: pointer; border: none;" onclick="handleActivateClick()">🚀 {"Activate" if channel_type == "sms" else "Connect Channel"}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
@@ -3235,9 +3240,9 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                         <p style="color: {COLORS['text_muted']}; margin-bottom: 8px;">Add this phone number to your iMessage or SMS group chat:</p>
                         <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
                             <div style="background: {COLORS['bg_card']}; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2em; text-align: center; color: {COLORS['accent']}; flex: 1;">
-                                +1 (858) 666-6827
+                                +1 {league_phone_display or league_phone}
                             </div>
-                            <button type="button" onclick="copyToClipboard('+18586666827', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
+                            <button type="button" onclick="copyToClipboard('{league_phone}', this)" style="background: {COLORS['bg_card']}; border: 1px solid {COLORS['border']}; color: {COLORS['text']}; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; white-space: nowrap;">📋 Copy</button>
                         </div>
                     </div>
                     

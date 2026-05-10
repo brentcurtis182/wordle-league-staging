@@ -663,11 +663,23 @@ def _save_snapshot_for_month(target_year, target_month):
 
     TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
     TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
-    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         logging.warning("Twilio credentials not set, skipping snapshot save")
         return 0
+
+    # Build set of all our Twilio phone numbers for outbound classification
+    try:
+        _conn = get_db_connection()
+        _cur = _conn.cursor()
+        _cur.execute("SELECT phone_number FROM twilio_numbers")
+        our_numbers = {r[0] for r in _cur.fetchall()}
+        _cur.close()
+        _conn.close()
+    except Exception:
+        our_numbers = set()
+    if not our_numbers:
+        our_numbers = {os.environ.get('TWILIO_PHONE_NUMBER', '')}
 
     auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     pacific = pytz.timezone('America/Los_Angeles')
@@ -762,7 +774,7 @@ def _save_snapshot_for_month(target_year, target_month):
                             done = True
                             break
                         author = msg.get('author', '')
-                        if author == twilio_phone:
+                        if author in our_numbers:
                             outbound += 1
                         else:
                             inbound += 1

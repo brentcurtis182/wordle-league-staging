@@ -1094,7 +1094,7 @@ def _on_subscription_deleted(subscription):
             lg_id, lg_name, channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id = lg
 
             # Send farewell message to active channel
-            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name)
+            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name, lg_id)
 
             # Deactivate: clear channel connection but preserve everything else
             cursor.execute("""
@@ -1126,7 +1126,7 @@ def _on_subscription_deleted(subscription):
         conn.close()
 
 
-def _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, league_name):
+def _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, league_name, league_id=None):
     """Send a one-time lapse notification to the league's channel before deactivation."""
     import os
 
@@ -1139,11 +1139,12 @@ def _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, d
     try:
         if channel_type == 'sms' and conv_sid:
             from twilio.rest import Client
+            from auth import get_league_phone_number
             client = Client(
                 os.environ.get('TWILIO_ACCOUNT_SID'),
                 os.environ.get('TWILIO_AUTH_TOKEN')
             )
-            twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+            twilio_phone, _ = get_league_phone_number(league_id) if league_id else (os.environ.get('TWILIO_PHONE_NUMBER'), '')
             client.conversations.v1.conversations(conv_sid).messages.create(
                 body=message,
                 author=twilio_phone
@@ -1206,7 +1207,7 @@ def _on_invoice_payment_failed(invoice):
             lg_id, lg_name, channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id = lg
 
             # Send farewell message to active channel
-            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name)
+            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name, lg_id)
 
             # Deactivate: clear channel connection but preserve everything else
             cursor.execute("""

@@ -641,6 +641,41 @@ def assign_league_to_user(user_id, league_id, role='owner'):
         cursor.close()
         conn.close()
 
+def get_league_phone_number(league_id, conn=None):
+    """Get the Twilio phone number assigned to a league.
+
+    Returns (phone_number, phone_display) tuple.
+    Falls back to TWILIO_PHONE_NUMBER env var if no assignment.
+    """
+    close_conn = False
+    if conn is None:
+        conn = get_db_connection()
+        close_conn = True
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT tn.phone_number, tn.phone_display
+            FROM leagues l
+            JOIN twilio_numbers tn ON l.twilio_number_id = tn.id
+            WHERE l.id = %s
+        """, (league_id,))
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row:
+            return row[0], row[1]
+    except Exception as e:
+        logging.error(f"Error fetching league phone number for league {league_id}: {e}")
+    finally:
+        if close_conn:
+            conn.close()
+
+    # Fallback to env var
+    fallback = os.environ.get('TWILIO_PHONE_NUMBER', '')
+    return fallback, ''
+
+
 def login_required(f):
     """Decorator to require login for a route"""
     @wraps(f)

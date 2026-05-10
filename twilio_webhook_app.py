@@ -1489,7 +1489,8 @@ def webhook():
                     
                     # Send combined confirmation + opt-in welcome message
                     try:
-                        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+                        from auth import get_league_phone_number
+                        twilio_phone, _ = get_league_phone_number(league_id)
                         league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
 
                         cursor.execute("""
@@ -2995,6 +2996,58 @@ def dashboard_delete_account():
         logging.error(f"Delete account error: {e}")
         return jsonify({'success': False, 'error': 'An unexpected error occurred'})
 
+def assign_twilio_number(user_id, league_id):
+    """Assign a Twilio phone number to a new SMS league.
+
+    Same manager = same number (consistency).
+    New manager = round-robin (fewest assigned leagues).
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Check if this user already has leagues with an assigned number
+        cursor.execute("""
+            SELECT DISTINCT l.twilio_number_id
+            FROM user_leagues ul
+            JOIN leagues l ON ul.league_id = l.id
+            WHERE ul.user_id = %s
+              AND l.twilio_number_id IS NOT NULL
+            LIMIT 1
+        """, (user_id,))
+        row = cursor.fetchone()
+
+        if row:
+            number_id = row[0]
+        else:
+            # Round-robin: pick the active number with fewest assigned leagues
+            cursor.execute("""
+                SELECT tn.id
+                FROM twilio_numbers tn
+                LEFT JOIN leagues l ON l.twilio_number_id = tn.id
+                WHERE tn.status = 'active'
+                GROUP BY tn.id
+                ORDER BY COUNT(l.id) ASC, tn.id ASC
+                LIMIT 1
+            """)
+            rr_row = cursor.fetchone()
+            if not rr_row:
+                logging.warning(f"No active Twilio numbers available for league {league_id}")
+                cursor.close()
+                conn.close()
+                return
+            number_id = rr_row[0]
+
+        cursor.execute("UPDATE leagues SET twilio_number_id = %s WHERE id = %s", (number_id, league_id))
+        conn.commit()
+        logging.info(f"Assigned twilio_number_id={number_id} to league {league_id} (user {user_id})")
+    except Exception as e:
+        logging.error(f"Error assigning Twilio number to league {league_id}: {e}")
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @app.route('/dashboard/create-league', methods=['GET', 'POST'])
 def dashboard_create_league():
     """Create a new league"""
@@ -3096,7 +3149,11 @@ def dashboard_create_league():
         
         # Assign league to user as owner
         assign_league_to_user(user['id'], league_id, 'owner')
-        
+
+        # Assign a Twilio phone number for SMS leagues
+        if channel_type == 'sms':
+            assign_twilio_number(user['id'], league_id)
+
         logging.info(f"Created new league: {league_name} (id={league_id}, slug={slug}, channel={channel_type}) by user {user['id']}")
         
         # Send league creation email to user
@@ -6768,21 +6825,15 @@ def send_message_to_league():
         if not league_id or not message:
             return jsonify({'error': 'league_id and message are required'}), 400
         
-        # Map league_id to conversation SID
-        conversation_to_league = {
-            'CHb7aa3110769f42a19cea7a2be9c644d2': 1,  # Warriorz
-            'CHc8f0c4a776f14bcd96e7c8838a6aec13': 3,  # PAL
-            'CHed74f2e9f16240e9a578f96299c395ce': 4,  # The Party
-            'CH4438ff5531514178bb13c5c0e96d5579': 7,  # Belly Up
-        }
-        
-        # Reverse lookup to get conversation SID from league_id
-        conversation_sid = None
-        for sid, lid in conversation_to_league.items():
-            if lid == league_id:
-                conversation_sid = sid
-                break
-        
+        # Look up conversation SID from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        conversation_sid = row[0] if row else None
+
         if not conversation_sid:
             return jsonify({'error': f'No conversation found for league {league_id}'}), 404
         
@@ -6822,16 +6873,15 @@ def send_message_to_league():
         
         # Send message directly to the Conversations API (will appear in group thread)
         from twilio.rest import Client
+        from auth import get_league_phone_number
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        twilio_phone, _ = get_league_phone_number(league_id)
         client = Client(twilio_sid, twilio_token)
-        
-        # Send message to the conversation using the Twilio phone number as author
-        # The phone number is already a participant in the conversation
+
         message_response = client.conversations.v1.conversations(conversation_sid).messages.create(
             body=final_message,
-            author=twilio_phone  # Use the Twilio number that's already in the conversation
+            author=twilio_phone
         )
         
         return jsonify({
@@ -7004,15 +7054,14 @@ def send_message_to_league_internal(league_id, message, use_ai=False, context="g
     import openai
     from twilio.rest import Client
     
-    # Map league_id to conversation SID
-    conversation_sids = {
-        1: 'CHb7aa3110769f42a19cea7a2be9c644d2',  # Warriorz
-        3: 'CHc8f0c4a776f14bcd96e7c8838a6aec13',  # PAL
-        4: 'CHed74f2e9f16240e9a578f96299c395ce',  # The Party
-        7: 'CH4438ff5531514178bb13c5c0e96d5579',  # Belly Up
-    }
-    
-    conversation_sid = conversation_sids.get(league_id)
+    # Look up conversation SID from database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT twilio_conversation_sid FROM leagues WHERE id = %s", (league_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    conversation_sid = row[0] if row else None
     if not conversation_sid:
         return {'success': False, 'error': f'No conversation SID for league {league_id}'}
     
@@ -7044,11 +7093,12 @@ def send_message_to_league_internal(league_id, message, use_ai=False, context="g
             logging.warning(f"AI enhancement failed, using original message: {e}")
     
     # Send message
+    from auth import get_league_phone_number
     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+    twilio_phone, _ = get_league_phone_number(league_id)
     client = Client(twilio_sid, twilio_token)
-    
+
     message_response = client.conversations.v1.conversations(conversation_sid).messages.create(
         body=final_message,
         author=twilio_phone
@@ -8907,16 +8957,24 @@ def admin_twilio_usage():
         import pytz
         from datetime import timezone as dt_timezone
         
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
-        
+        # Build set of all our Twilio phone numbers for outbound classification
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT phone_number FROM twilio_numbers")
+        our_numbers = {r[0] for r in cursor.fetchall()}
+        cursor.close()
+        conn.close()
+        if not our_numbers:
+            our_numbers = {os.environ.get('TWILIO_PHONE_NUMBER', '')}
+
         pacific = pytz.timezone('America/Los_Angeles')
         now = datetime.now(pacific)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         start_date = month_start.strftime('%Y-%m-%d')
         month_start_utc = month_start.astimezone(dt_timezone.utc)
-        
+
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
+
         # --- 1) Per-league counts via Conversations API (logical messages) ---
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -8953,7 +9011,7 @@ def admin_twilio_usage():
                                 done = True
                                 break
                             author = msg.get('author', '')
-                            if author == twilio_phone:
+                            if author in our_numbers:
                                 outbound += 1
                             else:
                                 inbound += 1
@@ -9248,8 +9306,17 @@ def _get_live_league_usage(target_year=None, target_month=None):
     import pytz
     from datetime import timezone as dt_timezone
 
-    twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
     auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+    # Build set of all our Twilio phone numbers for outbound classification
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT phone_number FROM twilio_numbers")
+    our_numbers = {r[0] for r in cursor.fetchall()}
+    cursor.close()
+    conn.close()
+    if not our_numbers:
+        our_numbers = {os.environ.get('TWILIO_PHONE_NUMBER', '')}
 
     pacific = pytz.timezone('America/Los_Angeles')
     now = datetime.now(pacific)
@@ -9309,7 +9376,7 @@ def _get_live_league_usage(target_year=None, target_month=None):
                             done = True
                             break
                         author = msg.get('author', '')
-                        if author == twilio_phone:
+                        if author in our_numbers:
                             outbound += 1
                         else:
                             inbound += 1

@@ -1185,9 +1185,10 @@ ACCURACY RULES:
         image_bytes_list = []
         
         # For SMS, we need Twilio credentials for media upload
+        from auth import get_league_phone_number
         twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID')
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
-        twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        twilio_phone, _ = get_league_phone_number(league_id)
         
         try:
             if is_division_mode:
