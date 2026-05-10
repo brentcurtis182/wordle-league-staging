@@ -1073,3 +1073,140 @@ def get_all_player_revert_statuses(league_id):
     finally:
         cursor.close()
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Consolidated reset statuses (manage page)
+# ---------------------------------------------------------------------------
+
+def get_all_reset_statuses(league_id):
+    """
+    Single-connection fetch of all reset/revert statuses for the manage page.
+    Replaces 4 separate functions (get_season_revert_status, get_season_winners_revert_status,
+    get_alltime_revert_status, get_all_player_revert_statuses).
+    Returns: (season_revert, season_winners_revert, alltime_all_revert, alltime_player_reverts)
+    """
+    default_status = {'can_revert': False, 'reset_at': None, 'message': None}
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 1. Fetch ALL active snapshots in one query
+        cursor.execute("""
+            SELECT id, reset_type, player_id, snapshot_data, reset_at
+            FROM reset_snapshots
+            WHERE league_id = %s AND reverted = FALSE AND expired = FALSE
+        """, (league_id,))
+
+        season_snap = None
+        winners_snap = None
+        alltime_all_snap = None
+        player_snaps = []
+
+        for row in cursor.fetchall():
+            snap_id, reset_type, player_id, snap_data, reset_at = row
+            entry = {
+                'id': snap_id,
+                'snapshot_data': snap_data if isinstance(snap_data, dict) else json.loads(snap_data),
+                'reset_at': reset_at,
+            }
+            if reset_type == 'current_season' and player_id == 0:
+                season_snap = entry
+            elif reset_type == 'season_winners' and player_id == 0:
+                winners_snap = entry
+            elif reset_type == 'alltime_all' and player_id == 0:
+                alltime_all_snap = entry
+            elif reset_type == 'alltime_player':
+                entry['player_id'] = player_id
+                player_snaps.append(entry)
+
+        # 2. Season revert — check expiration
+        season_revert = dict(default_status)
+        if season_snap:
+            cursor.execute("""
+                SELECT current_season, season_start_week
+                FROM league_seasons
+                WHERE league_id = %s
+            """, (league_id,))
+            season_row = cursor.fetchone()
+            if season_row:
+                season_start_week = season_row[1]
+                if not season_start_week:
+                    season_start_week = calculate_wordle_number(get_week_start_date())
+                cursor.execute("""
+                    SELECT COUNT(*) FROM weekly_winners
+                    WHERE league_id = %s AND week_wordle_number >= %s
+                """, (league_id, season_start_week))
+                winner_count = cursor.fetchone()[0]
+                if winner_count > 0:
+                    cursor.execute("UPDATE reset_snapshots SET expired = TRUE WHERE id = %s", (season_snap['id'],))
+                    conn.commit()
+                    season_revert = {'can_revert': False, 'reset_at': None, 'message': 'Revert expired — new weekly winner has been recorded.'}
+                else:
+                    reset_at = season_snap['reset_at']
+                    reset_at_pacific = reset_at.replace(tzinfo=pytz.utc).astimezone(PACIFIC) if reset_at.tzinfo is None else reset_at.astimezone(PACIFIC)
+                    season_revert = {
+                        'can_revert': True,
+                        'reset_at': reset_at_pacific.strftime('%b %d, %Y at %I:%M %p'),
+                        'message': 'You can revert this reset until a new weekly winner is recorded (Monday).'
+                    }
+
+        # 3. Season winners revert — check expiration
+        season_winners_revert = dict(default_status)
+        if winners_snap:
+            cursor.execute("SELECT COUNT(*) FROM season_winners WHERE league_id = %s", (league_id,))
+            winner_count = cursor.fetchone()[0]
+            if winner_count > 0:
+                cursor.execute("UPDATE reset_snapshots SET expired = TRUE WHERE id = %s", (winners_snap['id'],))
+                conn.commit()
+                season_winners_revert = {'can_revert': False, 'reset_at': None, 'message': 'Revert expired — a new season winner has been crowned.'}
+            else:
+                reset_at = winners_snap['reset_at']
+                reset_at_pacific = reset_at.replace(tzinfo=pytz.utc).astimezone(PACIFIC) if reset_at.tzinfo is None else reset_at.astimezone(PACIFIC)
+                season_winners_revert = {
+                    'can_revert': True,
+                    'reset_at': reset_at_pacific.strftime('%b %d, %Y at %I:%M %p'),
+                    'message': 'You can revert until a new season winner is crowned (someone reaches 4 weekly wins).'
+                }
+
+        # 4. All-time all revert (never expires)
+        alltime_all_revert = {'can_revert': False, 'reset_at': None, 'message': None, 'player_name': None}
+        if alltime_all_snap:
+            reset_at = alltime_all_snap['reset_at']
+            reset_at_pacific = reset_at.replace(tzinfo=pytz.utc).astimezone(PACIFIC) if reset_at.tzinfo is None else reset_at.astimezone(PACIFIC)
+            score_count = len(alltime_all_snap['snapshot_data'].get('scores', []))
+            alltime_all_revert = {
+                'can_revert': True,
+                'reset_at': reset_at_pacific.strftime('%b %d, %Y at %I:%M %p'),
+                'message': f'Revert will merge {score_count} old scores with any new scores recorded since the reset.',
+                'player_name': None
+            }
+
+        # 5. All-time per-player reverts (never expire)
+        alltime_player_reverts = []
+        for snap in player_snaps:
+            reset_at = snap['reset_at']
+            reset_at_pacific = reset_at.replace(tzinfo=pytz.utc).astimezone(PACIFIC) if reset_at.tzinfo is None else reset_at.astimezone(PACIFIC)
+            snapshot = snap['snapshot_data']
+            alltime_player_reverts.append({
+                'player_id': snap['player_id'],
+                'player_name': snapshot.get('player_name', f"Player {snap['player_id']}"),
+                'can_revert': True,
+                'reset_at': reset_at_pacific.strftime('%b %d, %Y at %I:%M %p'),
+                'score_count': len(snapshot.get('scores', []))
+            })
+
+        return season_revert, season_winners_revert, alltime_all_revert, alltime_player_reverts
+
+    except Exception as e:
+        logging.error(f"Error getting reset statuses for league {league_id}: {e}")
+        return (
+            dict(default_status),
+            dict(default_status),
+            {'can_revert': False, 'reset_at': None, 'message': None, 'player_name': None},
+            []
+        )
+    finally:
+        cursor.close()
+        conn.close()

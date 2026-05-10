@@ -434,6 +434,101 @@ def get_base_styles():
     """
 
 
+def get_loading_screen_html():
+    """Return loading screen overlay HTML/CSS/JS for page transitions.
+    Reuses the footer flipping-tile animation with a progress bar."""
+    return """
+    <div id="wpl-loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:#06060e; z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
+        <div style="text-align:center;">
+            <div class="loading-tiles" style="display:flex; gap:8px; justify-content:center; perspective:600px; margin-bottom:32px;">
+                <div class="lt"></div>
+                <div class="lt"></div>
+                <div class="lt"></div>
+                <div class="lt"></div>
+                <div class="lt"></div>
+            </div>
+            <div style="width:200px; height:4px; background:#1a1a2e; border-radius:2px; overflow:hidden; margin:0 auto;">
+                <div id="wpl-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg,#00E8DA,#FFA64D); border-radius:2px; transition:width 0.3s ease;"></div>
+            </div>
+            <p style="color:#818384; margin-top:16px; font-family:'Segoe UI',sans-serif; font-size:0.9em;">Loading...</p>
+        </div>
+    </div>
+    <style>
+    .lt {
+        width:36px; height:36px; border-radius:6px; background:#37374a;
+        animation: ltFlip 2s ease-in-out infinite; transition: background-color 0.3s ease;
+    }
+    .lt.t-cyan { background:#00E8DA; }
+    .lt.t-orange { background:#FFA64D; }
+    .lt.t-dark { background:#37374a; }
+    @keyframes ltFlip {
+        0%, 100% { transform: rotateX(0); }
+        50% { transform: rotateX(180deg); }
+    }
+    </style>
+    <script>
+    (function() {
+        var overlay = document.getElementById('wpl-loading-overlay');
+        var bar = document.getElementById('wpl-progress-bar');
+        if (!overlay) return;
+
+        var colors = ['t-cyan','t-orange','t-dark'];
+        var tiles = overlay.querySelectorAll('.lt');
+        function pick() { return colors[Math.floor(Math.random()*colors.length)]; }
+        tiles.forEach(function(t, i) {
+            t.classList.add(pick());
+            t.style.animationDelay = (i * 0.2) + 's';
+            t.addEventListener('animationiteration', function() {
+                colors.forEach(function(c) { t.classList.remove(c); });
+                t.classList.add(pick());
+            });
+        });
+
+        var progress = 0;
+        var interval = null;
+
+        window.wplShowLoading = function() {
+            overlay.style.display = 'flex';
+            progress = 0;
+            bar.style.width = '0%';
+            interval = setInterval(function() {
+                if (progress < 70) progress += Math.random() * 8 + 2;
+                else if (progress < 90) progress += Math.random() * 2 + 0.5;
+                else { clearInterval(interval); return; }
+                bar.style.width = Math.min(progress, 90) + '%';
+            }, 100);
+        };
+
+        window.wplHideLoading = function() {
+            if (interval) clearInterval(interval);
+            bar.style.width = '100%';
+            setTimeout(function() { overlay.style.display = 'none'; }, 300);
+        };
+
+        // Auto-hide on destination page load
+        window.wplHideLoading();
+
+        // Attach to nav links
+        document.querySelectorAll('a.wpl-nav-link').forEach(function(a) {
+            a.addEventListener('click', function() {
+                if (a.target === '_blank') return;
+                window.wplShowLoading();
+            });
+        });
+
+        // Attach to login/register forms
+        var authForm = document.querySelector('form[action="/auth/login"], form[action="/auth/register"]');
+        if (authForm) {
+            authForm.addEventListener('submit', function() {
+                window.wplShowLoading();
+            });
+        }
+    })();
+    </script>
+    """
+
+
 def render_login_page(error=None, success=None):
     """Render the login page"""
     return f"""
@@ -489,7 +584,7 @@ def render_login_page(error=None, success=None):
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
                 {'<div class="alert alert-success">' + success + '</div>' if success else ''}
                 
-                <a href="/auth/google" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #fff; color: #333; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1em; border: 1px solid #ddd; box-sizing: border-box; margin-bottom: 20px;">
+                <a href="/auth/google" class="wpl-nav-link" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #fff; color: #333; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1em; border: 1px solid #ddd; box-sizing: border-box; margin-bottom: 20px;">
                     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                     Sign in with Google
                 </a>
@@ -521,6 +616,7 @@ def render_login_page(error=None, success=None):
                 </div>
             </div>
         </div>
+        {get_loading_screen_html()}
     </body>
     </html>
     """
@@ -891,7 +987,7 @@ def render_register_page(error=None):
                 
                 {'<div class="alert alert-error">' + error + '</div>' if error else ''}
                 
-                <a href="/auth/google" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #fff; color: #333; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1em; border: 1px solid #ddd; box-sizing: border-box; margin-bottom: 20px;">
+                <a href="/auth/google" class="wpl-nav-link" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #fff; color: #333; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1em; border: 1px solid #ddd; box-sizing: border-box; margin-bottom: 20px;">
                     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                     Sign up with Google
                 </a>
@@ -955,6 +1051,7 @@ def render_register_page(error=None):
                 </div>
             </div>
         </div>
+        {get_loading_screen_html()}
     </body>
     </html>
     """
@@ -1538,7 +1635,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             </div>
             {meta_html}
             <div class="actions">
-                <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small">Manage</a>
+                <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small wpl-nav-link">Manage</a>
                 <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
             </div>
         </div>
@@ -1672,6 +1769,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
                 }});
             }}, 5000);
         </script>
+        {get_loading_screen_html()}
     </body>
     </html>
     """
@@ -2185,14 +2283,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     promo_count = league.get('promoted_count', 1)
     releg_count = league.get('relegated_count', 1)
     
-    # Get reset/revert statuses
+    # Get reset/revert statuses — single consolidated query
     try:
-        from league_reset import get_season_revert_status, get_season_winners_revert_status, get_alltime_revert_status, get_all_player_revert_statuses, ensure_reset_snapshots_table
+        from league_reset import get_all_reset_statuses, ensure_reset_snapshots_table
         ensure_reset_snapshots_table()
-        season_revert = get_season_revert_status(league['id'])
-        season_winners_revert = get_season_winners_revert_status(league['id'])
-        alltime_all_revert = get_alltime_revert_status(league['id'])
-        alltime_player_reverts = get_all_player_revert_statuses(league['id'])
+        season_revert, season_winners_revert, alltime_all_revert, alltime_player_reverts = get_all_reset_statuses(league['id'])
     except Exception:
         season_revert = {'can_revert': False, 'reset_at': None, 'message': None}
         season_winners_revert = {'can_revert': False, 'reset_at': None, 'message': None}
@@ -4917,6 +5012,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 modal.classList.add('active');
             }}
         </script>
+        {get_loading_screen_html()}
     </body>
     </html>
     """
@@ -5033,7 +5129,8 @@ def get_league_info(league_id):
                    COALESCE(relegated_count, 1),
                    COALESCE(min_weekly_scores, 5),
                    header_emoji,
-                   COALESCE(public_listed, TRUE)
+                   COALESCE(public_listed, TRUE),
+                   max_players
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -5070,6 +5167,7 @@ def get_league_info(league_id):
                 'min_weekly_scores': int(row[26]) if row[26] is not None else 5,
                 'header_emoji': row[27] if row[27] is not None else None,
                 'public_listed': row[28] if row[28] is not None else True,
+                'max_players': row[29],
                 'channel_name': None
             }
             

@@ -3135,7 +3135,7 @@ def dashboard_league(league_id):
     """League management page"""
     from auth import validate_session, can_manage_league, get_config
     from dashboard import render_league_management, get_league_players, get_league_info, get_pending_removal_players
-    from billing import check_ai_messaging_enabled, get_player_limit_for_league, league_requires_payment, get_league_subscription_status, get_league_linked_subscription, get_user_subscriptions_for_linking
+    from billing import get_league_billing_context, get_user_subscriptions_for_linking
 
     session_token = request.cookies.get('session_token')
     logging.info(f"League page: session_token present: {bool(session_token)}")
@@ -3155,26 +3155,18 @@ def dashboard_league(league_id):
 
     players = get_league_players(league_id)
     # Only SMS leagues need the "re-link" removal banner; Slack/Discord removals are instant
-    channel_type_check = league.get('channel_type') or 'sms'
-    removed_players = get_pending_removal_players(league_id) if channel_type_check == 'sms' else []
+    channel_type = league.get('channel_type') or 'sms'
+    removed_players = get_pending_removal_players(league_id) if channel_type == 'sms' else []
     player_ai_settings = get_all_player_ai_settings(league_id)
     message = request.args.get('message')
     error = request.args.get('error')
 
-    # Billing context
-    channel_type = league.get('channel_type') or 'sms'
+    # Billing context — single consolidated query replaces 4 separate calls
     payment_config_key = 'payment_required_sms' if channel_type == 'sms' else 'payment_required_slack'
     payment_required = get_config(payment_config_key, 'false') == 'true'
-    linked_sub = get_league_linked_subscription(league_id)
-    billing_context = {
-        'payment_required': payment_required,
-        'requires_payment': league_requires_payment(league, payment_required),
-        'subscription_status': get_league_subscription_status(league_id),
-        'ai_messaging_enabled': check_ai_messaging_enabled(league_id, payment_required=payment_required),
-        'player_limit': get_player_limit_for_league(league_id, channel_type),
-        'linked_subscription': linked_sub,
-        'available_subscriptions': get_user_subscriptions_for_linking(user['id'], channel_type) if payment_required and not linked_sub else [],
-    }
+    billing_context = get_league_billing_context(league_id, league, channel_type, payment_required=payment_required)
+    if payment_required and not billing_context['linked_subscription']:
+        billing_context['available_subscriptions'] = get_user_subscriptions_for_linking(user['id'], channel_type)
 
     return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)
 

@@ -535,6 +535,98 @@ def get_player_limit_for_league(league_id, channel_type):
 
 
 # ---------------------------------------------------------------------------
+# Consolidated billing context (manage page)
+# ---------------------------------------------------------------------------
+
+def get_league_billing_context(league_id, league, channel_type, payment_required=False):
+    """
+    Single-query fetch of all billing info for the manage page.
+    Replaces: get_league_linked_subscription + get_league_subscription_status
+              + check_ai_messaging_enabled + get_player_limit_for_league
+    """
+    from auth import get_db_connection
+
+    requires_payment = league_requires_payment(league, payment_required)
+
+    if is_legacy_league(league_id):
+        return {
+            'payment_required': payment_required,
+            'requires_payment': False,
+            'subscription_status': None,
+            'ai_messaging_enabled': True,
+            'player_limit': 9,
+            'linked_subscription': None,
+            'available_subscriptions': [],
+        }
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # One query: subscription info + league max_players
+        cursor.execute("""
+            SELECT s.id, s.plan_tier, s.plan_type, s.status, s.ai_messaging_addon,
+                   l.max_players
+            FROM leagues l
+            LEFT JOIN subscription_leagues sl ON sl.league_id = l.id
+            LEFT JOIN subscriptions s ON s.id = sl.subscription_id
+            WHERE l.id = %s
+            ORDER BY s.created_at DESC NULLS LAST
+            LIMIT 1
+        """, (league_id,))
+
+        row = cursor.fetchone()
+
+        linked_sub = None
+        status = None
+        ai_enabled = not payment_required  # default when no subscription
+        max_players_override = row[5] if row else None
+
+        if row and row[0] is not None:
+            linked_sub = {
+                'subscription_id': row[0],
+                'plan_tier': row[1],
+                'plan_type': row[2],
+                'status': row[3],
+                'ai_messaging_addon': row[4],
+            }
+            status = row[3]
+
+            # AI enabled logic (mirrors check_ai_messaging_enabled)
+            plan_tier = row[1]
+            has_addon = row[4]
+            tier_info = SLACK_TIERS.get(plan_tier, {})
+            bundle_info = SMS_BUNDLES.get(plan_tier, {})
+            ai_enabled = bool(
+                tier_info.get('ai_included') or
+                bundle_info.get('ai_included') or
+                has_addon
+            )
+
+        # Player limit
+        if max_players_override:
+            player_limit = max_players_override
+        elif channel_type == 'sms':
+            player_limit = 9
+        else:
+            player_limit = 14
+
+        return {
+            'payment_required': payment_required,
+            'requires_payment': requires_payment,
+            'subscription_status': status,
+            'ai_messaging_enabled': ai_enabled,
+            'player_limit': player_limit,
+            'linked_subscription': linked_sub,
+            'available_subscriptions': [],  # populated by caller if needed
+        }
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # League ↔ Subscription Linking
 # ---------------------------------------------------------------------------
 

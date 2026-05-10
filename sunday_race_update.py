@@ -624,12 +624,18 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
             parts.append(". ".join(catch_up_scenarios[:3]))
         elif all_eligible_posted:
             parts = [f"{leader_names[0]} is the clear winner at {leader_total}!"]
+        if eliminated:
+            eliminated_list = ", ".join(eliminated)
+            parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
         scenarios.append(". ".join(parts))
     else:
         leader_text = f"{' and '.join(leader_names)} tied at {leader_total}"
         parts = [leader_text]
         if catch_up_scenarios:
             parts.append(". ".join(catch_up_scenarios[:3]))
+        if eliminated:
+            eliminated_list = ", ".join(eliminated)
+            parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
         scenarios.append(". ".join(parts))
     
     # Season clinch detection for this division (potential_clinchers computed above, pre-increment)
@@ -1024,7 +1030,12 @@ ACCURACY RULES:
                         other_eligible = [p for p in eligible if p['name'] not in leader_names]
                         if other_eligible and all(p['posted_today'] for p in other_eligible):
                             scenario_parts.append(f"No one else can catch up - {leader_names[0]} has this locked!")
-                    
+
+                    # Include eliminated players so the AI doesn't hallucinate wrong reasons
+                    if eliminated:
+                        eliminated_list = ", ".join(eliminated)
+                        scenario_parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
+
                     scenarios.append(". ".join(scenario_parts))
                 
                 # Season clinch detection
