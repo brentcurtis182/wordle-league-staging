@@ -966,7 +966,7 @@ def _on_subscription_updated(subscription):
 
 
 def _on_subscription_deleted(subscription):
-    """Handle subscription cancellation — mark leagues as lapsed."""
+    """Handle subscription cancellation — deactivate linked leagues and notify channels."""
     from auth import get_db_connection
 
     stripe_sub_id = subscription['id']
@@ -975,30 +975,101 @@ def _on_subscription_deleted(subscription):
     cursor = conn.cursor()
 
     try:
+        # Mark subscription as canceled
         cursor.execute("""
             UPDATE subscriptions SET status = 'canceled', updated_at = CURRENT_TIMESTAMP
             WHERE stripe_subscription_id = %s
+            RETURNING id
         """, (stripe_sub_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.commit()
+            return
+        subscription_id = row[0]
 
-        # Mark all assigned leagues as needing lapsed notification
+        # Get all linked leagues with their channel info
         cursor.execute("""
-            UPDATE leagues SET lapsed_notified = FALSE
-            WHERE id IN (
-                SELECT sl.league_id FROM subscription_leagues sl
-                JOIN subscriptions s ON s.id = sl.subscription_id
-                WHERE s.stripe_subscription_id = %s
-            )
-        """, (stripe_sub_id,))
+            SELECT l.id, l.display_name, l.channel_type, l.twilio_conversation_sid,
+                   l.slack_channel_id, l.slack_bot_token, l.discord_channel_id
+            FROM leagues l
+            JOIN subscription_leagues sl ON sl.league_id = l.id
+            WHERE sl.subscription_id = %s
+        """, (subscription_id,))
+        leagues = cursor.fetchall()
+
+        # Deactivate each league (preserve players, scores, opt-in status — only clear channel connection)
+        for lg in leagues:
+            lg_id, lg_name, channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id = lg
+
+            # Send farewell message to active channel
+            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name)
+
+            # Deactivate: clear channel connection but preserve everything else
+            cursor.execute("""
+                UPDATE leagues
+                SET twilio_conversation_sid = NULL,
+                    slack_channel_id = NULL,
+                    discord_channel_id = NULL,
+                    verification_code = NULL,
+                    max_players = NULL
+                WHERE id = %s
+            """, (lg_id,))
+            logging.info(f"Deactivated league {lg_id} ({lg_name}) due to subscription lapse")
+
+        # Remove subscription links
+        cursor.execute(
+            "DELETE FROM subscription_leagues WHERE subscription_id = %s", (subscription_id,)
+        )
 
         conn.commit()
-        logging.info(f"Subscription deleted: {stripe_sub_id} — leagues marked for lapsed notification")
+        logging.info(f"Subscription deleted: {stripe_sub_id} — {len(leagues)} league(s) deactivated")
 
     except Exception as e:
         conn.rollback()
         logging.error(f"Error processing subscription.deleted: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
     finally:
         cursor.close()
         conn.close()
+
+
+def _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, league_name):
+    """Send a one-time lapse notification to the league's channel before deactivation."""
+    import os
+
+    message = (
+        f"⚠️ {league_name}'s subscription has ended. "
+        f"Score tracking is now paused. All your data (scores, stats, players) is preserved — "
+        f"reactivate anytime at WordPlayLeague.com to pick up where you left off!"
+    )
+
+    try:
+        if channel_type == 'sms' and conv_sid:
+            from twilio.rest import Client
+            client = Client(
+                os.environ.get('TWILIO_ACCOUNT_SID'),
+                os.environ.get('TWILIO_AUTH_TOKEN')
+            )
+            twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+            client.conversations.v1.conversations(conv_sid).messages.create(
+                body=message,
+                author=twilio_phone
+            )
+            logging.info(f"Sent lapse notification to SMS conversation {conv_sid}")
+
+        elif channel_type == 'slack' and slack_ch_id and slack_token:
+            from slack_integration import send_slack_message
+            send_slack_message(slack_token, slack_ch_id, message)
+            logging.info(f"Sent lapse notification to Slack channel {slack_ch_id}")
+
+        elif channel_type == 'discord' and discord_ch_id:
+            # Discord notification would go here if implemented
+            logging.info(f"Discord lapse notification skipped for channel {discord_ch_id} (not implemented)")
+
+    except Exception as e:
+        # Don't let notification failure block deactivation
+        logging.error(f"Failed to send lapse notification ({channel_type}): {e}")
 
 
 def _on_invoice_payment_failed(invoice):
