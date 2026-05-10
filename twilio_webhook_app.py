@@ -4246,8 +4246,11 @@ def dashboard_delete_league(league_id):
         
         # 7. Delete user_leagues associations
         cursor.execute("DELETE FROM user_leagues WHERE league_id = %s", (league_id,))
-        
-        # 8. Finally delete the league itself
+
+        # 8. Remove subscription link (free up the slot)
+        cursor.execute("DELETE FROM subscription_leagues WHERE league_id = %s", (league_id,))
+
+        # 9. Finally delete the league itself
         cursor.execute("DELETE FROM leagues WHERE id = %s", (league_id,))
         
         conn.commit()
@@ -4595,6 +4598,16 @@ def billing_checkout():
     if not plan_type or not plan_tier:
         return redirect('/dashboard/membership?error=Missing plan selection')
 
+    # Validate plan_tier matches plan_type
+    if not plan_tier.startswith(f'{plan_type}_'):
+        return redirect('/dashboard/membership?error=Invalid plan selection')
+
+    # Validate league belongs to user if provided
+    if league_id:
+        from auth import can_manage_league
+        if not can_manage_league(user['id'], int(league_id)):
+            return redirect('/dashboard/membership?error=Unauthorized league')
+
     try:
         checkout_url = create_checkout_session(
             user_id=user['id'],
@@ -4668,6 +4681,11 @@ def billing_change_plan():
 
         if new_tier == current_tier:
             return redirect('/dashboard/membership?error=Already on this plan')
+
+        # Prevent cross-type switching (SMS ↔ Slack)
+        new_plan_type = 'slack' if new_tier.startswith('slack_') else 'sms'
+        if new_plan_type != plan_type:
+            return redirect('/dashboard/membership?error=Cannot switch between SMS and Slack plans. Please cancel and create a new subscription.')
 
         # Check if downgrading would exceed new plan's slot count
         if plan_type == 'slack':
