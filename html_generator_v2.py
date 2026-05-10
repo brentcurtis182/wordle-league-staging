@@ -1647,6 +1647,48 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </style>
 </head>
 <body>
+<div id="wpl-loading-overlay" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:#06060e; z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
+    <div style="text-align:center;">
+        <div style="display:flex; gap:8px; justify-content:center; perspective:600px; margin-bottom:32px;">
+            <div class="lt"></div><div class="lt"></div><div class="lt"></div><div class="lt"></div><div class="lt"></div>
+        </div>
+        <div style="width:200px; height:4px; background:#1a1a2e; border-radius:2px; overflow:hidden; margin:0 auto;">
+            <div id="wpl-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg,#00E8DA,#FFA64D); border-radius:2px; transition:width 0.3s ease;"></div>
+        </div>
+        <p style="color:#818384; margin-top:16px; font-family:'Segoe UI',sans-serif; font-size:0.9em;">Loading...</p>
+    </div>
+</div>
+<style>
+.lt {{ width:36px; height:36px; border-radius:6px; background:#37374a; animation: ltFlip 2s ease-in-out infinite; transition: background-color 0.3s ease; }}
+.lt.t-cyan {{ background:#00E8DA; }} .lt.t-orange {{ background:#FFA64D; }} .lt.t-dark {{ background:#37374a; }}
+@keyframes ltFlip {{ 0%, 100% {{ transform: rotateX(0); }} 50% {{ transform: rotateX(180deg); }} }}
+</style>
+<script>
+(function() {{
+    var ov = document.getElementById('wpl-loading-overlay');
+    var bar = document.getElementById('wpl-progress-bar');
+    if (!ov) return;
+    var colors = ['t-cyan','t-orange','t-dark'];
+    var tiles = ov.querySelectorAll('.lt');
+    function pick() {{ return colors[Math.floor(Math.random()*colors.length)]; }}
+    tiles.forEach(function(t, i) {{
+        t.classList.add(pick());
+        t.style.animationDelay = (i * 0.2) + 's';
+        t.addEventListener('animationiteration', function() {{
+            colors.forEach(function(c) {{ t.classList.remove(c); }});
+            t.classList.add(pick());
+        }});
+    }});
+    var progress = 0;
+    window._wplInterval = setInterval(function() {{
+        if (progress < 70) progress += Math.random() * 8 + 2;
+        else if (progress < 90) progress += Math.random() * 2 + 0.5;
+        else {{ clearInterval(window._wplInterval); return; }}
+        bar.style.width = Math.min(progress, 90) + '%';
+    }}, 100);
+}})();
+</script>
 <canvas id="wpl-particles"></canvas>
 <div class="wpl-orb wpl-orb-1"></div>
 <div class="wpl-orb wpl-orb-2"></div>
@@ -1776,6 +1818,16 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 </script>
 <script src="script.js"></script>
 <script src="tabs.js"></script>
+<script>
+(function() {{
+    var ov = document.getElementById('wpl-loading-overlay');
+    var bar = document.getElementById('wpl-progress-bar');
+    if (!ov) return;
+    if (window._wplInterval) clearInterval(window._wplInterval);
+    bar.style.width = '100%';
+    setTimeout(function() {{ ov.style.display = 'none'; }}, 300);
+}})();
+</script>
 </body>
 </html>'''
     

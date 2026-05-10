@@ -434,11 +434,11 @@ def get_base_styles():
     """
 
 
-def get_loading_screen_html():
-    """Return loading screen overlay HTML/CSS/JS for page transitions.
-    Reuses the footer flipping-tile animation with a progress bar."""
+def get_loading_screen_top():
+    """Return loading screen overlay HTML + CSS to place at the TOP of <body>.
+    Visible immediately — the browser paints this before rendering page content."""
     return """
-    <div id="wpl-loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+    <div id="wpl-loading-overlay" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%;
          background:#06060e; z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
         <div style="text-align:center;">
             <div class="loading-tiles" style="display:flex; gap:8px; justify-content:center; perspective:600px; margin-bottom:32px;">
@@ -468,11 +468,11 @@ def get_loading_screen_html():
     }
     </style>
     <script>
+    // Start progress bar and tile colors immediately
     (function() {
         var overlay = document.getElementById('wpl-loading-overlay');
         var bar = document.getElementById('wpl-progress-bar');
         if (!overlay) return;
-
         var colors = ['t-cyan','t-orange','t-dark'];
         var tiles = overlay.querySelectorAll('.lt');
         function pick() { return colors[Math.floor(Math.random()*colors.length)]; }
@@ -484,30 +484,46 @@ def get_loading_screen_html():
                 t.classList.add(pick());
             });
         });
-
+        // Start fake progress immediately
         var progress = 0;
-        var interval = null;
+        window._wplInterval = setInterval(function() {
+            if (progress < 70) progress += Math.random() * 8 + 2;
+            else if (progress < 90) progress += Math.random() * 2 + 0.5;
+            else { clearInterval(window._wplInterval); return; }
+            bar.style.width = Math.min(progress, 90) + '%';
+        }, 100);
+    })();
+    </script>
+    """
 
+
+def get_loading_screen_bottom():
+    """Return loading screen JS to place at the BOTTOM of <body>.
+    Hides the overlay once the page is rendered, and attaches click handlers for navigation."""
+    return """
+    <script>
+    (function() {
+        var overlay = document.getElementById('wpl-loading-overlay');
+        var bar = document.getElementById('wpl-progress-bar');
+        if (!overlay) return;
+
+        // Complete and dismiss the loading screen
+        if (window._wplInterval) clearInterval(window._wplInterval);
+        bar.style.width = '100%';
+        setTimeout(function() { overlay.style.display = 'none'; }, 300);
+
+        // Re-expose show/hide for navigation triggers
         window.wplShowLoading = function() {
             overlay.style.display = 'flex';
-            progress = 0;
+            var progress = 0;
             bar.style.width = '0%';
-            interval = setInterval(function() {
+            window._wplInterval = setInterval(function() {
                 if (progress < 70) progress += Math.random() * 8 + 2;
                 else if (progress < 90) progress += Math.random() * 2 + 0.5;
-                else { clearInterval(interval); return; }
+                else { clearInterval(window._wplInterval); return; }
                 bar.style.width = Math.min(progress, 90) + '%';
             }, 100);
         };
-
-        window.wplHideLoading = function() {
-            if (interval) clearInterval(interval);
-            bar.style.width = '100%';
-            setTimeout(function() { overlay.style.display = 'none'; }, 300);
-        };
-
-        // Auto-hide on destination page load
-        window.wplHideLoading();
 
         // Attach to nav links
         document.querySelectorAll('a.wpl-nav-link').forEach(function(a) {
@@ -527,6 +543,11 @@ def get_loading_screen_html():
     })();
     </script>
     """
+
+
+def get_loading_screen_html():
+    """Return combined loading screen for auth pages (hidden by default, click-triggered only)."""
+    return get_loading_screen_top().replace('display:flex;', 'display:none;') + get_loading_screen_bottom()
 
 
 def render_login_page(error=None, success=None):
@@ -1709,6 +1730,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
         </style>
     </head>
     <body>
+        {get_loading_screen_top()}
         <div class="container">
             <div class="header">
                 <div class="header-logo-row">
@@ -1769,7 +1791,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
                 }});
             }}, 5000);
         </script>
-        {get_loading_screen_html()}
+        {get_loading_screen_bottom()}
     </body>
     </html>
     """
@@ -2671,6 +2693,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         </style>
     </head>
     <body>
+        {get_loading_screen_top()}
         <div class="container">
             <div class="header">
                 <div class="header-logo-row">
@@ -5012,7 +5035,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 modal.classList.add('active');
             }}
         </script>
-        {get_loading_screen_html()}
+        {get_loading_screen_bottom()}
     </body>
     </html>
     """
