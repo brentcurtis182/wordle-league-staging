@@ -1440,6 +1440,33 @@ def webhook():
                 if league:
                     league_id, league_name = league
 
+                    # Verify the passphrase was sent to the correct phone number
+                    # (prevents activation via wrong number's thread)
+                    from auth import get_league_phone_number
+                    expected_phone, _ = get_league_phone_number(league_id)
+                    if expected_phone:
+                        try:
+                            from twilio.rest import Client as _TwilioCheck
+                            _check_client = _TwilioCheck(os.environ.get('TWILIO_ACCOUNT_SID'), os.environ.get('TWILIO_AUTH_TOKEN'))
+                            participants = _check_client.conversations.v1.conversations(conv_sid).participants.list()
+                            conv_numbers = set()
+                            for p in participants:
+                                addr = getattr(p, 'messaging_binding', {})
+                                if isinstance(addr, dict):
+                                    proxy = addr.get('proxy_address', '')
+                                    if proxy:
+                                        conv_numbers.add(proxy)
+                            if conv_numbers and expected_phone not in conv_numbers:
+                                logging.warning(
+                                    f"Passphrase '{stripped_message}' for league {league_id} sent to wrong number. "
+                                    f"Expected {expected_phone}, conversation has {conv_numbers}"
+                                )
+                                cursor.close()
+                                conn.close()
+                                return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+                        except Exception as e:
+                            logging.warning(f"Could not verify conversation number (non-fatal): {e}")
+
                     # Get the old conversation SID before overwriting (for cleanup)
                     cursor.execute("SELECT twilio_conversation_sid, slug FROM leagues WHERE id = %s", (league_id,))
                     old_row = cursor.fetchone()
