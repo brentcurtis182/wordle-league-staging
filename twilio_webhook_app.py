@@ -4367,33 +4367,67 @@ def dashboard_generate_code(league_id):
         return jsonify({'success': False, 'error': 'Access denied'}), 403
     
     try:
-        # Generate a fun two-word code phrase using OpenAI
-        code_phrase = None
-        try:
-            client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{
-                    "role": "user",
-                    "content": "Generate a single fun, random two-word phrase like 'pizza grass' or 'computer pie' or 'dancing banana'. Just output the two words in lowercase, nothing else. Make it unique and playful."
-                }],
-                max_tokens=10,
-                temperature=1.2
-            )
-            code_phrase = response.choices[0].message.content.strip().lower()
-        except Exception as e:
-            logging.error(f"OpenAI error generating code phrase: {e}")
-            # Fallback to random word pairs
-            words1 = ['happy', 'silly', 'cosmic', 'dancing', 'flying', 'purple', 'golden', 'magic', 'super', 'tiny']
-            words2 = ['banana', 'pizza', 'robot', 'unicorn', 'taco', 'pickle', 'waffle', 'dragon', 'penguin', 'donut']
-            code_phrase = f"{random.choice(words1)} {random.choice(words2)}"
-        
+        # Generate a fun two-word code phrase
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Store the code phrase in the leagues table
-        # Note: Slack credentials (team_id, bot_token) are set via the OAuth install flow (Step 1)
-        # to ensure the correct workspace is linked, especially for users with multiple workspaces.
+
+        # Get existing active passphrases to avoid collisions
+        cursor.execute("SELECT LOWER(verification_code) FROM leagues WHERE verification_code IS NOT NULL")
+        existing_phrases = {r[0] for r in cursor.fetchall()}
+
+        code_phrase = None
+        for _attempt in range(3):
+            candidate = None
+            try:
+                client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{
+                        "role": "user",
+                        "content": (
+                            "Generate a single random two-word phrase: one adjective and one noun. "
+                            "Be wildly creative — pull from animals, food, weather, space, mythology, "
+                            "sports, ocean life, instruments, geology, anything. Avoid common pairings. "
+                            "Examples: 'volcanic pretzel', 'sleepy kraken', 'turbo mango', 'foggy banjo'. "
+                            "Output ONLY the two lowercase words separated by a space, nothing else."
+                        )
+                    }],
+                    max_tokens=10,
+                    temperature=1.4
+                )
+                candidate = response.choices[0].message.content.strip().lower()
+                # Validate it's actually two words
+                if not re.match(r'^[a-z]+ [a-z]+$', candidate):
+                    candidate = None
+            except Exception as e:
+                logging.error(f"OpenAI error generating code phrase (attempt {_attempt+1}): {e}")
+
+            if not candidate:
+                # Fallback to random word pairs (50x50 = 2,500 combinations)
+                adjectives = [
+                    'happy', 'silly', 'cosmic', 'dancing', 'flying', 'purple', 'golden', 'magic', 'super', 'tiny',
+                    'frozen', 'spicy', 'chunky', 'wobbly', 'sneaky', 'crispy', 'fuzzy', 'grumpy', 'turbo', 'mighty',
+                    'soggy', 'blazing', 'dusty', 'neon', 'rusty', 'salty', 'bouncy', 'fizzy', 'sleepy', 'stormy',
+                    'goofy', 'jazzy', 'lumpy', 'peppy', 'rowdy', 'toasty', 'zippy', 'misty', 'jolly', 'funky',
+                    'shiny', 'wiggly', 'cloudy', 'lunar', 'snappy', 'twisted', 'foggy', 'mossy', 'bubbly', 'crunchy'
+                ]
+                nouns = [
+                    'banana', 'pizza', 'robot', 'unicorn', 'taco', 'pickle', 'waffle', 'dragon', 'penguin', 'donut',
+                    'kraken', 'mango', 'walrus', 'pretzel', 'comet', 'cactus', 'falcon', 'nugget', 'panda', 'volcano',
+                    'badger', 'biscuit', 'goblin', 'hammock', 'igloo', 'jackal', 'lobster', 'mammoth', 'narwhal', 'otter',
+                    'parrot', 'quokka', 'sphinx', 'turnip', 'yeti', 'zeppelin', 'anchor', 'banjo', 'cheetah', 'dingo',
+                    'espresso', 'flamingo', 'gargoyle', 'hornet', 'jacuzzi', 'kiwi', 'llama', 'moose', 'noodle', 'oyster'
+                ]
+                candidate = f"{random.choice(adjectives)} {random.choice(nouns)}"
+
+            if candidate not in existing_phrases:
+                code_phrase = candidate
+                break
+
+        # Final fallback: append random digits if all attempts collided (extremely unlikely)
+        if not code_phrase:
+            code_phrase = f"{candidate} {random.randint(10, 99)}"
+
         cursor.execute("""
             UPDATE leagues SET verification_code = %s WHERE id = %s
         """, (code_phrase, league_id))
