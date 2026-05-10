@@ -92,14 +92,20 @@ def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None
     if league_id:
         from auth import get_league_phone_number
         twilio_phone, _ = get_league_phone_number(league_id)
+        logging.info(f"[MSG] Using per-league phone for league {league_id}: {twilio_phone}")
     else:
         twilio_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+        logging.info(f"[MSG] Using env var phone (no league_id): {twilio_phone}")
 
     if not twilio_sid or not twilio_token:
+        logging.error("[MSG] Twilio credentials not configured")
         return {"success": False, "error": "Twilio credentials not configured"}
 
     if not conversation_sid:
+        logging.error(f"[MSG] No conversation SID for league {league_id}")
         return {"success": False, "error": "No Twilio conversation SID"}
+
+    logging.info(f"[MSG] Sending to conv={conversation_sid}, author={twilio_phone}, text={text[:80]}")
 
     try:
         client = Client(twilio_sid, twilio_token)
@@ -107,16 +113,16 @@ def _send_twilio_message(conversation_sid: str, text: str, media_url: str = None
         message_params = {"body": text, "author": twilio_phone}
         if media_url:
             message_params["media_sid"] = media_url  # Assumes this is a media SID
-        
+
         message = client.conversations.v1.conversations(conversation_sid).messages.create(
             **message_params
         )
-        
-        logging.info(f"Sent Twilio message: {text[:50]}...")
+
+        logging.info(f"[MSG] ✅ Sent successfully: sid={message.sid}, text={text[:50]}...")
         return {"success": True, "platform": "sms", "message_sid": message.sid}
-    
+
     except Exception as e:
-        logging.error(f"Twilio send failed: {e}")
+        logging.error(f"[MSG] ❌ Twilio send FAILED for league {league_id}, conv={conversation_sid}, author={twilio_phone}: {e}")
         return {"success": False, "error": str(e)}
 
 

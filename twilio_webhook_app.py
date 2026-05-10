@@ -1518,6 +1518,7 @@ def webhook():
                     try:
                         from auth import get_league_phone_number
                         twilio_phone, _ = get_league_phone_number(league_id)
+                        logging.info(f"[ACTIVATION] Sending confirmation for league {league_id} with author={twilio_phone} to conv={conv_sid}")
                         league_url = f"{APP_BASE_URL}/leagues/{league_slug}"
 
                         cursor.execute("""
@@ -1565,13 +1566,13 @@ def webhook():
                                 f"📊 View your league standings: {league_url}"
                             )
 
-                        twilio_client.conversations.v1.conversations(conv_sid).messages.create(
+                        result = twilio_client.conversations.v1.conversations(conv_sid).messages.create(
                             body=body,
                             author=twilio_phone
                         )
-                        logging.info(f"Sent activation message to conversation {conv_sid}")
+                        logging.info(f"[ACTIVATION] ✅ Sent activation message: sid={result.sid}, conv={conv_sid}, author={twilio_phone}")
                     except Exception as e:
-                        logging.error(f"Error sending activation message: {e}")
+                        logging.error(f"[ACTIVATION] ❌ FAILED to send activation message: conv={conv_sid}, author={twilio_phone}, error={e}")
 
                     cursor.close()
                     conn.close()
