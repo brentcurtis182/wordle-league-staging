@@ -149,19 +149,26 @@ def validate_twilio_webhook():
 @app.after_request
 def set_security_headers(response):
     """Add security headers to every response."""
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://accounts.google.com https://apis.google.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: https:; "
-        "frame-src https://js.stripe.com https://accounts.google.com; "
-        "connect-src 'self' https://api.stripe.com https://accounts.google.com;"
-    )
+
+    # Allow embed routes to be iframed by our Wix site
+    if request.path.startswith('/embed/'):
+        response.headers['Content-Security-Policy'] = (
+            "frame-ancestors 'self' https://wordplayleague.com https://www.wordplayleague.com;"
+        )
+    else:
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://js.stripe.com https://accounts.google.com https://apis.google.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "frame-src https://js.stripe.com https://accounts.google.com; "
+            "connect-src 'self' https://api.stripe.com https://accounts.google.com;"
+        )
     # Set CSRF cookie if not present (so JS can read it for fetch calls)
     if 'csrf_token' not in request.cookies:
         csrf_token = secrets.token_hex(32)
