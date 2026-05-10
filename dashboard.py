@@ -608,6 +608,7 @@ def render_login_page(error=None, success=None):
         </style>
     </head>
     <body style="background:#06060e;">
+        {get_loading_screen_top()}
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -648,7 +649,7 @@ def render_login_page(error=None, success=None):
                 </div>
             </div>
         </div>
-        {get_loading_screen_html()}
+        {get_loading_screen_bottom()}
     </body>
     </html>
     """
@@ -1012,6 +1013,7 @@ def render_register_page(error=None):
         </style>
     </head>
     <body style="background:#06060e;">
+        {get_loading_screen_top()}
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -1083,7 +1085,7 @@ def render_register_page(error=None):
                 </div>
             </div>
         </div>
-        {get_loading_screen_html()}
+        {get_loading_screen_bottom()}
     </body>
     </html>
     """
