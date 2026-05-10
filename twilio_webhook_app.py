@@ -4703,19 +4703,19 @@ def billing_change_plan():
         if not main_item:
             return redirect('/dashboard/membership?error=Could not find current plan item')
 
-        # Swap the price on the existing subscription item
-        stripe_mod.SubscriptionItem.modify(
-            main_item['id'],
-            price=new_price_id,
-            proration_behavior='always_invoice',
-        )
-
         # If subscription was set to cancel, revoke cancellation since user is reaffirming
         if current_sub.get('cancel_at_period_end'):
             stripe_mod.Subscription.modify(
                 current_sub['id'],
                 cancel_at_period_end=False,
             )
+
+        # Swap the price on the existing subscription item
+        stripe_mod.SubscriptionItem.modify(
+            main_item['id'],
+            price=new_price_id,
+            proration_behavior='always_invoice',
+        )
 
         # If switching to sms_9_ai bundle and currently has separate AI addon, remove the addon
         from billing import SMS_BUNDLES
