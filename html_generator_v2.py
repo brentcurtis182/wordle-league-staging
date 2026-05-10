@@ -1646,7 +1646,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
     }}
 </style>
 </head>
-<body>
+<body style="background:#06060e;">
 <div id="wpl-loading-overlay" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%;
      background:#06060e; z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
     <div style="text-align:center;">

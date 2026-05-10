@@ -1729,7 +1729,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         {get_loading_screen_top()}
         <div class="container">
             <div class="header">
@@ -2692,7 +2692,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         {get_loading_screen_top()}
         <div class="container">
             <div class="header">
