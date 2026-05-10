@@ -596,7 +596,7 @@ def render_login_page(error=None, success=None):
             }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -685,7 +685,7 @@ def render_forgot_password_page(error=None, success=None):
             .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -756,7 +756,7 @@ def render_reset_password_page(token, email=None, error=None, success=None):
             .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -840,7 +840,7 @@ def render_verify_email_page(success=False, error=None):
             .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -889,7 +889,7 @@ def render_unverified_email_page(email):
             .auth-footer a {{ color: {COLORS['accent']}; }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
@@ -1000,7 +1000,7 @@ def render_register_page(error=None):
             .orange {{ color: {COLORS['accent_orange']}; }}
         </style>
     </head>
-    <body>
+    <body style="background:#06060e;">
         <div class="auth-container">
             <div class="auth-card">
                 <h1><a href="https://www.wordplayleague.com" style="text-decoration: none; color: inherit;">WordPlay<span class="orange">League.com</span></a></h1>
