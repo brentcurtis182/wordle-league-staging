@@ -1073,7 +1073,10 @@ def _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, d
 
 
 def _on_invoice_payment_failed(invoice):
-    """Handle failed payment — set subscription to past_due."""
+    """Handle failed payment — deactivate linked leagues immediately.
+
+    Payment ended = league inactive. No grace period.
+    """
     from auth import get_db_connection
 
     stripe_sub_id = invoice.get('subscription')
@@ -1084,15 +1087,60 @@ def _on_invoice_payment_failed(invoice):
     cursor = conn.cursor()
 
     try:
+        # Mark subscription as past_due
         cursor.execute("""
             UPDATE subscriptions SET status = 'past_due', updated_at = CURRENT_TIMESTAMP
             WHERE stripe_subscription_id = %s
+            RETURNING id
         """, (stripe_sub_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.commit()
+            return
+        subscription_id = row[0]
+
+        # Get all linked leagues with their channel info
+        cursor.execute("""
+            SELECT l.id, l.display_name, l.channel_type, l.twilio_conversation_sid,
+                   l.slack_channel_id, l.slack_bot_token, l.discord_channel_id
+            FROM leagues l
+            JOIN subscription_leagues sl ON sl.league_id = l.id
+            WHERE sl.subscription_id = %s
+        """, (subscription_id,))
+        leagues = cursor.fetchall()
+
+        # Deactivate each league (preserve players, scores, opt-in status)
+        for lg in leagues:
+            lg_id, lg_name, channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id = lg
+
+            # Send farewell message to active channel
+            _send_lapse_notification(channel_type, conv_sid, slack_ch_id, slack_token, discord_ch_id, lg_name)
+
+            # Deactivate: clear channel connection but preserve everything else
+            cursor.execute("""
+                UPDATE leagues
+                SET twilio_conversation_sid = NULL,
+                    slack_channel_id = NULL,
+                    discord_channel_id = NULL,
+                    verification_code = NULL,
+                    max_players = NULL
+                WHERE id = %s
+            """, (lg_id,))
+            logging.info(f"Deactivated league {lg_id} ({lg_name}) due to payment failure")
+
+        # Remove subscription links
+        cursor.execute(
+            "DELETE FROM subscription_leagues WHERE subscription_id = %s", (subscription_id,)
+        )
+
         conn.commit()
-        logging.info(f"Invoice payment failed for subscription: {stripe_sub_id}")
+        logging.info(f"Payment failed for subscription {stripe_sub_id} — {len(leagues)} league(s) deactivated")
+
     except Exception as e:
         conn.rollback()
         logging.error(f"Error processing invoice.payment_failed: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
     finally:
         cursor.close()
         conn.close()
