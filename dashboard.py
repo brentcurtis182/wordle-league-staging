@@ -550,6 +550,17 @@ def get_loading_screen_html():
     return get_loading_screen_top().replace('display:flex;', 'display:none;') + get_loading_screen_bottom()
 
 
+def render_redirect_page(url):
+    """Render a dark page with loading animation that redirects via JS.
+    Used instead of bare redirect() to avoid white flash."""
+    return f"""<!DOCTYPE html><html><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head><body style="background:#06060e; margin:0;">
+    {get_loading_screen_top()}
+    <script>window.location.replace("{url}");</script>
+    </body></html>"""
+
+
 def render_login_page(error=None, success=None):
     """Render the login page"""
     return f"""
@@ -1657,7 +1668,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             {meta_html}
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small wpl-nav-link">Manage</a>
-                <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" target="_blank" class="btn btn-secondary btn-small">View</a>
+                <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" class="btn btn-secondary btn-small wpl-nav-link">View</a>
             </div>
         </div>
         """

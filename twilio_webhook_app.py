@@ -2541,7 +2541,7 @@ def auth_login():
     """Login page and handler"""
     try:
         from auth import login_user, validate_session, create_auth_tables
-        from dashboard import render_login_page
+        from dashboard import render_login_page, render_redirect_page
         
         # Run migration on first login attempt (creates tables/columns if missing)
         try:
@@ -2549,11 +2549,11 @@ def auth_login():
         except Exception:
             pass
         
-        # Check if already logged in - but handle errors gracefully
+        # Check if already logged in - redirect with loading screen (no white flash)
         session_token = request.cookies.get('session_token')
         try:
             if session_token and validate_session(session_token):
-                return redirect('/dashboard')
+                return render_redirect_page('/dashboard')
         except Exception as e:
             logging.error(f"Session validation error: {e}")
             # Clear the bad cookie and continue to login page
@@ -2602,13 +2602,13 @@ def auth_register():
     """Registration page and handler"""
     try:
         from auth import register_user, validate_session
-        from dashboard import render_register_page
+        from dashboard import render_register_page, render_redirect_page
         
-        # Check if already logged in - handle errors gracefully
+        # Check if already logged in - redirect with loading screen (no white flash)
         session_token = request.cookies.get('session_token')
         try:
             if session_token and validate_session(session_token):
-                return redirect('/dashboard')
+                return render_redirect_page('/dashboard')
         except Exception as e:
             logging.error(f"Session validation error in register: {e}")
             pass
