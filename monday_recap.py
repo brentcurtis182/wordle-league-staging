@@ -30,7 +30,17 @@ logging.basicConfig(
 
 
 def is_monday_recap_enabled(league_id):
-    """Check if Monday recap is enabled for a league"""
+    """Check if Monday recap is enabled for a league (requires AI billing eligibility)"""
+    try:
+        from billing import check_ai_messaging_enabled
+        from auth import get_all_config
+        config = get_all_config()
+        payment_required = config.get('payment_required', False)
+        if not check_ai_messaging_enabled(league_id, payment_required=payment_required):
+            return False
+    except Exception as e:
+        logging.error(f"Error checking AI billing eligibility for monday recap: {e}")
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -38,7 +48,7 @@ def is_monday_recap_enabled(league_id):
         result = cursor.fetchone()
         cursor.close()
         conn.close()
-        
+
         if result and result[0] is not None:
             return result[0]
         return True  # Default to enabled

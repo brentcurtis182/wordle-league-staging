@@ -638,13 +638,26 @@ def get_todays_wordle_word():
 
 def is_ai_message_enabled(league_id, message_type):
     """Check if a specific AI message type is enabled for a league
-    
+
     message_type can be:
     - 'perfect_score' (ai_perfect_score_congrats)
     - 'failure_roast' (ai_failure_roast)
     - 'sunday_race' (ai_sunday_race_update)
     - 'daily_loser' (ai_daily_loser_roast)
     """
+    # Paid AI messages require billing eligibility (Sunday race is always free)
+    paid_ai_types = {'perfect_score', 'failure_roast', 'monday_recap', 'daily_loser'}
+    if message_type in paid_ai_types:
+        try:
+            from billing import check_ai_messaging_enabled
+            from auth import get_all_config
+            config = get_all_config()
+            payment_required = config.get('payment_required', False)
+            if not check_ai_messaging_enabled(league_id, payment_required=payment_required):
+                return False
+        except Exception as e:
+            logging.error(f"Error checking AI billing eligibility: {e}")
+
     try:
         conn = get_db_connection()
         if not conn:
@@ -656,9 +669,9 @@ def is_ai_message_enabled(league_id, message_type):
                 'daily_loser': False
             }
             return defaults.get(message_type, False)
-        
+
         cursor = conn.cursor()
-        
+
         column_map = {
             'perfect_score': 'ai_perfect_score_congrats',
             'failure_roast': 'ai_failure_roast',
@@ -666,21 +679,21 @@ def is_ai_message_enabled(league_id, message_type):
             'daily_loser': 'ai_daily_loser_roast',
             'monday_recap': 'ai_monday_recap'
         }
-        
+
         column = column_map.get(message_type)
         if not column:
             cursor.close()
             conn.close()
             return False
-        
+
         cursor.execute(f"SELECT {column} FROM leagues WHERE id = %s", (league_id,))
         result = cursor.fetchone()
         cursor.close()
         conn.close()
-        
+
         if result and result[0] is not None:
             return result[0]
-        
+
         # Default values if column is NULL
         defaults = {
             'perfect_score': False,
@@ -689,7 +702,7 @@ def is_ai_message_enabled(league_id, message_type):
             'daily_loser': False
         }
         return defaults.get(message_type, False)
-        
+
     except Exception as e:
         logging.error(f"Error checking AI message setting: {e}")
         # Default to current behavior
@@ -4684,6 +4697,13 @@ def billing_change_plan():
             proration_behavior='always_invoice',
         )
 
+        # If subscription was set to cancel, revoke cancellation since user is reaffirming
+        if current_sub.get('cancel_at_period_end'):
+            stripe_mod.Subscription.modify(
+                current_sub['id'],
+                cancel_at_period_end=False,
+            )
+
         # If switching to sms_9_ai bundle and currently has separate AI addon, remove the addon
         from billing import SMS_BUNDLES
         if new_tier in SMS_BUNDLES and SMS_BUNDLES[new_tier].get('ai_included'):
@@ -4715,7 +4735,8 @@ def billing_change_plan():
 
         cursor.execute("""
             UPDATE subscriptions SET plan_tier = %s, stripe_price_id = %s,
-                   ai_messaging_addon = %s, updated_at = CURRENT_TIMESTAMP
+                   ai_messaging_addon = %s, cancel_at_period_end = FALSE,
+                   updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (new_tier, new_price_id, has_ai, subscription_id))
         conn.commit()

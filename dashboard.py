@@ -2175,11 +2175,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     available_subscriptions = billing_context.get('available_subscriptions', [])
     payment_required = billing_context.get('payment_required', False)
 
-    # Pre-compute AI settings checkbox states
-    ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') else ''
-    ai_failure_checked = 'checked' if league.get('ai_failure_roast') else ''
-    ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''
-    ai_monday_checked = 'checked' if league.get('ai_monday_recap') else ''
+    # Pre-compute AI settings checkbox states (show unchecked if AI not enabled)
+    ai_perfect_checked = 'checked' if league.get('ai_perfect_score_congrats') and ai_messaging_enabled else ''
+    ai_failure_checked = 'checked' if league.get('ai_failure_roast') and ai_messaging_enabled else ''
+    ai_sunday_checked = 'checked' if league.get('ai_sunday_race_update') else ''  # Sunday is always free
+    ai_monday_checked = 'checked' if league.get('ai_monday_recap') and ai_messaging_enabled else ''
 
     # Division promotion/relegation counts (used in JS)
     promo_count = league.get('promoted_count', 1)
