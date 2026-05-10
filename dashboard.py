@@ -3897,28 +3897,12 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 .then(data => {{
                     if (data.success) {{
                         closeLinkModal();
-                        leagueIsLinked = true;
-                        // Update player limit from the plan
-                        if (data.max_players) {{
-                            playerLimit = data.max_players;
-                            // Update the player count badge
-                            var pcBadge = document.getElementById('playerCountBadge');
-                            if (pcBadge) {{
-                                pcBadge.textContent = playerCount + '/' + playerLimit;
-                            }}
-                        }}
-                        // Update badge to Linked
-                        var badge = document.getElementById('linkStatusBadge');
-                        if (badge) {{
-                            badge.textContent = '🔗 Linked';
-                            badge.style.background = '#2ECC71';
-                        }}
-                        // Show toast
+                        // Show toast then reload page so all state (AI toggles, badges, etc.) refreshes
                         var toast = document.createElement('div');
                         toast.textContent = '✓ League linked!';
                         toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#2ECC71;color:#000;padding:12px 24px;border-radius:8px;font-weight:600;z-index:2000;';
                         document.body.appendChild(toast);
-                        setTimeout(function() {{ toast.remove(); showActivateModal(); }}, 1200);
+                        setTimeout(function() {{ window.location.reload(); }}, 1200);
                     }} else {{
                         document.getElementById('linkError').textContent = data.error || 'Failed to link league.';
                         document.getElementById('linkError').style.display = 'block';

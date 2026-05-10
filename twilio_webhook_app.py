@@ -4669,6 +4669,19 @@ def billing_change_plan():
         if new_tier == current_tier:
             return redirect('/dashboard/membership?error=Already on this plan')
 
+        # Check if downgrading would exceed new plan's slot count
+        if plan_type == 'slack':
+            from billing import SLACK_TIERS
+            new_slots = SLACK_TIERS.get(new_tier, {}).get('league_slots', 1)
+            conn2 = get_db_connection()
+            cur2 = conn2.cursor()
+            cur2.execute("SELECT COUNT(*) FROM subscription_leagues WHERE subscription_id = %s", (subscription_id,))
+            linked_count = cur2.fetchone()[0]
+            cur2.close()
+            conn2.close()
+            if linked_count > new_slots:
+                return redirect(f'/dashboard/membership?error=You have {linked_count} leagues linked. Please unlink {linked_count - new_slots} league{"s" if linked_count - new_slots > 1 else ""} before downgrading.')
+
         # Get the new price ID from admin_config
         new_price_id = get_config(f'stripe_price_{new_tier}')
         if not new_price_id:
