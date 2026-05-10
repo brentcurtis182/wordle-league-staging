@@ -3368,7 +3368,7 @@ def embed_leagues_directory():
                 FROM leagues l
                 WHERE (l.twilio_conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
                   AND COALESCE(l.public_listed, TRUE) = TRUE
-                ORDER BY l.display_name
+                ORDER BY l.id ASC
             """)
         except Exception:
             conn.rollback()
@@ -3379,7 +3379,7 @@ def embed_leagues_directory():
                        l.division_mode
                 FROM leagues l
                 WHERE (l.twilio_conversation_sid IS NOT NULL OR l.slack_channel_id IS NOT NULL OR l.discord_channel_id IS NOT NULL)
-                ORDER BY l.display_name
+                ORDER BY l.id ASC
             """)
         leagues = cursor.fetchall()
         cursor.close()
