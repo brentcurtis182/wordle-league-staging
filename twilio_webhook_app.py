@@ -3949,6 +3949,14 @@ document.addEventListener('click', function(e) {{
     }}
 }});
 
+// Auto-expand textareas as user types
+document.addEventListener('input', function(e) {{
+    if (e.target.tagName === 'TEXTAREA') {{
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+    }}
+}});
+
 function toggleNewPost() {{
     var f = document.getElementById('newPostForm');
     if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -4374,9 +4382,26 @@ function toggleFaq(postId) {{
     .catch(function() {{ showToast('Network error', true); }});
 }}
 
+// Auto-expand textareas as user types
+function autoExpand(el) {{
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}}
+document.addEventListener('input', function(e) {{
+    if (e.target.tagName === 'TEXTAREA') autoExpand(e.target);
+}});
+// Expand on page load for edit forms that have content
+document.addEventListener('DOMContentLoaded', function() {{
+    document.querySelectorAll('textarea').forEach(function(ta) {{
+        if (ta.value) autoExpand(ta);
+    }});
+}});
+
 function showEditPost() {{
     document.getElementById('postView').style.display = 'none';
     document.getElementById('postEditForm').style.display = 'block';
+    var ta = document.getElementById('editPostBody');
+    if (ta) autoExpand(ta);
 }}
 
 function cancelEditPost() {{
@@ -4406,6 +4431,8 @@ function saveEditPost(postId) {{
 function showEditReply(replyId) {{
     document.getElementById('replyView' + replyId).style.display = 'none';
     document.getElementById('replyEdit' + replyId).style.display = 'block';
+    var ta = document.getElementById('replyEditBody' + replyId);
+    if (ta) autoExpand(ta);
 }}
 
 function cancelEditReply(replyId) {{
