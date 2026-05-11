@@ -1694,7 +1694,7 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <div class="wpl-orb wpl-orb-2"></div>
 <div class="wpl-orb wpl-orb-3"></div>
 <div class="wpl-top-bar">
-    <a class="wpl-dashboard-btn" href="https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/dashboard">Dashboard →</a>
+    <a class="wpl-dashboard-btn" href="https://{os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')}/dashboard">Dashboard →</a>
 </div>
 <header>
 <div class="container" style="text-align: center;">

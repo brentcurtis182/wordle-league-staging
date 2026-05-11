@@ -229,7 +229,7 @@ def create_checkout_session(user_id, email, plan_type, plan_tier, league_id=None
     # For SMS plans, check if AI messaging addon is requested
     # (handled separately via plan_tier naming or explicit addon)
 
-    base_url = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'localhost:5000')
+    base_url = os.environ.get('APP_DOMAIN', 'localhost:5000')
     scheme = 'https' if 'railway' in base_url or 'wordplay' in base_url else 'http'
     if not success_url:
         success_url = f"{scheme}://{base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
@@ -262,7 +262,7 @@ def create_customer_portal_session(user_id, email, return_url=None):
     """Create a Stripe Customer Portal session for managing subscriptions."""
     customer_id = get_or_create_stripe_customer(user_id, email)
 
-    base_url = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'localhost:5000')
+    base_url = os.environ.get('APP_DOMAIN', 'localhost:5000')
     scheme = 'https' if 'railway' in base_url or 'wordplay' in base_url else 'http'
     if not return_url:
         return_url = f"{scheme}://{base_url}/dashboard/membership"

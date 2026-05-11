@@ -396,7 +396,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
             db_connection.commit()
             
             # Build public page URL
-            public_url = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/{slug}" if slug else f"https://www.wordplayleague.com/league-{league_id}"
+            public_url = f"https://{os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')}/leagues/{slug}" if slug else f"https://www.wordplayleague.com/league-{league_id}"
             
             # Send confirmation message with public page link
             send_slack_message(
@@ -510,7 +510,7 @@ def handle_slack_message(event: dict, team_id: str, db_connection) -> dict:
             send_slack_message(
                 league_rows[0][1],
                 channel_id,
-                f"Hey {display}! Your score wasn't recorded because you're not in a league in this channel yet. Ask the league manager to add you at {os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')} 👋"
+                f"Hey {display}! Your score wasn't recorded because you're not in a league in this channel yet. Ask the league manager to add you at {os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')} 👋"
             )
         else:
             logging.info(f"Slack user {user_id} already notified in channel {channel_id} - suppressing duplicate message")

@@ -230,7 +230,7 @@ def _inject_csrf_script(response):
         pass  # non-critical — don't break responses
 
 # Base URL for links (uses Railway's public domain, falls back to production)
-APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
+APP_BASE_URL = f"https://{os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')}"
 
 # Staging URL for score forwarding (only active on production)
 STAGING_URL = os.environ.get('STAGING_URL', '')

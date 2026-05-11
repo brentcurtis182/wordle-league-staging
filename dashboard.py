@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
-APP_BASE_URL = f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}"
+APP_BASE_URL = f"https://{os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')}"
 
 # Color scheme matching the site (v6 glass-morphism palette)
 COLORS = {
@@ -1993,7 +1993,7 @@ def render_create_league(user, error=None, config=None):
                                pattern="[a-z0-9-]+" 
                                title="Only lowercase letters, numbers, and hyphens allowed">
                         <div class="hint">Your league will be at:</div>
-                        <div class="slug-preview" style="word-break: break-all;">{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'app.wordplayleague.com')}/leagues/<span id="slugPreview">your-slug</span></div>
+                        <div class="slug-preview" style="word-break: break-all;">{os.environ.get('APP_DOMAIN', 'app.wordplayleague.com')}/leagues/<span id="slugPreview">your-slug</span></div>
                     </div>
                     
                     <div class="status-info">
@@ -2761,7 +2761,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     {f'<button type="button" class="btn" style="background: {COLORS["accent"]}; color: #000; padding: 10px 24px; border-radius: 8px; font-size: 1em; font-weight: 700; cursor: pointer; border: none;" onclick="handleActivateClick()">🚀 {"Activate" if channel_type == "sms" else "Connect Channel"}</button>' if not (league.get('conversation_sid') if channel_type == 'sms' else league.get('slack_channel_id') if channel_type == 'slack' else league.get('discord_channel_id')) else ''}
                     {f'<div style="background: {COLORS["accent_orange"]}; color: #000; padding: 8px 14px; border-radius: 8px; font-size: 0.8em; font-weight: 600; text-align: center; line-height: 1.4;"><div>{_waiting_opt_in_count} Waiting</div><div>OPT-IN</div></div>' if _waiting_opt_in_count > 0 else ''}
                 </div>
-                {f'<div style="margin-top: 8px;"><a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get("RAILWAY_PUBLIC_DOMAIN", "app.wordplayleague.com")}/leagues/{league["slug"]}</a></div>' if league.get('slug') else ''}
+                {f'<div style="margin-top: 8px;"><a href="{APP_BASE_URL}/leagues/{league["slug"]}" target="_blank" style="color: {COLORS["accent"]}; font-size: 0.9em;">{os.environ.get("APP_DOMAIN", "app.wordplayleague.com")}/leagues/{league["slug"]}</a></div>' if league.get('slug') else ''}
                 {f"""
                 <div style="margin-top: 16px; padding: 12px; background: {COLORS['bg_dark']}; border-radius: 8px; border-left: 3px solid {COLORS['accent']};">
                     <p style="margin: 0 0 8px 0; color: {COLORS['text']}; font-weight: 600;">📋 How to Submit Scores</p>
