@@ -3709,7 +3709,8 @@ def embed_message_board():
         cursor.execute("""
             SELECT bp.id, bp.subject, bp.body, bp.is_pinned, bp.is_faq, bp.created_at,
                    u.nickname,
-                   (SELECT COUNT(*) FROM board_replies br WHERE br.post_id = bp.id) as reply_count
+                   (SELECT COUNT(*) FROM board_replies br WHERE br.post_id = bp.id) as reply_count,
+                   (SELECT COUNT(*) FROM board_likes bl WHERE bl.post_id = bp.id) as like_count
             FROM board_posts bp
             JOIN users u ON bp.user_id = u.id
             ORDER BY bp.is_pinned DESC, bp.created_at DESC
@@ -3725,7 +3726,7 @@ def embed_message_board():
             posts_html = '<div style="text-align:center;padding:60px 20px;color:#8a8aa5;"><p style="font-size:1.1em;">No posts yet — be the first to ask a question!</p></div>'
         else:
             for p in posts:
-                p_id, subject, body, is_pinned, is_faq, created_at, nickname, reply_count = p
+                p_id, subject, body, is_pinned, is_faq, created_at, nickname, reply_count, like_count = p
                 display_name = _board_display_name(nickname)
                 time_str = _time_ago(created_at)
                 badges = ''
@@ -3734,6 +3735,7 @@ def embed_message_board():
                 if is_faq:
                     badges += '<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>'
                 reply_badge = f'<span style="color:#8a8aa5;font-size:0.85em;">{reply_count} {"reply" if reply_count == 1 else "replies"}</span>'
+                like_badge = f'<span style="color:#8a8aa5;font-size:0.85em;">&#128077; {like_count}</span>' if like_count > 0 else ''
 
                 # Truncate body preview
                 body_preview = _html.escape(body[:150].replace('\n', ' '))
@@ -3744,7 +3746,7 @@ def embed_message_board():
 <div class="board-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:8px;">{badges}<span style="color:#d7dadc;font-size:1.05em;font-weight:600;">{_html.escape(subject)}</span></div>
-        {reply_badge}
+        <div style="display:flex;align-items:center;gap:12px;">{like_badge}{reply_badge}</div>
     </div>
     <p style="color:#8a8aa5;font-size:0.9em;margin:0 0 8px 0;line-height:1.4;">{body_preview}</p>
     <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -3994,7 +3996,8 @@ def embed_message_board_post(post_id):
         # Get the post
         cursor.execute("""
             SELECT bp.id, bp.subject, bp.body, bp.is_pinned, bp.is_faq, bp.created_at, bp.user_id,
-                   u.nickname
+                   u.nickname,
+                   (SELECT COUNT(*) FROM board_likes bl WHERE bl.post_id = bp.id) as like_count
             FROM board_posts bp
             JOIN users u ON bp.user_id = u.id
             WHERE bp.id = %s
@@ -4006,9 +4009,15 @@ def embed_message_board_post(post_id):
             conn.close()
             return "<p style='color:#f44336;text-align:center;padding:40px;'>Post not found.</p>", 404
 
-        p_id, subject, body, is_pinned, is_faq, created_at, author_id, author_nickname = post
+        p_id, subject, body, is_pinned, is_faq, created_at, author_id, author_nickname, post_like_count = post
         display_name = _board_display_name(author_nickname)
         time_str = _time_ago(created_at)
+
+        # Check if current user liked this post
+        user_liked_post = False
+        if user:
+            cursor.execute("SELECT 1 FROM board_likes WHERE user_id = %s AND post_id = %s", (user['id'], p_id))
+            user_liked_post = cursor.fetchone() is not None
 
         # Get replies
         page = max(1, request.args.get('page', 1, type=int))
@@ -4019,7 +4028,8 @@ def embed_message_board_post(post_id):
         total_pages = max(1, (total_replies + REPLIES_PER_PAGE - 1) // REPLIES_PER_PAGE)
 
         cursor.execute("""
-            SELECT br.id, br.body, br.created_at, u.nickname
+            SELECT br.id, br.body, br.created_at, u.nickname,
+                   (SELECT COUNT(*) FROM board_likes bl WHERE bl.reply_id = br.id) as like_count
             FROM board_replies br
             JOIN users u ON br.user_id = u.id
             WHERE br.post_id = %s
@@ -4027,6 +4037,14 @@ def embed_message_board_post(post_id):
             LIMIT %s OFFSET %s
         """, (post_id, REPLIES_PER_PAGE, offset))
         replies = cursor.fetchall()
+
+        # Check which replies the current user has liked
+        user_liked_replies = set()
+        if user and replies:
+            reply_ids = [r[0] for r in replies]
+            cursor.execute("SELECT reply_id FROM board_likes WHERE user_id = %s AND reply_id = ANY(%s)", (user['id'], reply_ids))
+            user_liked_replies = {row[0] for row in cursor.fetchall()}
+
         cursor.close()
         conn.close()
 
@@ -4051,15 +4069,17 @@ def embed_message_board_post(post_id):
         # Replies HTML
         replies_html = ''
         for r in replies:
-            r_id, r_body, r_created, r_nickname = r
+            r_id, r_body, r_created, r_nickname, r_like_count = r
             r_display = _board_display_name(r_nickname)
             r_time = _time_ago(r_created)
+            r_user_liked = r_id in user_liked_replies
             replies_html += f'''<div class="reply-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(r_display)}</span>
         <span style="color:#6a6a8a;font-size:0.8em;">{r_time}</span>
     </div>
-    <p style="color:#d7dadc;font-size:0.95em;line-height:1.5;margin:0;white-space:pre-wrap;">{_html.escape(r_body)}</p>
+    <p style="color:#d7dadc;font-size:0.95em;line-height:1.5;margin:0 0 8px 0;white-space:pre-wrap;">{_html.escape(r_body)}</p>
+    <button onclick="toggleLike('reply',{r_id},this)" class="like-btn{' liked' if r_user_liked else ''}">&#128077; <span class="like-count">{r_like_count}</span></button>
 </div>
 '''
 
@@ -4135,6 +4155,19 @@ body{{
     padding:16px 20px;
     margin-bottom:8px;
 }}
+.like-btn{{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.1);
+    color:#8a8aa5;
+    padding:4px 10px;
+    border-radius:6px;
+    font-size:0.8em;
+    cursor:pointer;
+    transition:all 0.2s;
+    font-family:'Inter',sans-serif;
+}}
+.like-btn:hover{{background:rgba(0,232,218,0.1);color:#00E8DA;border-color:rgba(0,232,218,0.3);}}
+.like-btn.liked{{background:rgba(0,232,218,0.15);color:#00E8DA;border-color:rgba(0,232,218,0.3);}}
 .admin-btn{{
     background:rgba(255,166,77,0.1);
     color:#FFA64D;
@@ -4184,7 +4217,10 @@ body{{
         <h1 style="font-size:1.4em;font-weight:700;color:#d7dadc;margin-bottom:12px;">{_html.escape(subject)}</h1>
         <p style="color:#d7dadc;font-size:0.95em;line-height:1.6;white-space:pre-wrap;margin-bottom:16px;">{_html.escape(body)}</p>
         <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(display_name)}</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(display_name)}</span>
+                <button onclick="event.preventDefault();toggleLike('post',{p_id},this)" class="like-btn{' liked' if user_liked_post else ''}">&#128077; <span class="like-count">{post_like_count}</span></button>
+            </div>
             <span style="color:#6a6a8a;font-size:0.8em;">{time_str}</span>
         </div>
         {admin_html}
@@ -4262,6 +4298,27 @@ function toggleFaq(postId) {{
     .then(function(data) {{
         if (data.success) window.location.reload();
         else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+
+function toggleLike(type, id, btn) {{
+    var payload = type === 'post' ? {{post_id: id}} : {{reply_id: id}};
+    fetch('/embed/message-board/api/like', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) {{
+            btn.querySelector('.like-count').textContent = data.count;
+            if (data.liked) btn.classList.add('liked');
+            else btn.classList.remove('liked');
+        }} else {{
+            showToast(data.error || 'Failed', true);
+        }}
     }})
     .catch(function() {{ showToast('Network error', true); }});
 }}
@@ -4502,6 +4559,62 @@ def embed_message_board_delete_post():
 
     except Exception as e:
         logging.error(f"Error deleting post: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/like', methods=['POST'])
+def embed_message_board_toggle_like():
+    """Toggle like on a post or reply (authenticated users)."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        reply_id = data.get('reply_id')
+
+        if not post_id and not reply_id:
+            return jsonify({'success': False, 'error': 'Post or reply ID required'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        if post_id:
+            # Check if already liked
+            cursor.execute("SELECT id FROM board_likes WHERE user_id = %s AND post_id = %s", (user['id'], post_id))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute("DELETE FROM board_likes WHERE id = %s", (existing[0],))
+                liked = False
+            else:
+                cursor.execute("INSERT INTO board_likes (user_id, post_id) VALUES (%s, %s)", (user['id'], post_id))
+                liked = True
+            # Get new count
+            cursor.execute("SELECT COUNT(*) FROM board_likes WHERE post_id = %s", (post_id,))
+            count = cursor.fetchone()[0]
+        else:
+            cursor.execute("SELECT id FROM board_likes WHERE user_id = %s AND reply_id = %s", (user['id'], reply_id))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute("DELETE FROM board_likes WHERE id = %s", (existing[0],))
+                liked = False
+            else:
+                cursor.execute("INSERT INTO board_likes (user_id, reply_id) VALUES (%s, %s)", (user['id'], reply_id))
+                liked = True
+            cursor.execute("SELECT COUNT(*) FROM board_likes WHERE reply_id = %s", (reply_id,))
+            count = cursor.fetchone()[0]
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'liked': liked, 'count': count})
+
+    except Exception as e:
+        logging.error(f"Error toggling like: {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'An error occurred'}), 500
 
 
