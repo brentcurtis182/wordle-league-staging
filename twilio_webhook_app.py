@@ -3729,25 +3729,27 @@ def embed_message_board():
                 p_id, subject, body, is_pinned, is_faq, created_at, nickname, reply_count, like_count = p
                 display_name = _board_display_name(nickname)
                 time_str = _time_ago(created_at)
-                badges = ''
-                if is_pinned:
-                    badges += '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;margin-right:6px;">Pinned</span>'
-                if is_faq:
-                    badges += '<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>'
-                reply_badge = f'<span style="color:#8a8aa5;font-size:0.85em;">{reply_count} {"reply" if reply_count == 1 else "replies"}</span>'
-                like_badge = f'<span style="color:#8a8aa5;font-size:0.85em;">&#128077; {like_count}</span>' if like_count > 0 else ''
 
                 # Truncate body preview
                 body_preview = _html.escape(body[:150].replace('\n', ' '))
                 if len(body) > 150:
                     body_preview += '...'
 
+                badges_row = ''
+                badge_items = []
+                if is_pinned:
+                    badge_items.append('<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">Pinned</span>')
+                if is_faq:
+                    badge_items.append('<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>')
+                if like_count > 0:
+                    badge_items.append(f'<span style="color:#8a8aa5;font-size:0.8em;">&#128077; {like_count}</span>')
+                badge_items.append(f'<span style="color:#8a8aa5;font-size:0.8em;">{reply_count} {"reply" if reply_count == 1 else "replies"}</span>')
+                badges_row = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' + ''.join(badge_items) + '</div>'
+
                 posts_html += f'''<a href="/embed/message-board/post/{p_id}#top" style="text-decoration:none;display:block;">
 <div class="board-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="display:flex;align-items:center;gap:8px;">{badges}<span style="color:#d7dadc;font-size:1.05em;font-weight:600;">{_html.escape(subject)}</span></div>
-        <div style="display:flex;align-items:center;gap:12px;">{like_badge}{reply_badge}</div>
-    </div>
+    {badges_row}
+    <p style="color:#d7dadc;font-size:1.05em;font-weight:600;margin:0 0 4px 0;">{_html.escape(subject)}</p>
     <p style="color:#8a8aa5;font-size:0.9em;margin:0 0 8px 0;line-height:1.4;">{body_preview}</p>
     <div style="display:flex;align-items:center;justify-content:space-between;">
         <span style="color:#6a6a8a;font-size:0.8em;">{_html.escape(display_name)}</span>
