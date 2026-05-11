@@ -156,7 +156,7 @@ def set_security_headers(response):
     # Allow embed routes to be iframed by our Wix site
     if request.path.startswith('/embed/'):
         response.headers['Content-Security-Policy'] = (
-            "frame-ancestors 'self' https://wordplayleague.com https://www.wordplayleague.com;"
+            "frame-ancestors 'self' https://wordplayleague.com https://www.wordplayleague.com https://*.wix.com https://*.wixsite.com;"
         )
     else:
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
