@@ -4042,6 +4042,7 @@ def embed_message_board_post(post_id):
             admin_html = f'''<div style="display:flex;gap:8px;margin-top:12px;">
     <button onclick="togglePin({p_id})" class="admin-btn">{pin_label}</button>
     <button onclick="toggleFaq({p_id})" class="admin-btn">{faq_label}</button>
+    <button onclick="deletePost({p_id})" class="admin-btn" style="background:rgba(244,67,54,0.1);color:#f44336;border-color:rgba(244,67,54,0.3);">Delete</button>
 </div>'''
 
         # Replies HTML
@@ -4257,6 +4258,22 @@ function toggleFaq(postId) {{
     }})
     .catch(function() {{ showToast('Network error', true); }});
 }}
+
+function deletePost(postId) {{
+    if (!confirm('Delete this post and all its replies? This cannot be undone.')) return;
+    fetch('/embed/message-board/api/delete', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{post_id: postId}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) window.location.href = '/embed/message-board';
+        else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
 </script>
 </body>
 </html>'''
@@ -4442,6 +4459,44 @@ def embed_message_board_toggle_faq():
 
     except Exception as e:
         logging.error(f"Error toggling FAQ: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/delete', methods=['POST'])
+def embed_message_board_delete_post():
+    """Delete a post and all its replies (admin only)."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        if user.get('role') != 'admin':
+            return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        if not post_id:
+            return jsonify({'success': False, 'error': 'Post ID is required'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Replies cascade-delete via FK constraint
+        cursor.execute("DELETE FROM board_posts WHERE id = %s RETURNING id", (post_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Post not found'}), 404
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logging.info(f"Board post {post_id} deleted by admin {user['id']}")
+        return jsonify({'success': True})
+
+    except Exception as e:
+        logging.error(f"Error deleting post: {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'An error occurred'}), 500
 
 
