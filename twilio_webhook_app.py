@@ -3945,7 +3945,6 @@ function submitPost() {{
     var subject = document.getElementById('postSubject').value.trim();
     var body = document.getElementById('postBody').value.trim();
     if (!subject) {{ showToast('Subject is required', true); return; }}
-    if (!body) {{ showToast('Details are required', true); return; }}
 
     var csrfToken = document.cookie.split('; ').find(function(r) {{ return r.startsWith('csrf_token='); }});
     csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
@@ -4301,8 +4300,6 @@ def embed_message_board_create_post():
 
         if not subject:
             return jsonify({'success': False, 'error': 'Subject is required'})
-        if not body:
-            return jsonify({'success': False, 'error': 'Details are required'})
 
         conn = get_db_connection()
         cursor = conn.cursor()

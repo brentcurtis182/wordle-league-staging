@@ -1257,7 +1257,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         </div>
                         <div class="form-group">
                             <label>Nickname</label>
-                            <input type="text" name="nickname" value="{user_details.get('nickname', '')}" placeholder="Choose a display name for the message board" maxlength="50">
+                            <input type="text" name="nickname" value="{user_details.get('nickname', '')}" placeholder="Display name" maxlength="50">
                             <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Shown on the community message board instead of your real name. Leave blank to appear as &ldquo;Anonymous&rdquo;.</p>
                         </div>
                         <div class="form-group">
