@@ -3930,9 +3930,20 @@ a:hover .board-card{{
     {pagination_html}
 </div>
 {star_suffix}
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(6,6,14,0.85);z-index:9998;justify-content:center;align-items:center;">
+    <div style="color:#00E8DA;font-size:1.1em;font-weight:600;">Loading...</div>
+</div>
 <script>
 window.scrollTo(0, 0);
 if (window.parent) window.parent.postMessage({{type: 'scrollTop'}}, '*');
+
+// Instant loading feedback on navigation clicks
+document.addEventListener('click', function(e) {{
+    var link = e.target.closest('a[href]');
+    if (link && link.href && link.href.includes('/embed/message-board') && !link.getAttribute('onclick')) {{
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }}
+}});
 
 function toggleNewPost() {{
     var f = document.getElementById('newPostForm');
@@ -4234,9 +4245,20 @@ body{{
     {reply_form}
 </div>
 {star_suffix}
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(6,6,14,0.85);z-index:9998;justify-content:center;align-items:center;">
+    <div style="color:#00E8DA;font-size:1.1em;font-weight:600;">Loading...</div>
+</div>
 <script>
 window.scrollTo(0, 0);
 if (window.parent) window.parent.postMessage({{type: 'scrollTop'}}, '*');
+
+// Instant loading feedback on navigation clicks
+document.addEventListener('click', function(e) {{
+    var link = e.target.closest('a[href]');
+    if (link && link.href && !link.getAttribute('onclick')) {{
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }}
+}});
 
 function showToast(msg, isError) {{
     var t = document.createElement('div');
