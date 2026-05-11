@@ -3740,7 +3740,7 @@ def embed_message_board():
                 if len(body) > 150:
                     body_preview += '...'
 
-                posts_html += f'''<a href="/embed/message-board/post/{p_id}" style="text-decoration:none;display:block;">
+                posts_html += f'''<a href="/embed/message-board/post/{p_id}#top" style="text-decoration:none;display:block;">
 <div class="board-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:8px;">{badges}<span style="color:#d7dadc;font-size:1.05em;font-weight:600;">{_html.escape(subject)}</span></div>
@@ -3757,8 +3757,8 @@ def embed_message_board():
         # Pagination
         pagination_html = ''
         if total_pages > 1:
-            prev_btn = f'<a href="/embed/message-board?page={page-1}" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
-            next_btn = f'<a href="/embed/message-board?page={page+1}" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
+            prev_btn = f'<a href="/embed/message-board?page={page-1}#top" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
+            next_btn = f'<a href="/embed/message-board?page={page+1}#top" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
             pagination_html = f'<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:24px;">{prev_btn}<span style="color:#8a8aa5;font-size:0.9em;">Page {page} of {total_pages}</span>{next_btn}</div>'
 
         # New Post button / login prompt
@@ -3911,6 +3911,7 @@ a:hover .board-card{{
 </head>
 <body>
 {star_prefix}
+<div id="top" style="position:absolute;top:0;"></div>
 <div class="board-wrap">
     <div class="page-hero">
         <h1>Community Board</h1>
@@ -4068,8 +4069,8 @@ def embed_message_board_post(post_id):
         # Reply pagination
         reply_pagination = ''
         if total_pages > 1:
-            prev_btn = f'<a href="/embed/message-board/post/{p_id}?page={page-1}" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
-            next_btn = f'<a href="/embed/message-board/post/{p_id}?page={page+1}" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
+            prev_btn = f'<a href="/embed/message-board/post/{p_id}?page={page-1}#top" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
+            next_btn = f'<a href="/embed/message-board/post/{p_id}?page={page+1}#top" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
             reply_pagination = f'<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:16px;">{prev_btn}<span style="color:#8a8aa5;font-size:0.9em;">Page {page} of {total_pages}</span>{next_btn}</div>'
 
         # Reply form
@@ -4175,8 +4176,9 @@ body{{
 </head>
 <body>
 {star_prefix}
+<div id="top" style="position:absolute;top:0;"></div>
 <div class="board-wrap">
-    <a href="/embed/message-board" class="back-link">← Back to Board</a>
+    <a href="/embed/message-board#top" class="back-link">← Back to Board</a>
     <div class="post-card">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">{badges}</div>
         <h1 style="font-size:1.4em;font-weight:700;color:#d7dadc;margin-bottom:12px;">{_html.escape(subject)}</h1>
