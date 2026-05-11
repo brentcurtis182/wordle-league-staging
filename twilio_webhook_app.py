@@ -3877,6 +3877,8 @@ body{{
     padding:20px 24px;
     margin-bottom:12px;
     transition:transform 0.2s,border-color 0.3s;
+    touch-action:pan-y;
+    -webkit-user-drag:none;
 }}
 a:hover .board-card{{
     transform:translateY(-2px);
