@@ -1213,7 +1213,6 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <span class="info-label">Nickname</span>
                         <span class="info-value">{user_details.get('nickname') or f'<span style="color: {COLORS["text_muted"]}; font-style: italic;">Not set</span>'}</span>
                     </div>
-                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Your display name on the community message board. Leave blank to appear as &ldquo;Anonymous&rdquo;.</p>
                     <div class="info-row">
                         <span class="info-label">Email</span>
                         <span class="info-value">{user_details['email']}</span>
@@ -1222,19 +1221,9 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <span class="info-label">Phone</span>
                         <span class="info-value">{user_details['phone'] or 'Not set'}</span>
                     </div>
-                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Add your phone number to view any SMS leagues you're a player in.</p>
                     <div class="info-row">
                         <span class="info-label">Slack Member ID</span>
                         <span class="info-value">{user_details.get('slack_user_id') or 'Not set'}</span>
-                    </div>
-                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Add your Slack Member ID to view any Slack leagues you're a player in. <a href="#" onclick="document.getElementById('slackIdHelp').style.display=document.getElementById('slackIdHelp').style.display==='none'?'block':'none'; return false;" style="color: {COLORS['accent']}; text-decoration: underline;">How do I find this?</a></p>
-                    <div id="slackIdHelp" style="display: none; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 8px; padding: 12px; margin: 4px 0 8px 0; font-size: 0.82em; color: {COLORS['text_muted']}; line-height: 1.6;">
-                        <strong style="color: {COLORS['text']};">To find your Slack Member ID:</strong><br>
-                        1. Open Slack and click on your <strong>profile picture</strong> (bottom-left on desktop)<br>
-                        2. Click <strong>Profile</strong><br>
-                        3. Click the <strong>&#8942;</strong> (three dots) menu<br>
-                        4. Click <strong>"Copy member ID"</strong><br>
-                        <span style="color: {COLORS['accent']}; margin-top: 6px; display: inline-block;">It will look something like: <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">U0AC23PA58F</code></span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Member Since</span>
@@ -1267,12 +1256,20 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <div class="form-group">
                             <label>Phone</label>
                             <input type="tel" name="phone" value="{user_details['phone']}" placeholder="(858) 555-1234">
-                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Links your account to SMS leagues you play in.</p>
+                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Add your phone number to view any SMS leagues you're a player in.</p>
                         </div>
                         <div class="form-group">
                             <label>Slack Member ID</label>
                             <input type="text" name="slack_user_id" value="{user_details.get('slack_user_id', '')}" placeholder="U0ABC123DEF">
-                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Links your account to Slack leagues you play in. Find it in Slack: Profile &#8594; &#8942; &#8594; Copy member ID.</p>
+                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Add your Slack Member ID to view any Slack leagues you're a player in. <a href="#" onclick="document.getElementById('slackIdHelp').style.display=document.getElementById('slackIdHelp').style.display==='none'?'block':'none'; return false;" style="color: {COLORS['accent']}; text-decoration: underline;">How do I find this?</a></p>
+                            <div id="slackIdHelp" style="display: none; background: {COLORS['bg_dark']}; border: 1px solid {COLORS['border']}; border-radius: 8px; padding: 12px; margin: 4px 0 0 0; font-size: 0.82em; color: {COLORS['text_muted']}; line-height: 1.6;">
+                                <strong style="color: {COLORS['text']};">To find your Slack Member ID:</strong><br>
+                                1. Open Slack and click on your <strong>profile picture</strong> (bottom-left on desktop)<br>
+                                2. Click <strong>Profile</strong><br>
+                                3. Click the <strong>&#8942;</strong> (three dots) menu<br>
+                                4. Click <strong>"Copy member ID"</strong><br>
+                                <span style="color: {COLORS['accent']}; margin-top: 6px; display: inline-block;">It will look something like: <code style="background: {COLORS['bg_card']}; padding: 2px 6px; border-radius: 4px;">U0AC23PA58F</code></span>
+                            </div>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 8px;">
                             <button type="button" class="btn btn-primary btn-small" onclick="saveProfile()">Save Changes</button>
