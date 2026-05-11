@@ -3928,6 +3928,9 @@ a:hover .board-card{{
 </div>
 {star_suffix}
 <script>
+window.scrollTo(0, 0);
+if (window.parent) window.parent.postMessage({{type: 'scrollTop'}}, '*');
+
 function toggleNewPost() {{
     var f = document.getElementById('newPostForm');
     if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -4194,6 +4197,9 @@ body{{
 </div>
 {star_suffix}
 <script>
+window.scrollTo(0, 0);
+if (window.parent) window.parent.postMessage({{type: 'scrollTop'}}, '*');
+
 function showToast(msg, isError) {{
     var t = document.createElement('div');
     t.className = 'toast ' + (isError ? 'error' : 'success');
