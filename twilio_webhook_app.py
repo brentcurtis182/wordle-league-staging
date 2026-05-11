@@ -4044,7 +4044,8 @@ def embed_message_board_post(post_id):
 
         cursor.execute("""
             SELECT br.id, br.body, br.created_at, u.nickname,
-                   (SELECT COUNT(*) FROM board_likes bl WHERE bl.reply_id = br.id) as like_count
+                   (SELECT COUNT(*) FROM board_likes bl WHERE bl.reply_id = br.id) as like_count,
+                   br.user_id
             FROM board_replies br
             JOIN users u ON br.user_id = u.id
             WHERE br.post_id = %s
@@ -4070,6 +4071,12 @@ def embed_message_board_post(post_id):
         if is_faq:
             badges += '<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>'
 
+        # Author edit control for post
+        can_edit_post = user and (user['id'] == author_id or user.get('role') == 'admin')
+        post_edit_btn = ''
+        if can_edit_post:
+            post_edit_btn = f'<button onclick="showEditPost()" class="edit-btn">Edit</button>'
+
         # Admin controls
         admin_html = ''
         if user and user.get('role') == 'admin':
@@ -4084,17 +4091,29 @@ def embed_message_board_post(post_id):
         # Replies HTML
         replies_html = ''
         for r in replies:
-            r_id, r_body, r_created, r_nickname, r_like_count = r
+            r_id, r_body, r_created, r_nickname, r_like_count, r_user_id = r
             r_display = _board_display_name(r_nickname)
             r_time = _time_ago(r_created)
             r_user_liked = r_id in user_liked_replies
-            replies_html += f'''<div class="reply-card">
+            can_edit_reply = user and (user['id'] == r_user_id or user.get('role') == 'admin')
+            r_edit_btn = f'<button onclick="showEditReply({r_id})" class="edit-btn">Edit</button>' if can_edit_reply else ''
+            replies_html += f'''<div class="reply-card" id="replyView{r_id}">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(r_display)}</span>
         <span style="color:#6a6a8a;font-size:0.8em;">{r_time}</span>
     </div>
     <p style="color:#d7dadc;font-size:0.95em;line-height:1.5;margin:0 0 8px 0;white-space:pre-wrap;">{_html.escape(r_body)}</p>
-    <button onclick="toggleLike('reply',{r_id},this)" class="like-btn{' liked' if r_user_liked else ''}">&#128077; <span class="like-count">{r_like_count}</span></button>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="toggleLike('reply',{r_id},this)" class="like-btn{' liked' if r_user_liked else ''}">&#128077; <span class="like-count">{r_like_count}</span></button>
+        {r_edit_btn}
+    </div>
+</div>
+<div class="reply-card" id="replyEdit{r_id}" style="display:none;border-color:rgba(0,232,218,0.3);">
+    <textarea id="replyEditBody{r_id}" maxlength="5000" rows="4" style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;resize:vertical;outline:none;">{_html.escape(r_body)}</textarea>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+        <button onclick="saveEditReply({r_id})" style="background:#00E8DA;color:#0a0a1a;border:none;padding:8px 20px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:0.85em;">Save</button>
+        <button onclick="cancelEditReply({r_id})" style="background:transparent;color:#8a8aa5;border:1px solid rgba(255,255,255,0.1);padding:8px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85em;">Cancel</button>
+    </div>
 </div>
 '''
 
@@ -4183,6 +4202,18 @@ body{{
 }}
 .like-btn:hover{{background:rgba(0,232,218,0.1);color:#00E8DA;border-color:rgba(0,232,218,0.3);}}
 .like-btn.liked{{background:rgba(0,232,218,0.15);color:#00E8DA;border-color:rgba(0,232,218,0.3);}}
+.edit-btn{{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.1);
+    color:#8a8aa5;
+    padding:4px 10px;
+    border-radius:6px;
+    font-size:0.8em;
+    cursor:pointer;
+    transition:all 0.2s;
+    font-family:'Inter',sans-serif;
+}}
+.edit-btn:hover{{background:rgba(255,166,77,0.1);color:#FFA64D;border-color:rgba(255,166,77,0.3);}}
 .admin-btn{{
     background:rgba(255,166,77,0.1);
     color:#FFA64D;
@@ -4227,7 +4258,7 @@ body{{
 <div id="top" style="position:absolute;top:0;"></div>
 <div class="board-wrap">
     <a href="/embed/message-board#top" class="back-link">← Back to Board</a>
-    <div class="post-card">
+    <div class="post-card" id="postView">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">{badges}</div>
         <h1 style="font-size:1.4em;font-weight:700;color:#d7dadc;margin-bottom:12px;">{_html.escape(subject)}</h1>
         <p style="color:#d7dadc;font-size:0.95em;line-height:1.6;white-space:pre-wrap;margin-bottom:16px;">{_html.escape(body)}</p>
@@ -4235,10 +4266,25 @@ body{{
             <div style="display:flex;align-items:center;gap:12px;">
                 <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(display_name)}</span>
                 <button onclick="event.preventDefault();toggleLike('post',{p_id},this)" class="like-btn{' liked' if user_liked_post else ''}">&#128077; <span class="like-count">{post_like_count}</span></button>
+                {post_edit_btn}
             </div>
             <span style="color:#6a6a8a;font-size:0.8em;">{time_str}</span>
         </div>
         {admin_html}
+    </div>
+    <div class="post-card" id="postEditForm" style="display:none;border-color:rgba(0,232,218,0.3);">
+        <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Subject</label>
+            <input type="text" id="editPostSubject" value="{_html.escape(subject)}" maxlength="200" style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;outline:none;">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Details</label>
+            <textarea id="editPostBody" maxlength="5000" rows="6" style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;resize:vertical;outline:none;">{_html.escape(body)}</textarea>
+        </div>
+        <div style="display:flex;gap:12px;">
+            <button onclick="saveEditPost({p_id})" style="background:#00E8DA;color:#0a0a1a;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:0.9em;">Save</button>
+            <button onclick="cancelEditPost()" style="background:transparent;color:#8a8aa5;border:1px solid rgba(255,255,255,0.1);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.9em;">Cancel</button>
+        </div>
     </div>
 
     <h2 style="font-size:1.1em;font-weight:600;color:#d7dadc;margin-bottom:12px;">{total_replies} {"Reply" if total_replies == 1 else "Replies"}</h2>
@@ -4318,6 +4364,62 @@ function toggleFaq(postId) {{
         method: 'POST',
         headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
         body: JSON.stringify({{post_id: postId}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) window.location.reload();
+        else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+
+function showEditPost() {{
+    document.getElementById('postView').style.display = 'none';
+    document.getElementById('postEditForm').style.display = 'block';
+}}
+
+function cancelEditPost() {{
+    document.getElementById('postEditForm').style.display = 'none';
+    document.getElementById('postView').style.display = 'block';
+}}
+
+function saveEditPost(postId) {{
+    var subject = document.getElementById('editPostSubject').value.trim();
+    var body = document.getElementById('editPostBody').value.trim();
+    if (!subject) {{ showToast('Subject is required', true); return; }}
+    if (!body) {{ showToast('Content cannot be empty', true); return; }}
+    fetch('/embed/message-board/api/edit', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{post_id: postId, subject: subject, body: body}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) window.location.reload();
+        else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+
+function showEditReply(replyId) {{
+    document.getElementById('replyView' + replyId).style.display = 'none';
+    document.getElementById('replyEdit' + replyId).style.display = 'block';
+}}
+
+function cancelEditReply(replyId) {{
+    document.getElementById('replyEdit' + replyId).style.display = 'none';
+    document.getElementById('replyView' + replyId).style.display = 'block';
+}}
+
+function saveEditReply(replyId) {{
+    var body = document.getElementById('replyEditBody' + replyId).value.trim();
+    if (!body) {{ showToast('Reply cannot be empty', true); return; }}
+    fetch('/embed/message-board/api/edit', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{reply_id: replyId, body: body}}),
         credentials: 'same-origin'
     }})
     .then(function(r) {{ return r.json(); }})
@@ -4547,6 +4649,73 @@ def embed_message_board_toggle_faq():
 
     except Exception as e:
         logging.error(f"Error toggling FAQ: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/edit', methods=['POST'])
+def embed_message_board_edit():
+    """Edit a post or reply (author only, or admin)."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        reply_id = data.get('reply_id')
+        new_subject = (data.get('subject') or '').strip()[:200] if data.get('subject') is not None else None
+        new_body = (data.get('body') or '').strip()[:5000]
+
+        if not post_id and not reply_id:
+            return jsonify({'success': False, 'error': 'Post or reply ID required'})
+        if not new_body:
+            return jsonify({'success': False, 'error': 'Content cannot be empty'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        is_admin = user.get('role') == 'admin'
+
+        if post_id:
+            # Verify ownership
+            cursor.execute("SELECT user_id FROM board_posts WHERE id = %s", (post_id,))
+            row = cursor.fetchone()
+            if not row:
+                cursor.close()
+                conn.close()
+                return jsonify({'success': False, 'error': 'Post not found'}), 404
+            if row[0] != user['id'] and not is_admin:
+                cursor.close()
+                conn.close()
+                return jsonify({'success': False, 'error': 'Not authorized'}), 403
+
+            if new_subject:
+                cursor.execute("UPDATE board_posts SET subject = %s, body = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (new_subject, new_body, post_id))
+            else:
+                cursor.execute("UPDATE board_posts SET body = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (new_body, post_id))
+        else:
+            cursor.execute("SELECT user_id FROM board_replies WHERE id = %s", (reply_id,))
+            row = cursor.fetchone()
+            if not row:
+                cursor.close()
+                conn.close()
+                return jsonify({'success': False, 'error': 'Reply not found'}), 404
+            if row[0] != user['id'] and not is_admin:
+                cursor.close()
+                conn.close()
+                return jsonify({'success': False, 'error': 'Not authorized'}), 403
+
+            cursor.execute("UPDATE board_replies SET body = %s WHERE id = %s", (new_body, reply_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        logging.error(f"Error editing post/reply: {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'An error occurred'}), 500
 
 
