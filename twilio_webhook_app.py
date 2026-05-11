@@ -3723,7 +3723,7 @@ def embed_message_board():
         # Build post cards HTML
         posts_html = ''
         if not posts and page == 1:
-            posts_html = '<div style="text-align:center;padding:60px 20px;color:#8a8aa5;"><p style="font-size:1.1em;">No posts yet — be the first to ask a question!</p></div>'
+            posts_html = '<div style="text-align:center;padding:60px 20px;color:#8a8aa5;"><p style="font-size:1.1em;">No posts yet — be the first to ask a question or leave a comment!</p></div>'
         else:
             for p in posts:
                 p_id, subject, body, is_pinned, is_faq, created_at, nickname, reply_count, like_count = p
@@ -3772,7 +3772,7 @@ def embed_message_board():
 <div class="board-card" style="border-color:rgba(0,232,218,0.3);">
     <div class="form-group" style="margin-bottom:12px;">
         <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Subject</label>
-        <input type="text" id="postSubject" maxlength="200" placeholder="What's your question?" style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;outline:none;" onfocus="this.style.borderColor='rgba(0,232,218,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+        <input type="text" id="postSubject" maxlength="200" placeholder="Question or comment..." style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;outline:none;" onfocus="this.style.borderColor='rgba(0,232,218,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
     </div>
     <div class="form-group" style="margin-bottom:12px;">
         <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Details</label>
