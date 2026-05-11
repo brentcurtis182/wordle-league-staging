@@ -2937,7 +2937,8 @@ def dashboard_profile_update():
             last_name=data.get('last_name'),
             email=data.get('email'),
             phone=data.get('phone'),
-            slack_user_id=data.get('slack_user_id')
+            slack_user_id=data.get('slack_user_id'),
+            nickname=data.get('nickname')
         )
         return jsonify(result)
     except Exception as e:
@@ -3652,6 +3653,796 @@ loadMore();
     except Exception as e:
         logging.error(f"Error rendering leagues directory: {e}", exc_info=True)
         return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load leagues directory.</p>", 500
+
+
+# ── Community Message Board ──────────────────────────────────────────────
+
+def _board_display_name(nickname):
+    """Return display name for message board. Privacy-first: nickname or Anonymous."""
+    return nickname if nickname else 'Anonymous'
+
+
+def _time_ago(dt):
+    """Return human-readable time-ago string."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    diff = now - dt
+    seconds = int(diff.total_seconds())
+    if seconds < 60:
+        return 'just now'
+    if seconds < 3600:
+        return f'{seconds // 60}m ago'
+    if seconds < 86400:
+        return f'{seconds // 3600}h ago'
+    if seconds < 604800:
+        return f'{seconds // 86400}d ago'
+    return dt.strftime('%b %d, %Y')
+
+
+POSTS_PER_PAGE = 15
+REPLIES_PER_PAGE = 30
+
+
+@app.route('/embed/message-board')
+def embed_message_board():
+    """Community Q&A message board — embeddable page."""
+    import html as _html
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+
+        page = max(1, request.args.get('page', 1, type=int))
+        offset = (page - 1) * POSTS_PER_PAGE
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Total post count
+        cursor.execute("SELECT COUNT(*) FROM board_posts")
+        total_posts = cursor.fetchone()[0]
+        total_pages = max(1, (total_posts + POSTS_PER_PAGE - 1) // POSTS_PER_PAGE)
+
+        # Posts with author nickname + reply count
+        cursor.execute("""
+            SELECT bp.id, bp.subject, bp.body, bp.is_pinned, bp.is_faq, bp.created_at,
+                   u.nickname,
+                   (SELECT COUNT(*) FROM board_replies br WHERE br.post_id = bp.id) as reply_count
+            FROM board_posts bp
+            JOIN users u ON bp.user_id = u.id
+            ORDER BY bp.is_pinned DESC, bp.created_at DESC
+            LIMIT %s OFFSET %s
+        """, (POSTS_PER_PAGE, offset))
+        posts = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Build post cards HTML
+        posts_html = ''
+        if not posts and page == 1:
+            posts_html = '<div style="text-align:center;padding:60px 20px;color:#8a8aa5;"><p style="font-size:1.1em;">No posts yet — be the first to ask a question!</p></div>'
+        else:
+            for p in posts:
+                p_id, subject, body, is_pinned, is_faq, created_at, nickname, reply_count = p
+                display_name = _board_display_name(nickname)
+                time_str = _time_ago(created_at)
+                badges = ''
+                if is_pinned:
+                    badges += '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;margin-right:6px;">Pinned</span>'
+                if is_faq:
+                    badges += '<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>'
+                reply_badge = f'<span style="color:#8a8aa5;font-size:0.85em;">{reply_count} {"reply" if reply_count == 1 else "replies"}</span>'
+
+                # Truncate body preview
+                body_preview = _html.escape(body[:150].replace('\n', ' '))
+                if len(body) > 150:
+                    body_preview += '...'
+
+                posts_html += f'''<a href="/embed/message-board/post/{p_id}" style="text-decoration:none;display:block;">
+<div class="board-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;">{badges}<span style="color:#d7dadc;font-size:1.05em;font-weight:600;">{_html.escape(subject)}</span></div>
+        {reply_badge}
+    </div>
+    <p style="color:#8a8aa5;font-size:0.9em;margin:0 0 8px 0;line-height:1.4;">{body_preview}</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:#6a6a8a;font-size:0.8em;">{_html.escape(display_name)}</span>
+        <span style="color:#6a6a8a;font-size:0.8em;">{time_str}</span>
+    </div>
+</div></a>
+'''
+
+        # Pagination
+        pagination_html = ''
+        if total_pages > 1:
+            prev_btn = f'<a href="/embed/message-board?page={page-1}" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
+            next_btn = f'<a href="/embed/message-board?page={page+1}" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
+            pagination_html = f'<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:24px;">{prev_btn}<span style="color:#8a8aa5;font-size:0.9em;">Page {page} of {total_pages}</span>{next_btn}</div>'
+
+        # New Post button / login prompt
+        if user:
+            new_post_btn = '<button class="new-post-btn" onclick="toggleNewPost()">+ New Post</button>'
+            new_post_form = f'''<div id="newPostForm" style="display:none;margin-bottom:24px;">
+<div class="board-card" style="border-color:rgba(0,232,218,0.3);">
+    <div class="form-group" style="margin-bottom:12px;">
+        <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Subject</label>
+        <input type="text" id="postSubject" maxlength="200" placeholder="What's your question?" style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;outline:none;" onfocus="this.style.borderColor='rgba(0,232,218,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+        <label style="color:#d7dadc;font-weight:600;font-size:0.9em;margin-bottom:4px;display:block;">Details</label>
+        <textarea id="postBody" maxlength="5000" rows="5" placeholder="Add more details about your question..." style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;resize:vertical;outline:none;" onfocus="this.style.borderColor='rgba(0,232,218,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;">
+        <button onclick="submitPost()" style="background:#00E8DA;color:#0a0a1a;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:0.9em;">Submit</button>
+        <button onclick="toggleNewPost()" style="background:transparent;color:#8a8aa5;border:1px solid rgba(255,255,255,0.1);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.9em;">Cancel</button>
+    </div>
+</div>
+</div>'''
+        else:
+            new_post_btn = f'<a href="/auth/login?next=/embed/message-board" class="new-post-btn" style="text-decoration:none;">Sign in to post</a>'
+            new_post_form = ''
+
+        star_css, star_prefix, star_suffix = _embed_starry_background()
+
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Community Board — Word Play League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{
+    font-family:'Inter',sans-serif;
+    background-color:#06060e;
+    background-image:radial-gradient(ellipse 60% 40% at 10% -10%,rgba(56,189,248,0.05),transparent 70%),radial-gradient(ellipse 60% 40% at 90% 110%,rgba(168,85,247,0.05),transparent 70%);
+    background-attachment:fixed;
+    color:#d7dadc;
+    padding:12px;
+    min-height:100vh;
+}}
+.board-wrap{{
+    max-width:700px;
+    margin:0 auto;
+    position:relative;
+    z-index:1;
+}}
+.page-hero{{
+    text-align:center;
+    padding:40px 0 32px;
+}}
+.page-hero h1{{
+    font-size:2em;
+    font-weight:800;
+    color:#d7dadc;
+    letter-spacing:1px;
+    margin:0;
+}}
+.wpl-brand{{
+    display:inline-block;
+    margin-top:8px;
+    font-weight:800;
+    font-size:1.1rem;
+    letter-spacing:0.02em;
+    background:linear-gradient(135deg,#00E8DA 0%,#FFA64D 25%,#00E8DA 50%,#FFA64D 75%,#00E8DA 100%);
+    background-size:300% auto;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:wpl-shimmer 4s linear infinite;
+}}
+@keyframes wpl-shimmer{{
+    0%{{background-position:0% center;}}
+    100%{{background-position:300% center;}}
+}}
+.board-header{{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:16px;
+}}
+.board-header p{{
+    color:#8a8aa5;
+    font-size:0.9em;
+}}
+.new-post-btn{{
+    display:inline-block;
+    background:rgba(0,232,218,0.1);
+    color:#00E8DA;
+    border:1px solid rgba(0,232,218,0.3);
+    padding:10px 20px;
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:0.9em;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.2s;
+}}
+.new-post-btn:hover{{
+    background:rgba(0,232,218,0.2);
+}}
+.board-card{{
+    background:rgba(16,16,36,0.7);
+    backdrop-filter:blur(16px);
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.08);
+    padding:20px 24px;
+    margin-bottom:12px;
+    transition:transform 0.2s,border-color 0.3s;
+}}
+a:hover .board-card{{
+    transform:translateY(-2px);
+    border-color:rgba(0,232,218,0.3);
+}}
+.page-btn{{
+    display:inline-block;
+    padding:8px 16px;
+    background:rgba(0,232,218,0.1);
+    color:#00E8DA;
+    border:1px solid rgba(0,232,218,0.3);
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:0.85em;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:none;
+    transition:background 0.2s;
+}}
+.page-btn:hover{{background:rgba(0,232,218,0.2);}}
+.page-btn.disabled{{
+    opacity:0.4;
+    cursor:default;
+    pointer-events:none;
+}}
+.toast{{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    padding:12px 24px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;
+    animation:toastIn 0.3s ease;
+}}
+.toast.success{{background:#00E8DA;color:#0a0a1a;}}
+.toast.error{{background:#f44336;color:#fff;}}
+@keyframes toastIn{{from{{opacity:0;transform:translateX(-50%) translateY(20px);}}to{{opacity:1;transform:translateX(-50%) translateY(0);}}}}
+{star_css}
+</style>
+</head>
+<body>
+{star_prefix}
+<div class="board-wrap">
+    <div class="page-hero">
+        <h1>Community Board</h1>
+        <span class="wpl-brand">WordPlayLeague</span>
+    </div>
+    <div class="board-header">
+        <p>{total_posts} {"post" if total_posts == 1 else "posts"}</p>
+        {new_post_btn}
+    </div>
+    {new_post_form}
+    <div id="postsList">
+        {posts_html}
+    </div>
+    {pagination_html}
+</div>
+{star_suffix}
+<script>
+function toggleNewPost() {{
+    var f = document.getElementById('newPostForm');
+    if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}}
+
+function showToast(msg, isError) {{
+    var t = document.createElement('div');
+    t.className = 'toast ' + (isError ? 'error' : 'success');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function() {{ t.remove(); }}, 3000);
+}}
+
+function submitPost() {{
+    var subject = document.getElementById('postSubject').value.trim();
+    var body = document.getElementById('postBody').value.trim();
+    if (!subject) {{ showToast('Subject is required', true); return; }}
+    if (!body) {{ showToast('Details are required', true); return; }}
+
+    var csrfToken = document.cookie.split('; ').find(function(r) {{ return r.startsWith('csrf_token='); }});
+    csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
+
+    fetch('/embed/message-board/api/post', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken}},
+        body: JSON.stringify({{subject: subject, body: body}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) {{
+            window.location.href = '/embed/message-board/post/' + data.post_id;
+        }} else {{
+            showToast(data.error || 'Failed to create post', true);
+        }}
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+</script>
+</body>
+</html>'''
+        return html
+
+    except Exception as e:
+        logging.error(f"Error rendering message board: {e}", exc_info=True)
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load message board.</p>", 500
+
+
+@app.route('/embed/message-board/post/<int:post_id>')
+def embed_message_board_post(post_id):
+    """Single post detail with reply thread."""
+    import html as _html
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the post
+        cursor.execute("""
+            SELECT bp.id, bp.subject, bp.body, bp.is_pinned, bp.is_faq, bp.created_at, bp.user_id,
+                   u.nickname
+            FROM board_posts bp
+            JOIN users u ON bp.user_id = u.id
+            WHERE bp.id = %s
+        """, (post_id,))
+        post = cursor.fetchone()
+
+        if not post:
+            cursor.close()
+            conn.close()
+            return "<p style='color:#f44336;text-align:center;padding:40px;'>Post not found.</p>", 404
+
+        p_id, subject, body, is_pinned, is_faq, created_at, author_id, author_nickname = post
+        display_name = _board_display_name(author_nickname)
+        time_str = _time_ago(created_at)
+
+        # Get replies
+        page = max(1, request.args.get('page', 1, type=int))
+        offset = (page - 1) * REPLIES_PER_PAGE
+
+        cursor.execute("SELECT COUNT(*) FROM board_replies WHERE post_id = %s", (post_id,))
+        total_replies = cursor.fetchone()[0]
+        total_pages = max(1, (total_replies + REPLIES_PER_PAGE - 1) // REPLIES_PER_PAGE)
+
+        cursor.execute("""
+            SELECT br.id, br.body, br.created_at, u.nickname
+            FROM board_replies br
+            JOIN users u ON br.user_id = u.id
+            WHERE br.post_id = %s
+            ORDER BY br.created_at ASC
+            LIMIT %s OFFSET %s
+        """, (post_id, REPLIES_PER_PAGE, offset))
+        replies = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Badges
+        badges = ''
+        if is_pinned:
+            badges += '<span style="background:rgba(255,166,77,0.15);color:#FFA64D;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;margin-right:6px;">Pinned</span>'
+        if is_faq:
+            badges += '<span style="background:rgba(0,232,218,0.15);color:#00E8DA;padding:2px 8px;border-radius:6px;font-size:0.75em;font-weight:600;">FAQ</span>'
+
+        # Admin controls
+        admin_html = ''
+        if user and user.get('role') == 'admin':
+            pin_label = 'Unpin' if is_pinned else 'Pin'
+            faq_label = 'Remove FAQ' if is_faq else 'Mark as FAQ'
+            admin_html = f'''<div style="display:flex;gap:8px;margin-top:12px;">
+    <button onclick="togglePin({p_id})" class="admin-btn">{pin_label}</button>
+    <button onclick="toggleFaq({p_id})" class="admin-btn">{faq_label}</button>
+</div>'''
+
+        # Replies HTML
+        replies_html = ''
+        for r in replies:
+            r_id, r_body, r_created, r_nickname = r
+            r_display = _board_display_name(r_nickname)
+            r_time = _time_ago(r_created)
+            replies_html += f'''<div class="reply-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(r_display)}</span>
+        <span style="color:#6a6a8a;font-size:0.8em;">{r_time}</span>
+    </div>
+    <p style="color:#d7dadc;font-size:0.95em;line-height:1.5;margin:0;white-space:pre-wrap;">{_html.escape(r_body)}</p>
+</div>
+'''
+
+        if not replies and page == 1:
+            replies_html = '<p style="color:#8a8aa5;text-align:center;padding:24px 0;">No replies yet — be the first to respond!</p>'
+
+        # Reply pagination
+        reply_pagination = ''
+        if total_pages > 1:
+            prev_btn = f'<a href="/embed/message-board/post/{p_id}?page={page-1}" class="page-btn">← Previous</a>' if page > 1 else '<span class="page-btn disabled">← Previous</span>'
+            next_btn = f'<a href="/embed/message-board/post/{p_id}?page={page+1}" class="page-btn">Next →</a>' if page < total_pages else '<span class="page-btn disabled">Next →</span>'
+            reply_pagination = f'<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:16px;">{prev_btn}<span style="color:#8a8aa5;font-size:0.9em;">Page {page} of {total_pages}</span>{next_btn}</div>'
+
+        # Reply form
+        if user:
+            reply_form = f'''<div style="margin-top:24px;">
+    <h3 style="color:#d7dadc;font-size:1em;font-weight:600;margin-bottom:12px;">Reply</h3>
+    <textarea id="replyBody" maxlength="5000" rows="4" placeholder="Write your reply..." style="width:100%;padding:10px 12px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#d7dadc;font-family:inherit;font-size:0.95em;resize:vertical;outline:none;" onfocus="this.style.borderColor='rgba(0,232,218,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+    <button onclick="submitReply({p_id})" style="margin-top:8px;background:#00E8DA;color:#0a0a1a;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:0.9em;">Submit Reply</button>
+</div>'''
+        else:
+            reply_form = f'<div style="text-align:center;margin-top:24px;"><a href="/auth/login?next=/embed/message-board/post/{p_id}" style="color:#00E8DA;text-decoration:underline;font-size:0.9em;">Sign in to reply</a></div>'
+
+        star_css, star_prefix, star_suffix = _embed_starry_background()
+
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{_html.escape(subject)} — Community Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{
+    font-family:'Inter',sans-serif;
+    background-color:#06060e;
+    background-image:radial-gradient(ellipse 60% 40% at 10% -10%,rgba(56,189,248,0.05),transparent 70%),radial-gradient(ellipse 60% 40% at 90% 110%,rgba(168,85,247,0.05),transparent 70%);
+    background-attachment:fixed;
+    color:#d7dadc;
+    padding:12px;
+    min-height:100vh;
+}}
+.board-wrap{{
+    max-width:700px;
+    margin:0 auto;
+    position:relative;
+    z-index:1;
+    padding-top:20px;
+}}
+.back-link{{
+    display:inline-block;
+    color:#00E8DA;
+    text-decoration:none;
+    font-size:0.9em;
+    margin-bottom:16px;
+    transition:opacity 0.2s;
+}}
+.back-link:hover{{opacity:0.8;}}
+.post-card{{
+    background:rgba(16,16,36,0.7);
+    backdrop-filter:blur(16px);
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.08);
+    padding:24px;
+    margin-bottom:24px;
+}}
+.reply-card{{
+    background:rgba(16,16,36,0.5);
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.06);
+    padding:16px 20px;
+    margin-bottom:8px;
+}}
+.admin-btn{{
+    background:rgba(255,166,77,0.1);
+    color:#FFA64D;
+    border:1px solid rgba(255,166,77,0.3);
+    padding:6px 14px;
+    border-radius:6px;
+    font-family:'Inter',sans-serif;
+    font-size:0.8em;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.2s;
+}}
+.admin-btn:hover{{background:rgba(255,166,77,0.2);}}
+.page-btn{{
+    display:inline-block;
+    padding:8px 16px;
+    background:rgba(0,232,218,0.1);
+    color:#00E8DA;
+    border:1px solid rgba(0,232,218,0.3);
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:0.85em;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:none;
+}}
+.page-btn:hover{{background:rgba(0,232,218,0.2);}}
+.page-btn.disabled{{opacity:0.4;cursor:default;pointer-events:none;}}
+.toast{{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    padding:12px 24px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;
+    animation:toastIn 0.3s ease;
+}}
+.toast.success{{background:#00E8DA;color:#0a0a1a;}}
+.toast.error{{background:#f44336;color:#fff;}}
+@keyframes toastIn{{from{{opacity:0;transform:translateX(-50%) translateY(20px);}}to{{opacity:1;transform:translateX(-50%) translateY(0);}}}}
+{star_css}
+</style>
+</head>
+<body>
+{star_prefix}
+<div class="board-wrap">
+    <a href="/embed/message-board" class="back-link">← Back to Board</a>
+    <div class="post-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">{badges}</div>
+        <h1 style="font-size:1.4em;font-weight:700;color:#d7dadc;margin-bottom:12px;">{_html.escape(subject)}</h1>
+        <p style="color:#d7dadc;font-size:0.95em;line-height:1.6;white-space:pre-wrap;margin-bottom:16px;">{_html.escape(body)}</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:#00E8DA;font-size:0.85em;font-weight:600;">{_html.escape(display_name)}</span>
+            <span style="color:#6a6a8a;font-size:0.8em;">{time_str}</span>
+        </div>
+        {admin_html}
+    </div>
+
+    <h2 style="font-size:1.1em;font-weight:600;color:#d7dadc;margin-bottom:12px;">{total_replies} {"Reply" if total_replies == 1 else "Replies"}</h2>
+    <div id="repliesList">
+        {replies_html}
+    </div>
+    {reply_pagination}
+    {reply_form}
+</div>
+{star_suffix}
+<script>
+function showToast(msg, isError) {{
+    var t = document.createElement('div');
+    t.className = 'toast ' + (isError ? 'error' : 'success');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function() {{ t.remove(); }}, 3000);
+}}
+
+function getCsrf() {{
+    var c = document.cookie.split('; ').find(function(r) {{ return r.startsWith('csrf_token='); }});
+    return c ? c.split('=')[1] : '';
+}}
+
+function submitReply(postId) {{
+    var body = document.getElementById('replyBody').value.trim();
+    if (!body) {{ showToast('Reply cannot be empty', true); return; }}
+
+    fetch('/embed/message-board/api/reply', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{post_id: postId, body: body}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) {{
+            window.location.reload();
+        }} else {{
+            showToast(data.error || 'Failed to submit reply', true);
+        }}
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+
+function togglePin(postId) {{
+    fetch('/embed/message-board/api/pin', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{post_id: postId}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) window.location.reload();
+        else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+
+function toggleFaq(postId) {{
+    fetch('/embed/message-board/api/faq', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf()}},
+        body: JSON.stringify({{post_id: postId}}),
+        credentials: 'same-origin'
+    }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(data) {{
+        if (data.success) window.location.reload();
+        else showToast(data.error || 'Failed', true);
+    }})
+    .catch(function() {{ showToast('Network error', true); }});
+}}
+</script>
+</body>
+</html>'''
+        return html
+
+    except Exception as e:
+        logging.error(f"Error rendering message board post: {e}", exc_info=True)
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load post.</p>", 500
+
+
+@app.route('/embed/message-board/api/post', methods=['POST'])
+def embed_message_board_create_post():
+    """Create a new message board post."""
+    import html as _html
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json(force=True)
+        subject = (data.get('subject') or '').strip()[:200]
+        body = (data.get('body') or '').strip()[:5000]
+
+        if not subject:
+            return jsonify({'success': False, 'error': 'Subject is required'})
+        if not body:
+            return jsonify({'success': False, 'error': 'Details are required'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO board_posts (user_id, subject, body) VALUES (%s, %s, %s) RETURNING id",
+            (user['id'], subject, body)
+        )
+        post_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logging.info(f"Board post {post_id} created by user {user['id']}")
+        return jsonify({'success': True, 'post_id': post_id})
+
+    except Exception as e:
+        logging.error(f"Error creating board post: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/reply', methods=['POST'])
+def embed_message_board_create_reply():
+    """Create a reply on a message board post."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        body = (data.get('body') or '').strip()[:5000]
+
+        if not post_id:
+            return jsonify({'success': False, 'error': 'Post ID is required'})
+        if not body:
+            return jsonify({'success': False, 'error': 'Reply cannot be empty'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Verify post exists and get author info for notification
+        cursor.execute("""
+            SELECT bp.user_id, bp.subject, u.email, u.first_name
+            FROM board_posts bp
+            JOIN users u ON bp.user_id = u.id
+            WHERE bp.id = %s
+        """, (post_id,))
+        post_info = cursor.fetchone()
+        if not post_info:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Post not found'}), 404
+
+        post_author_id, post_subject, author_email, author_first_name = post_info
+
+        # Insert reply
+        cursor.execute(
+            "INSERT INTO board_replies (post_id, user_id, body) VALUES (%s, %s, %s) RETURNING id",
+            (post_id, user['id'], body)
+        )
+        reply_id = cursor.fetchone()[0]
+
+        # Update post's updated_at
+        cursor.execute("UPDATE board_posts SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (post_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        # Email notification (if replier is not the post author)
+        if post_author_id != user['id']:
+            try:
+                from email_utils import send_board_reply_notification
+                post_url = f"{request.scheme}://{request.host}/embed/message-board/post/{post_id}"
+                send_board_reply_notification(author_email, author_first_name, post_subject, body, post_url)
+            except Exception as email_err:
+                logging.error(f"Failed to send board reply notification: {email_err}")
+
+        logging.info(f"Board reply {reply_id} on post {post_id} by user {user['id']}")
+        return jsonify({'success': True, 'reply_id': reply_id})
+
+    except Exception as e:
+        logging.error(f"Error creating board reply: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/pin', methods=['POST'])
+def embed_message_board_toggle_pin():
+    """Toggle pin status on a post (admin only)."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        if user.get('role') != 'admin':
+            return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        if not post_id:
+            return jsonify({'success': False, 'error': 'Post ID is required'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE board_posts SET is_pinned = NOT is_pinned WHERE id = %s RETURNING is_pinned", (post_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Post not found'}), 404
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'is_pinned': result[0]})
+
+    except Exception as e:
+        logging.error(f"Error toggling pin: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
+
+
+@app.route('/embed/message-board/api/faq', methods=['POST'])
+def embed_message_board_toggle_faq():
+    """Toggle FAQ status on a post (admin only)."""
+    try:
+        from auth import validate_session
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token)
+        if not user:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        if user.get('role') != 'admin':
+            return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+        data = request.get_json(force=True)
+        post_id = data.get('post_id')
+        if not post_id:
+            return jsonify({'success': False, 'error': 'Post ID is required'})
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE board_posts SET is_faq = NOT is_faq WHERE id = %s RETURNING is_faq", (post_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Post not found'}), 404
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'is_faq': result[0]})
+
+    except Exception as e:
+        logging.error(f"Error toggling FAQ: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An error occurred'}), 500
 
 
 @app.route('/leagues/<slug>')

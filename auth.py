@@ -425,23 +425,24 @@ def validate_session(session_token):
         
         # Now do the actual validation
         cursor.execute("""
-            SELECT u.id, u.email, u.first_name, u.last_name, u.role
+            SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.nickname
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.session_token = %s 
-              AND s.is_valid = TRUE 
+            WHERE s.session_token = %s
+              AND s.is_valid = TRUE
               AND s.expires_at > CURRENT_TIMESTAMP
               AND u.is_active = TRUE
         """, (session_token,))
-        
+
         result = cursor.fetchone()
         if result:
             first_name = result[2] or ''
             last_name = result[3] or ''
             full_name = f"{first_name} {last_name}".strip() or result[1]  # Fall back to email
             role = result[4] or 'user'
+            nickname = result[5] or '' if len(result) > 5 else ''
             logging.info(f"validate_session: Valid session for user {result[1]}")
-            return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name, 'role': role}
+            return {'id': result[0], 'email': result[1], 'name': full_name, 'first_name': first_name, 'role': role, 'nickname': nickname}
         
         logging.warning(f"validate_session: Session exists but validation failed")
         return None
@@ -704,7 +705,7 @@ def get_user_details(user_id):
     try:
         try:
             cursor.execute("""
-                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login, password_hash, google_id, slack_user_id
+                SELECT id, email, first_name, last_name, phone, sms_consent, created_at, last_login, password_hash, google_id, slack_user_id, nickname
                 FROM users WHERE id = %s
             """, (user_id,))
             result = cursor.fetchone()
@@ -732,7 +733,8 @@ def get_user_details(user_id):
             'last_login': result[7],
             'has_password': bool(result[8]) if has_extra_cols else True,
             'has_google': bool(result[9]) if has_extra_cols else False,
-            'slack_user_id': (result[10] or '') if has_extra_cols and len(result) > 10 else ''
+            'slack_user_id': (result[10] or '') if has_extra_cols and len(result) > 10 else '',
+            'nickname': (result[11] or '') if has_extra_cols and len(result) > 11 else ''
         }
         return details
     except Exception as e:
@@ -776,7 +778,7 @@ def change_password(user_id, current_password, new_password):
         cursor.close()
         conn.close()
 
-def update_profile(user_id, first_name=None, last_name=None, email=None, phone=None, slack_user_id=None):
+def update_profile(user_id, first_name=None, last_name=None, email=None, phone=None, slack_user_id=None, nickname=None):
     """Update user profile fields"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -809,6 +811,10 @@ def update_profile(user_id, first_name=None, last_name=None, email=None, phone=N
             slack_user_id = slack_user_id.strip().upper() if slack_user_id else ''
             updates.append("slack_user_id = %s")
             params.append(slack_user_id or None)
+        if nickname is not None:
+            nickname = nickname.strip()[:50] if nickname else None
+            updates.append("nickname = %s")
+            params.append(nickname or None)
 
         if not updates:
             return {'success': True}

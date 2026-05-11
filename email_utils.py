@@ -604,6 +604,30 @@ def _get_division_mode_newsletter_body():
     """
 
 
+def send_board_reply_notification(to_email, first_name, post_subject, reply_preview, post_url):
+    """Notify post author that someone replied to their community board post."""
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
+    # Truncate preview cleanly
+    preview = reply_preview[:200].rstrip()
+    if len(reply_preview) > 200:
+        preview += "..."
+
+    body = f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">{greeting}</p>
+    <p style="color: #e0e0e0; line-height: 1.6;">Someone replied to your post <strong style="color: #00E8DA;">"{post_subject}"</strong> on the community board:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin: 20px 0; border-left: 3px solid #00E8DA;"><tr><td style="padding: 16px;">
+        <p style="color: #bbb; line-height: 1.5; margin: 0; font-style: italic;">&ldquo;{preview}&rdquo;</p>
+    </td></tr></table>
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{post_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">View Discussion</a>
+    </div>
+    <p style="color: #888; font-size: 0.85em; line-height: 1.5;">You're receiving this because you created this post on WordPlayLeague.</p>
+    """
+
+    html = _get_email_template("New Reply to Your Post", body)
+    return _send_email(to_email, f"Reply to: {post_subject}", html)
+
+
 def _get_shared_leagues_newsletter_body():
     """Pre-built Shared Leagues feature announcement email body"""
     dashboard_url = f"{APP_URL}/dashboard"

@@ -1210,6 +1210,11 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                         <span class="info-value">{user_details['first_name']} {user_details['last_name']}</span>
                     </div>
                     <div class="info-row">
+                        <span class="info-label">Nickname</span>
+                        <span class="info-value">{user_details.get('nickname') or f'<span style="color: {COLORS["text_muted"]}; font-style: italic;">Not set</span>'}</span>
+                    </div>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: -4px 0 4px 0; line-height: 1.4;">Your display name on the community message board. Leave blank to appear as &ldquo;Anonymous&rdquo;.</p>
+                    <div class="info-row">
                         <span class="info-label">Email</span>
                         <span class="info-value">{user_details['email']}</span>
                     </div>
@@ -1249,6 +1254,11 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                                 <label>Last Name</label>
                                 <input type="text" name="last_name" value="{user_details['last_name']}" required>
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Nickname</label>
+                            <input type="text" name="nickname" value="{user_details.get('nickname', '')}" placeholder="Choose a display name for the message board" maxlength="50">
+                            <p style="color: {COLORS['text_muted']}; font-size: 0.78em; margin: 4px 0 0 0;">Shown on the community message board instead of your real name. Leave blank to appear as &ldquo;Anonymous&rdquo;.</p>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
@@ -1402,6 +1412,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
             const originalProfile = {{
                 first_name: '{user_details['first_name']}',
                 last_name: '{user_details['last_name']}',
+                nickname: '{user_details.get('nickname', '')}',
                 email: '{user_details['email']}',
                 phone: '{user_details['phone']}',
                 slack_user_id: '{user_details.get('slack_user_id', '')}'
@@ -1413,6 +1424,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 const data = {{
                     first_name: form.querySelector('[name="first_name"]').value.trim(),
                     last_name: form.querySelector('[name="last_name"]').value.trim(),
+                    nickname: form.querySelector('[name="nickname"]').value.trim(),
                     email: form.querySelector('[name="email"]').value.trim(),
                     phone: form.querySelector('[name="phone"]').value.trim(),
                     slack_user_id: form.querySelector('[name="slack_user_id"]').value.trim()
@@ -1427,6 +1439,7 @@ def render_profile_page(user, user_details, leagues, active_sessions, message=No
                 const changes = [];
                 if (data.first_name !== originalProfile.first_name) changes.push('First Name: ' + originalProfile.first_name + ' → ' + data.first_name);
                 if (data.last_name !== originalProfile.last_name) changes.push('Last Name: ' + originalProfile.last_name + ' → ' + data.last_name);
+                if (data.nickname !== originalProfile.nickname) changes.push('Nickname: ' + (originalProfile.nickname || 'Not set') + ' → ' + (data.nickname || 'Not set'));
                 if (data.email !== originalProfile.email) changes.push('Email: ' + originalProfile.email + ' → ' + data.email);
                 if (data.phone !== originalProfile.phone) changes.push('Phone: ' + (originalProfile.phone || 'Not set') + ' → ' + (data.phone || 'Not set'));
                 if (data.slack_user_id !== originalProfile.slack_user_id) changes.push('Slack Member ID: ' + (originalProfile.slack_user_id || 'Not set') + ' → ' + (data.slack_user_id || 'Not set'));
