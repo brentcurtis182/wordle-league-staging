@@ -5273,6 +5273,9 @@ def render_admin_dashboard(user, leagues, config=None):
         elif lg.get('linked_subscription_id'):
             payment_color = '#2ECC71'
             payment_text = 'Linked'
+        elif lg.get('lapsed_notified'):
+            payment_color = '#E67E22'
+            payment_text = 'Lapsed'
         else:
             payment_color = '#E74C3C'
             payment_text = 'Unlinked'

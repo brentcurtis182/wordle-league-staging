@@ -1103,7 +1103,8 @@ def _on_subscription_deleted(subscription):
                     slack_channel_id = NULL,
                     discord_channel_id = NULL,
                     verification_code = NULL,
-                    max_players = NULL
+                    max_players = NULL,
+                    lapsed_notified = TRUE
                 WHERE id = %s
             """, (lg_id,))
             logging.info(f"Deactivated league {lg_id} ({lg_name}) due to subscription lapse")
@@ -1216,7 +1217,8 @@ def _on_invoice_payment_failed(invoice):
                     slack_channel_id = NULL,
                     discord_channel_id = NULL,
                     verification_code = NULL,
-                    max_players = NULL
+                    max_players = NULL,
+                    lapsed_notified = TRUE
                 WHERE id = %s
             """, (lg_id,))
             logging.info(f"Deactivated league {lg_id} ({lg_name}) due to payment failure")
