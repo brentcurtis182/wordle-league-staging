@@ -252,7 +252,7 @@ def compute_player_scenario(player, leader_total, leader_names, min_scores=5):
                 text = get_catch_up_text(name, score_to_win, -1, player['best_5_total'])
                 # Override: tied player can only win, not "tie" (they're already tied)
                 win_text = get_score_difficulty_text(score_to_win)
-                text = f"{name} (at {player['best_5_total']}) is tied and {win_text} to take the lead"
+                text = f"{name} (at {player['best_5_total']}) is tied and {win_text} to take the lead by replacing a {worst_best_5}"
                 return text, 'can_catch_up'
             else:
                 # Can't improve (worst score is already a 1)
@@ -266,6 +266,7 @@ def compute_player_scenario(player, leader_total, leader_names, min_scores=5):
             if text:
                 if "eliminated" in text:
                     return text, 'eliminated'
+                text += f" (replacing a {worst_best_5})"
                 return text, 'can_catch_up'
 
         return None, None
@@ -564,7 +565,24 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     ineligible = [s for s in div_standings if not s['eligible']]
 
     if not eligible:
-        return f"{div_label}: No one has played {min_scores} games yet to qualify for the weekly win."
+        # Check if anyone could still qualify by posting today
+        one_short = min_scores - 1
+        can_qualify = []
+        for p in div_standings:
+            if not p['posted_today']:
+                non_fail = [s for s in p['scores'].values() if s != 7]
+                if len(non_fail) >= one_short:
+                    current_total = sum(sorted(non_fail))
+                    can_qualify.append((p['name'], current_total, len(non_fail)))
+        if not can_qualify:
+            return f"{div_label}: No one has played {min_scores} games yet to qualify for the weekly win."
+        elif len(can_qualify) == 1:
+            name, total, games = can_qualify[0]
+            return f"{div_label}: {name} has {games} of {min_scores} games posted — just needs to post today to clinch the weekly win! No one else can qualify."
+        else:
+            can_qualify.sort(key=lambda x: x[1])
+            names = " and ".join(n for n, _, _ in can_qualify)
+            return f"{div_label}: {names} each need to post today to qualify — lowest total wins!"
     
     if len(eligible) == 1:
         winner = eligible[0]
@@ -625,8 +643,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
         elif all_eligible_posted:
             parts = [f"{leader_names[0]} is the clear winner at {leader_total}!"]
         if eliminated:
-            eliminated_list = ", ".join(eliminated)
-            parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
+            parts.append("No one else can catch up")
         scenarios.append(". ".join(parts))
     else:
         leader_text = f"{' and '.join(leader_names)} tied at {leader_total}"
@@ -634,8 +651,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
         if catch_up_scenarios:
             parts.append(". ".join(catch_up_scenarios[:3]))
         if eliminated:
-            eliminated_list = ", ".join(eliminated)
-            parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
+            parts.append("No one else can catch up")
         scenarios.append(". ".join(parts))
     
     # Season clinch detection for this division (potential_clinchers computed above, pre-increment)
@@ -817,23 +833,20 @@ def send_sunday_race_update(league_id, force_season_image=False):
                     lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
                 return "\n".join(lines) if lines else "  No wins yet"
             
-            # Per-division stakes detection — omit SEASON WINS for divisions with no stakes
-            # to prevent the AI from inventing win-count claims unrelated to today's race.
+            # Per-division stakes detection for prompt emphasis
             div1_has_stakes = "SEASON STAKES" in div1_scenario or "SEASON CLINCH" in div1_scenario
             div2_has_stakes = "SEASON STAKES" in div2_scenario or "SEASON CLINCH" in div2_scenario
 
+            # Always include season wins so the AI can mention win counts for context
+            # (e.g., "gives them their 2nd win") even when no season stakes are in play
             div1_block = f"""DIVISION I STANDINGS (lower is better, best {min_scores} of 7):
-{build_div_standings_summary(div1_standings)}"""
-            if div1_has_stakes:
-                div1_block += f"""
+{build_div_standings_summary(div1_standings)}
 
 DIVISION I SEASON {div1_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
 {build_div_wins_summary(div1_weekly_wins)}"""
 
             div2_block = f"""DIVISION II STANDINGS (lower is better, best {min_scores} of 7):
-{build_div_standings_summary(div2_standings)}"""
-            if div2_has_stakes:
-                div2_block += f"""
+{build_div_standings_summary(div2_standings)}
 
 DIVISION II SEASON {div2_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
 {build_div_wins_summary(div2_weekly_wins)}"""
@@ -862,23 +875,24 @@ RACE ANALYSIS:
 STYLE RULES:
 - Be CONCISE. No filler. No rhetorical questions. No "stay tuned" or "who will win?" or "the door is open".
 - When the race is OVER ("RACE OVER"), just declare the winner briefly. Do NOT describe what the winner "could still do" or "potential improvements". It's done.
-- Do NOT describe eliminated players' situations in detail. They lost — move on.
+- Do NOT list individual scores for players who are out of contention. A screenshot of the full standings is sent alongside this message — scores are already visible. Only mention contenders described in the RACE ANALYSIS.
 - Only describe catch-up scenarios for players who can ACTUALLY still win or tie.
+- When describing what a contender needs, include the specific score replacement if provided in the data (e.g., "needs a 4 to pull ahead, replacing a 5").
+- When the race result is clean/short (e.g., RACE OVER with a clear winner) and SEASON WINS data is available, briefly mention the winner's win count for context (e.g., "marking their 2nd win this season"). But do NOT create season drama unless SEASON STAKES or SEASON CLINCH is present.
 
 ACCURACY RULES:
-1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
+1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided. ONLY discuss players who appear in the RACE ANALYSIS — do not invent commentary about players not mentioned there.
 2. A score of 1 is nearly impossible (use the exact dramatic phrase provided), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable.
 3. Don't say someone can "take the lead" unless the math supports it.
-4. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS. If not present for a division, do NOT mention clinching, season wins, or season implications for that division.
+4. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS. If not present for a division, do NOT mention clinching or season implications for that division.
 5. NEVER claim someone "clinched the season" unless RACE ANALYSIS explicitly says "SEASON CLINCH".
 6. When mentioning season wins, use ONLY the numbers from "SEASON WINS" section. Do NOT infer or inflate.
-7. If NO "SEASON WINS" section exists for a division, do NOT mention season wins at all.
-8. Use emojis for excitement!
-9. Division I first, then Division II. Line break between them.
-10. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Extra players can also be promoted based on best Season Total. Div I season end = worst Season Total player(s) RELEGATED to Div II. Missed weeks put a player first in line for relegation.
-11. If "Relegation:" or "Promotion:" text appears in RACE ANALYSIS, mention it! These are the STAKES. Convey who's in line and why.
-12. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
-13. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
+7. Use emojis for excitement!
+8. Division I first, then Division II. Line break between them.
+9. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Extra players can also be promoted based on best Season Total. Div I season end = worst Season Total player(s) RELEGATED to Div II. Missed weeks put a player first in line for relegation.
+10. If "Relegation:" or "Promotion:" text appears in RACE ANALYSIS, mention it! These are the STAKES. Convey who's in line and why.
+11. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
+12. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
@@ -927,8 +941,35 @@ ACCURACY RULES:
             prompt = None
             
             if not eligible:
-                logging.info(f"No eligible players ({min_scores}+ games) in league {league_id} - sending 'no winner this week' message")
-                prompt = f"It's Sunday! No one has played {min_scores} games yet this week to qualify for the weekly win. You need at least {min_scores} scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
+                # Check if anyone could still qualify by posting today
+                one_short_check = min_scores - 1
+                can_qualify = []
+                for p in standings:
+                    if not p['posted_today']:
+                        non_fail = [s for s in p['scores'].values() if s != 7]
+                        if len(non_fail) >= one_short_check:
+                            current_total = sum(sorted(non_fail))
+                            can_qualify.append((p['name'], current_total, len(non_fail)))
+                if not can_qualify:
+                    logging.info(f"No eligible players and no one can qualify in league {league_id}")
+                    prompt = f"It's Sunday! No one has played {min_scores} games yet this week to qualify for the weekly win. You need at least {min_scores} scores to compete! Looks like no one can claim victory this week. Use emojis. Keep it under 200 characters."
+                else:
+                    if len(can_qualify) == 1:
+                        qname, qtotal, qgames = can_qualify[0]
+                        scenario = f"{qname} has {qgames} of {min_scores} games posted and just needs to post today to clinch the weekly win! No one else can qualify."
+                    else:
+                        can_qualify.sort(key=lambda x: x[1])
+                        qparts = [f"{n} ({g} games)" for n, _, g in can_qualify]
+                        scenario = f"{' and '.join(qparts)} each need to post today to qualify — lowest total wins!"
+
+                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
+{standings_summary}
+
+SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
+{season_wins_summary}
+
+WEEKLY RACE ANALYSIS: {scenario}"""
+                    prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
             elif len(eligible) == 1:
                 # Check if any ineligible player one short of qualifying could still qualify and beat the leader
                 winner = eligible[0]
@@ -1031,10 +1072,9 @@ ACCURACY RULES:
                         if other_eligible and all(p['posted_today'] for p in other_eligible):
                             scenario_parts.append(f"No one else can catch up - {leader_names[0]} has this locked!")
 
-                    # Include eliminated players so the AI doesn't hallucinate wrong reasons
+                    # Group eliminated players generically — screenshot shows individual scores
                     if eliminated:
-                        eliminated_list = ", ".join(eliminated)
-                        scenario_parts.append(f"{eliminated_list} {'is' if len(eliminated) == 1 else 'are'} mathematically eliminated")
+                        scenario_parts.append("No one else can catch up")
 
                     scenarios.append(". ".join(scenario_parts))
                 
@@ -1088,20 +1128,12 @@ ACCURACY RULES:
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
                 logging.info(f"League {league_id} scenario text: '{scenario_text}'")
                 
-                # Build the full prompt with standings and (only if relevant) season context.
-                # Omit SEASON WINS entirely when there are no season stakes — prevents the AI
-                # from inventing claims about win counts that aren't relevant to today's race.
-                if season_clinch_text:
-                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
+                # Always include season wins so the AI can mention win counts for context
+                context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
 SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
 {season_wins_summary}
-
-WEEKLY RACE ANALYSIS: {scenario_text}"""
-                else:
-                    context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
-{standings_summary}
 
 WEEKLY RACE ANALYSIS: {scenario_text}"""
                 
@@ -1115,20 +1147,21 @@ WEEKLY RACE ANALYSIS: {scenario_text}"""
 STYLE RULES:
 - Be CONCISE. No filler. No rhetorical questions. No "stay tuned" or "who will win?" or "the door is open" or "can anyone catch up?".
 - When the race is OVER ("RACE OVER"), just declare the winner briefly and move on. Do NOT describe what the winner "could still do" or improvements they could make. It's done.
-- Do NOT describe eliminated players' situations in detail. They lost — skip them.
+- Do NOT list individual scores for players who are out of contention. A screenshot of the full standings is sent alongside this message — scores are already visible. Only mention contenders described in the RACE ANALYSIS.
 - Only describe catch-up scenarios for players who can ACTUALLY still win or tie.
+- When describing what a contender needs, include the specific score replacement if provided in the data (e.g., "needs a 4 to pull ahead, replacing a 5").
+- When the race result is clean/short (e.g., RACE OVER with a clear winner) and SEASON WINS data is available, briefly mention the winner's win count for context (e.g., "marking their 2nd win this season"). But do NOT create season drama unless SEASON STAKES or SEASON CLINCH is present.
 
 ACCURACY RULES:
-1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided.
+1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided. ONLY discuss players who appear in the RACE ANALYSIS — do not invent commentary about players not mentioned there.
 2. A score of 1 is nearly impossible (use the exact dramatic phrase provided), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable.
 3. Don't say someone can "take the lead" unless the math supports it.
 4. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently!
 5. NEVER claim someone "clinched the season" unless the prompt explicitly says "SEASON CLINCH".
 6. When mentioning season wins, use ONLY numbers from "SEASON WINS" section. Do NOT infer or inflate.
-7. If NO "SEASON WINS" section exists, do NOT mention season wins at all.
-8. Use emojis for excitement!
-9. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
-10. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
+7. Use emojis for excitement!
+8. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
+9. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
