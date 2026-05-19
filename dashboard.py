@@ -1680,7 +1680,7 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
             {meta_html}
             <div class="actions">
                 <a href="/dashboard/league/{league['id']}" class="btn btn-primary btn-small wpl-nav-link">Manage</a>
-                <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'https://www.wordplayleague.com/{wix_path}'}" class="btn btn-secondary btn-small wpl-nav-link">View</a>
+                <a href="{f'{APP_BASE_URL}/leagues/{league.get("slug")}' if league.get('slug') else f'{APP_BASE_URL}/{wix_path}'}" class="btn btn-secondary btn-small wpl-nav-link">View</a>
             </div>
         </div>
         """
@@ -3016,7 +3016,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             <div class="card">
                 <h2>🔗 Public League Page</h2>
                 <p style="margin-bottom: 16px; color: {COLORS['text_muted']};">Share this link with your league members:</p>
-                <a href="{f'{APP_BASE_URL}/leagues/{league["slug"]}' if league.get('slug') else f'https://www.wordplayleague.com/{get_league_wix_url(league["id"])}'}" target="_blank" class="btn btn-secondary">
+                <a href="{f'{APP_BASE_URL}/leagues/{league["slug"]}' if league.get('slug') else f'{APP_BASE_URL}/{get_league_wix_url(league["id"])}'}" target="_blank" class="btn btn-secondary">
                     View Public Page →
                 </a>
             </div>

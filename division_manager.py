@@ -926,9 +926,9 @@ def check_division_season_transition(league_id, division):
             logging.info(f"Promoted {len(promoted_names)} player(s) from Div II to Div I in league {league_id}: {promoted_names}")
         
         conn.commit()
-        
+
         logging.info(f"Division {division} transitioned to season {new_season} in league {league_id}")
-        return True
+        return season_start  # Return old season start so caller can scope immunity clearing
     
     except Exception as e:
         conn.rollback()
@@ -1169,27 +1169,44 @@ def _relegate_player(cursor, league_id, player_name, joined_week):
     logging.info(f"Relegated {player_name} to Division II (immune) in league {league_id}")
 
 
-def clear_immunity(league_id, division):
+def clear_immunity(league_id, division, season_start_week=None):
     """
     Clear immunity for players in a division when their first full season ends.
     Called when a division season transitions.
+
+    If season_start_week is provided, only clears immunity for players whose
+    division_joined_week <= season_start_week (they were present at or before
+    the season started, so they've completed a full season). Players who joined
+    mid-season (e.g. just promoted) keep their immunity.
+
+    If season_start_week is None (e.g. both divisions transitioned simultaneously),
+    clears all immunity in the division unconditionally.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        cursor.execute("""
-            UPDATE players 
-            SET division_immunity = FALSE
-            WHERE league_id = %s AND division = %s AND division_immunity = TRUE
-        """, (league_id, division))
-        
+        if season_start_week is not None:
+            cursor.execute("""
+                UPDATE players
+                SET division_immunity = FALSE
+                WHERE league_id = %s AND division = %s AND division_immunity = TRUE
+                  AND division_joined_week <= %s
+            """, (league_id, division, season_start_week))
+        else:
+            cursor.execute("""
+                UPDATE players
+                SET division_immunity = FALSE
+                WHERE league_id = %s AND division = %s AND division_immunity = TRUE
+            """, (league_id, division))
+
         affected = cursor.rowcount
         conn.commit()
-        
+
         if affected > 0:
-            logging.info(f"Cleared immunity for {affected} player(s) in league {league_id} division {division}")
-        
+            logging.info(f"Cleared immunity for {affected} player(s) in league {league_id} division {division}"
+                         f"{f' (season_start_week={season_start_week})' if season_start_week else ' (unconditional)'}")
+
         return affected
     finally:
         cursor.close()
