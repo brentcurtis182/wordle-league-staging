@@ -10973,27 +10973,6 @@ def _run_one_time_migrations():
             )
         """)
         
-        # Fix: Both divisions in league 4 transitioned simultaneously on 2026-03-09,
-        # but the promoted player (Jess) was given immunity unnecessarily.
-        # Clear any stale immunity flags for division-mode leagues where both
-        # divisions are on the same new season (simultaneous transition).
-        cursor.execute("""
-            UPDATE players p
-            SET division_immunity = FALSE
-            FROM (
-                SELECT ds1.league_id
-                FROM division_seasons ds1
-                JOIN division_seasons ds2 ON ds1.league_id = ds2.league_id
-                WHERE ds1.division = 1 AND ds2.division = 2
-                  AND ds1.current_season = ds2.current_season
-            ) synced
-            WHERE p.league_id = synced.league_id
-              AND p.division = 1
-              AND p.division_immunity = TRUE
-        """)
-        if cursor.rowcount > 0:
-            logging.info(f"Startup migration: cleared stale immunity for {cursor.rowcount} player(s)")
-        
         # Fix NULL season_start_week in league_seasons — use earliest weekly_winner week
         cursor.execute("""
             UPDATE league_seasons ls
