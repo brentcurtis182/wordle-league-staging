@@ -6800,7 +6800,7 @@ def dashboard_message_config(league_id):
     if not message_type:
         return jsonify({'success': False, 'error': 'Missing message_type'}), 400
 
-    VALID_MESSAGE_TYPES = {'perfect_score_congrats', 'failure_roast', 'daily_loser', 'monday_recap', 'sunday_race_update', 'message'}
+    VALID_MESSAGE_TYPES = {'perfect_score', 'perfect_score_congrats', 'failure_roast', 'daily_loser', 'monday_recap', 'sunday_race_update', 'message'}
     if message_type not in VALID_MESSAGE_TYPES:
         return jsonify({'success': False, 'error': 'Invalid message_type'}), 400
 
