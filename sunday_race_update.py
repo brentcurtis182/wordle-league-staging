@@ -629,9 +629,12 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
         
         if len(leaders) > 1:
             leader_list = " and ".join(leader_names)
-            scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")
+            win_notes = ", ".join(f"{n} now has {div_weekly_wins.get(n, 1)}" for n in leader_names)
+            scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win! (Season wins: {win_notes})")
         else:
-            scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}!")
+            winner_wins = div_weekly_wins.get(leader_names[0], 1)
+            ordinal = {1: '1st', 2: '2nd', 3: '3rd'}.get(winner_wins, f'{winner_wins}th')
+            scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! This is their {ordinal} win this season.")
     elif len(leaders) == 1:
         leader_text = f"{leader_names[0]} leads at {leader_total}"
         parts = [leader_text]
