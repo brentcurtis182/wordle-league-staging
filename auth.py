@@ -28,13 +28,13 @@ def _get_pool():
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
             _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=2, maxconn=10,
+                minconn=2, maxconn=20,
                 dsn=database_url,
                 connect_timeout=10,
             )
         else:
             _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=2, maxconn=10,
+                minconn=2, maxconn=20,
                 host=os.environ.get('PGHOST'),
                 database=os.environ.get('PGDATABASE'),
                 user=os.environ.get('PGUSER'),

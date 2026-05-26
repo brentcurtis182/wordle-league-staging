@@ -393,40 +393,10 @@ def get_phone_mappings_from_db():
         return _phone_mappings_cache  # Return stale cache on error
 
 def get_db_connection():
-    """Get PostgreSQL database connection"""
+    """Get PostgreSQL database connection (pooled via auth module)."""
     try:
-        # Try DATABASE_URL first (Railway style), then fall back to individual vars
-        database_url = os.environ.get('DATABASE_URL')
-        
-        if database_url:
-            logging.info(f"Connecting via DATABASE_URL")
-            conn = psycopg2.connect(database_url, connect_timeout=10)
-        else:
-            # Fall back to individual environment variables
-            pghost = os.environ.get('PGHOST')
-            pgdb = os.environ.get('PGDATABASE')
-            pguser = os.environ.get('PGUSER')
-            pgport = os.environ.get('PGPORT', 5432)
-            
-            logging.info(f"Connecting to PostgreSQL: host={pghost}, db={pgdb}, user={pguser}, port={pgport}")
-            
-            conn = psycopg2.connect(
-                host=pghost,
-                database=pgdb,
-                user=pguser,
-                password=os.environ.get('PGPASSWORD'),
-                port=pgport,
-                connect_timeout=10
-            )
-        
-        logging.info("Database connection successful!")
-        
-        # Set statement timeout to 20 seconds to prevent hanging queries
-        cursor = conn.cursor()
-        cursor.execute("SET statement_timeout = '20s'")
-        cursor.close()
-        
-        return conn
+        from auth import get_db_connection as _pooled_conn
+        return _pooled_conn()
     except Exception as e:
         logging.error(f"Database connection error: {e}")
         return None
@@ -2568,14 +2538,8 @@ def discord_register_commands():
 def auth_login():
     """Login page and handler"""
     try:
-        from auth import login_user, validate_session, create_auth_tables
+        from auth import login_user, validate_session
         from dashboard import render_login_page, render_redirect_page
-        
-        # Run migration on first login attempt (creates tables/columns if missing)
-        try:
-            create_auth_tables()
-        except Exception:
-            pass
         
         # Check if already logged in - redirect with loading screen (no white flash)
         session_token = request.cookies.get('session_token')
@@ -5687,7 +5651,7 @@ def dashboard_check_status(league_id):
 @app.route('/admin/dashboard')
 def admin_dashboard():
     """Admin dashboard - view all leagues across all users"""
-    from auth import validate_session, create_auth_tables
+    from auth import validate_session
     from dashboard import render_admin_dashboard
 
     session_token = request.cookies.get('session_token')
@@ -5698,17 +5662,6 @@ def admin_dashboard():
 
     if user.get('role') != 'admin':
         return redirect('/dashboard')
-
-    # Ensure latest schema migrations have run (e.g. admin_config table)
-    try:
-        create_auth_tables()
-    except Exception:
-        pass
-    try:
-        from billing import create_billing_tables
-        create_billing_tables()
-    except Exception:
-        pass
 
     try:
         conn = get_db_connection()

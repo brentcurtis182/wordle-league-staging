@@ -11,25 +11,28 @@ from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 def get_db_connection():
-    """Get PostgreSQL database connection"""
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        conn = psycopg2.connect(database_url, connect_timeout=10)
-    else:
-        conn = psycopg2.connect(
-            host=os.environ.get('PGHOST'),
-            database=os.environ.get('PGDATABASE'),
-            user=os.environ.get('PGUSER'),
-            password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT', 5432),
-            connect_timeout=10
-        )
-    
-    # Set statement timeout to 20 seconds to prevent hanging queries
-    cursor = conn.cursor()
-    cursor.execute("SET statement_timeout = '20s'")
-    cursor.close()
-    return conn
+    """Get PostgreSQL database connection (pooled via auth module)."""
+    try:
+        from auth import get_db_connection as _pooled_conn
+        return _pooled_conn()
+    except Exception:
+        # Fallback for scripts that run without the auth module available
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            conn = psycopg2.connect(database_url, connect_timeout=10)
+        else:
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST'),
+                database=os.environ.get('PGDATABASE'),
+                user=os.environ.get('PGUSER'),
+                password=os.environ.get('PGPASSWORD'),
+                port=os.environ.get('PGPORT', 5432),
+                connect_timeout=10
+            )
+        cursor = conn.cursor()
+        cursor.execute("SET statement_timeout = '20s'")
+        cursor.close()
+        return conn
 
 def get_league_min_scores(league_id, conn=None):
     """Return the per-league minimum scores per week (3-7, default 5)."""
