@@ -25,12 +25,21 @@ def _get_pool():
     """Lazy-init the connection pool on first use."""
     global _pool
     if _pool is None:
+        # TCP keepalive options so stale connections are detected quickly
+        # (Railway's proxy can silently close idle connections)
+        keepalive_kwargs = dict(
+            keepalives=1,
+            keepalives_idle=30,     # start probing after 30s idle
+            keepalives_interval=5,  # probe every 5s
+            keepalives_count=3,     # give up after 3 failed probes
+        )
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
             _pool = psycopg2.pool.ThreadedConnectionPool(
                 minconn=2, maxconn=20,
                 dsn=database_url,
                 connect_timeout=10,
+                **keepalive_kwargs,
             )
         else:
             _pool = psycopg2.pool.ThreadedConnectionPool(
@@ -41,8 +50,9 @@ def _get_pool():
                 password=os.environ.get('PGPASSWORD'),
                 port=os.environ.get('PGPORT', 5432),
                 connect_timeout=10,
+                **keepalive_kwargs,
             )
-        logging.info('DB connection pool initialized (2-10 connections)')
+        logging.info('DB connection pool initialized (2-20 connections)')
     return _pool
 
 class _PooledConnection:
@@ -71,11 +81,29 @@ def get_db_connection():
     try:
         pool = _get_pool()
         conn = pool.getconn()
-        # Reset connection state and set statement timeout
-        conn.autocommit = False
-        cursor = conn.cursor()
-        cursor.execute("SET statement_timeout = '20s'")
-        cursor.close()
+        # Health-check: detect stale/dead connections before returning
+        try:
+            conn.autocommit = False
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.execute("SET statement_timeout = '20s'")
+            cursor.close()
+        except Exception:
+            # Connection is dead — discard it and open a fresh one
+            logging.warning('Stale pooled connection detected, replacing')
+            try:
+                pool.putconn(conn, close=True)
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            conn = pool.getconn()
+            conn.autocommit = False
+            cursor = conn.cursor()
+            cursor.execute("SET statement_timeout = '20s'")
+            cursor.close()
         return _PooledConnection(conn, pool)
     except Exception:
         # Pool exhausted or stale — fall back to direct connection
@@ -537,7 +565,7 @@ def get_shared_leagues(user_id):
             cursor.execute("SELECT phone, slack_user_id FROM users WHERE id = %s", (user_id,))
             result = cursor.fetchone()
             if not result:
-                return []
+                return []  # finally block will close conn
             user_phone = result[0] or ''
             user_slack_id = result[1] or ''
         except Exception:
@@ -546,12 +574,12 @@ def get_shared_leagues(user_id):
             cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
             result = cursor.fetchone()
             if not result:
-                return []
+                return []  # finally block will close conn
             user_phone = result[0] or ''
             user_slack_id = ''
 
         if not user_phone and not user_slack_id:
-            return []
+            return []  # finally block will close conn
 
         leagues = []
         managed_league_ids = set()

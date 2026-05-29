@@ -902,7 +902,7 @@ def handle_webhook_event(payload, sig_header):
         cursor.close()
         conn.close()
         return True, "Already processed"
-    finally:
+    else:
         cursor.close()
         conn.close()
 
