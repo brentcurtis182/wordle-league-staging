@@ -1798,6 +1798,72 @@ def health():
     """Health check endpoint"""
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
 
+@app.route('/health/latency', methods=['GET'])
+def health_latency():
+    """Diagnostic endpoint — measures DB connection + query latency"""
+    import time as _time
+    results = {}
+
+    # 1. Measure fresh connection time
+    t0 = _time.perf_counter()
+    try:
+        conn = get_db_connection()
+        t1 = _time.perf_counter()
+        results['db_connect_ms'] = round((t1 - t0) * 1000, 1)
+    except Exception as e:
+        return {'error': f'connection failed: {e}'}, 500
+
+    try:
+        cursor = conn.cursor()
+
+        # 2. Simple SELECT 1
+        t0 = _time.perf_counter()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        t1 = _time.perf_counter()
+        results['select_1_ms'] = round((t1 - t0) * 1000, 1)
+
+        # 3. Real query — session lookup (typical auth check)
+        t0 = _time.perf_counter()
+        cursor.execute("SELECT COUNT(*) FROM user_sessions WHERE is_valid = TRUE AND expires_at > CURRENT_TIMESTAMP")
+        cursor.fetchone()
+        t1 = _time.perf_counter()
+        results['session_count_ms'] = round((t1 - t0) * 1000, 1)
+
+        # 4. Real query — leagues list
+        t0 = _time.perf_counter()
+        cursor.execute("SELECT COUNT(*) FROM leagues")
+        cursor.fetchone()
+        t1 = _time.perf_counter()
+        results['league_count_ms'] = round((t1 - t0) * 1000, 1)
+
+        # 5. Real query — players list
+        t0 = _time.perf_counter()
+        cursor.execute("SELECT COUNT(*) FROM players WHERE active = TRUE")
+        cursor.fetchone()
+        t1 = _time.perf_counter()
+        results['player_count_ms'] = round((t1 - t0) * 1000, 1)
+
+        # 6. Check indexes on key tables
+        t0 = _time.perf_counter()
+        cursor.execute("""
+            SELECT tablename, indexname FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND tablename IN ('user_sessions', 'user_leagues', 'leagues', 'players', 'scores', 'subscriptions', 'subscription_leagues')
+            ORDER BY tablename, indexname
+        """)
+        indexes = [{'table': r[0], 'index': r[1]} for r in cursor.fetchall()]
+        t1 = _time.perf_counter()
+        results['index_query_ms'] = round((t1 - t0) * 1000, 1)
+        results['indexes'] = indexes
+
+        cursor.close()
+    finally:
+        conn.close()
+
+    results['total_ms'] = round(sum(v for k, v in results.items() if k.endswith('_ms')), 1)
+    return results
+
 # =============================================================================
 # SLACK INTEGRATION ROUTES
 # =============================================================================
