@@ -1804,12 +1804,13 @@ def health_latency():
     import time as _time
     results = {}
 
-    # 1. Measure fresh connection time
+    # 1. Measure connection time (pooled — should be near-zero after first call)
     t0 = _time.perf_counter()
     try:
         conn = get_db_connection()
         t1 = _time.perf_counter()
         results['db_connect_ms'] = round((t1 - t0) * 1000, 1)
+        results['connect_note'] = 'pooled' if hasattr(conn, '_pool') else 'direct'
     except Exception as e:
         return {'error': f'connection failed: {e}'}, 500
 
