@@ -773,24 +773,25 @@ def get_player_ai_settings(league_id, player_id, message_type):
         logging.error(f"Error getting player AI settings: {e}")
         return (True, None)
 
-def get_all_player_ai_settings(league_id):
+def get_all_player_ai_settings(league_id, conn=None):
     """Get all player AI settings for a league, returns dict keyed by 'message_type_player_id'"""
+    own_conn = conn is None
     try:
-        conn = get_db_connection()
-        if not conn:
-            return {}
-        
+        if own_conn:
+            conn = get_db_connection()
+            if not conn:
+                return {}
+
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT player_id, message_type, enabled, severity_override 
-            FROM ai_player_settings 
+            SELECT player_id, message_type, enabled, severity_override
+            FROM ai_player_settings
             WHERE league_id = %s
         """, (league_id,))
-        
+
         results = cursor.fetchall()
         cursor.close()
-        conn.close()
-        
+
         settings = {}
         for row in results:
             player_id, message_type, enabled, severity_override = row
@@ -800,10 +801,13 @@ def get_all_player_ai_settings(league_id):
                 'severity': severity_override
             }
         return settings
-        
+
     except Exception as e:
         logging.error(f"Error getting all player AI settings: {e}")
         return {}
+    finally:
+        if own_conn and conn:
+            conn.close()
 
 def get_severity_prompt(severity, message_type):
     """Get the appropriate prompt modifier based on severity level"""
@@ -2817,68 +2821,80 @@ def auth_logout():
 @app.route('/dashboard')
 def dashboard():
     """Main dashboard page"""
-    from auth import validate_session, get_user_leagues, get_shared_leagues
+    from auth import validate_session, get_user_leagues, get_shared_leagues, get_db_connection
     from dashboard import render_dashboard
 
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
+    conn = get_db_connection()
+    try:
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token, conn=conn)
 
-    if not user:
-        return redirect('/auth/login')
-    
-    leagues = get_user_leagues(user['id'])
-    shared_leagues = get_shared_leagues(user['id'])
-    message = request.args.get('message')
-    error = request.args.get('error')
-    
-    return render_dashboard(user, leagues, shared_leagues=shared_leagues, message=message, error=error)
+        if not user:
+            return redirect('/auth/login')
+
+        leagues = get_user_leagues(user['id'], conn=conn)
+        shared_leagues = get_shared_leagues(user['id'], conn=conn)
+        message = request.args.get('message')
+        error = request.args.get('error')
+
+        return render_dashboard(user, leagues, shared_leagues=shared_leagues, message=message, error=error)
+    finally:
+        conn.close()
 
 @app.route('/dashboard/membership')
 def dashboard_membership():
     """League Membership page — manage subscriptions and plans"""
-    from auth import validate_session
+    from auth import validate_session, get_db_connection
     from billing import get_user_subscriptions
     from dashboard import render_membership_page
 
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return redirect('/auth/login')
+    conn = get_db_connection()
+    try:
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token, conn=conn)
+        if not user:
+            return redirect('/auth/login')
 
-    subscriptions = get_user_subscriptions(user['id'])
-    message = request.args.get('message')
-    error = request.args.get('error')
+        subscriptions = get_user_subscriptions(user['id'], conn=conn)
+        message = request.args.get('message')
+        error = request.args.get('error')
 
-    # If redirected from activate with a league_id, hint that they need a new plan
-    league_id = request.args.get('league_id')
-    if league_id and not message and not error:
-        # Check if all existing subscriptions are already linked to leagues
-        active_subs = [s for s in subscriptions if s.get('status') in ('active', 'trialing')]
-        all_linked = all(s.get('leagues') for s in active_subs) if active_subs else True
-        if all_linked:
-            message = "You'll need to add a new subscription plan to activate this league."
+        # If redirected from activate with a league_id, hint that they need a new plan
+        league_id = request.args.get('league_id')
+        if league_id and not message and not error:
+            # Check if all existing subscriptions are already linked to leagues
+            active_subs = [s for s in subscriptions if s.get('status') in ('active', 'trialing')]
+            all_linked = all(s.get('leagues') for s in active_subs) if active_subs else True
+            if all_linked:
+                message = "You'll need to add a new subscription plan to activate this league."
 
-    return render_membership_page(user, subscriptions, message=message, error=error)
+        return render_membership_page(user, subscriptions, message=message, error=error)
+    finally:
+        conn.close()
 
 
 @app.route('/dashboard/profile')
 def dashboard_profile():
     """User profile page"""
-    from auth import validate_session, get_user_details, get_user_leagues, get_active_session_count
+    from auth import validate_session, get_user_details, get_user_leagues, get_active_session_count, get_db_connection
     from dashboard import render_profile_page
 
-    session_token = request.cookies.get('session_token')
-    user = validate_session(session_token)
-    if not user:
-        return redirect('/auth/login')
+    conn = get_db_connection()
+    try:
+        session_token = request.cookies.get('session_token')
+        user = validate_session(session_token, conn=conn)
+        if not user:
+            return redirect('/auth/login')
 
-    user_details = get_user_details(user['id'])
-    leagues = get_user_leagues(user['id'])
-    active_sessions = get_active_session_count(user['id'])
-    message = request.args.get('message')
-    error = request.args.get('error')
-    
-    return render_profile_page(user, user_details, leagues, active_sessions, message=message, error=error)
+        user_details = get_user_details(user['id'], conn=conn)
+        leagues = get_user_leagues(user['id'], conn=conn)
+        active_sessions = get_active_session_count(user['id'], conn=conn)
+        message = request.args.get('message')
+        error = request.args.get('error')
+
+        return render_profile_page(user, user_details, leagues, active_sessions, message=message, error=error)
+    finally:
+        conn.close()
 
 @app.route('/dashboard/profile/update', methods=['POST'])
 def dashboard_profile_update():
@@ -3182,42 +3198,46 @@ def dashboard_create_league():
 @app.route('/dashboard/league/<int:league_id>')
 def dashboard_league(league_id):
     """League management page"""
-    from auth import validate_session, can_manage_league, get_config
+    from auth import validate_session, can_manage_league, get_config, get_db_connection
     from dashboard import render_league_management, get_league_players, get_league_info, get_pending_removal_players
     from billing import get_league_billing_context, get_user_subscriptions_for_linking
 
-    session_token = request.cookies.get('session_token')
-    logging.info(f"League page: session_token present: {bool(session_token)}")
-    user = validate_session(session_token)
-    logging.info(f"League page: user validated: {bool(user)}")
+    conn = get_db_connection()
+    try:
+        session_token = request.cookies.get('session_token')
+        logging.info(f"League page: session_token present: {bool(session_token)}")
+        user = validate_session(session_token, conn=conn)
+        logging.info(f"League page: user validated: {bool(user)}")
 
-    if not user:
-        logging.warning(f"League page: No valid user, redirecting to login")
-        return redirect('/auth/login')
+        if not user:
+            logging.warning(f"League page: No valid user, redirecting to login")
+            return redirect('/auth/login')
 
-    if not can_manage_league(user['id'], league_id):
-        return redirect('/dashboard?error=You do not have access to this league')
+        if not can_manage_league(user['id'], league_id, conn=conn):
+            return redirect('/dashboard?error=You do not have access to this league')
 
-    league = get_league_info(league_id)
-    if not league:
-        return redirect('/dashboard?error=League not found')
+        league = get_league_info(league_id, conn=conn)
+        if not league:
+            return redirect('/dashboard?error=League not found')
 
-    players = get_league_players(league_id)
-    # Only SMS leagues need the "re-link" removal banner; Slack/Discord removals are instant
-    channel_type = league.get('channel_type') or 'sms'
-    removed_players = get_pending_removal_players(league_id) if channel_type == 'sms' else []
-    player_ai_settings = get_all_player_ai_settings(league_id)
-    message = request.args.get('message')
-    error = request.args.get('error')
+        players = get_league_players(league_id, conn=conn)
+        # Only SMS leagues need the "re-link" removal banner; Slack/Discord removals are instant
+        channel_type = league.get('channel_type') or 'sms'
+        removed_players = get_pending_removal_players(league_id, conn=conn) if channel_type == 'sms' else []
+        player_ai_settings = get_all_player_ai_settings(league_id, conn=conn)
+        message = request.args.get('message')
+        error = request.args.get('error')
 
-    # Billing context — single consolidated query replaces 4 separate calls
-    payment_config_key = 'payment_required_sms' if channel_type == 'sms' else 'payment_required_slack'
-    payment_required = get_config(payment_config_key, 'false') == 'true'
-    billing_context = get_league_billing_context(league_id, league, channel_type, payment_required=payment_required)
-    if payment_required and not billing_context['linked_subscription']:
-        billing_context['available_subscriptions'] = get_user_subscriptions_for_linking(user['id'], channel_type)
+        # Billing context — single consolidated query replaces 4 separate calls
+        payment_config_key = 'payment_required_sms' if channel_type == 'sms' else 'payment_required_slack'
+        payment_required = get_config(payment_config_key, 'false', conn=conn) == 'true'
+        billing_context = get_league_billing_context(league_id, league, channel_type, payment_required=payment_required, conn=conn)
+        if payment_required and not billing_context['linked_subscription']:
+            billing_context['available_subscriptions'] = get_user_subscriptions_for_linking(user['id'], channel_type, conn=conn)
 
-    return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)
+        return render_league_management(user, league, players, player_ai_settings=player_ai_settings, message=message, error=error, removed_players=removed_players, billing_context=billing_context)
+    finally:
+        conn.close()
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):

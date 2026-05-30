@@ -5069,11 +5069,13 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
     """
 
 
-def get_league_players(league_id):
+def get_league_players(league_id, conn=None):
     """Get all players in a league"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
             SELECT id, name, phone_number, COALESCE(pending_activation, FALSE),
@@ -5102,14 +5104,17 @@ def get_league_players(league_id):
         return players
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
-def get_pending_removal_players(league_id):
+def get_pending_removal_players(league_id, conn=None):
     """Get players that were removed from an active league but group chat hasn't been re-linked yet"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
             SELECT id, name
@@ -5117,11 +5122,12 @@ def get_pending_removal_players(league_id):
             WHERE league_id = %s AND active = FALSE AND COALESCE(pending_removal, FALSE) = TRUE
             ORDER BY name
         """, (league_id,))
-        
+
         return [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 def get_ai_player_settings(league_id, message_type):
@@ -5160,9 +5166,11 @@ def get_ai_player_settings(league_id, message_type):
         cursor.close()
         conn.close()
 
-def get_league_info(league_id):
+def get_league_info(league_id, conn=None):
     """Get league information including AI messaging settings and channel type"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -5235,7 +5243,8 @@ def get_league_info(league_id):
         return None
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 def render_admin_dashboard(user, leagues, config=None):

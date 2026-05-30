@@ -159,9 +159,11 @@ def create_auth_tables():
         cursor.close()
         conn.close()
 
-def get_config(key, default=None):
+def get_config(key, default=None, conn=None):
     """Get a config value from admin_config table"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT value FROM admin_config WHERE key = %s", (key,))
@@ -171,7 +173,8 @@ def get_config(key, default=None):
         return default
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 def set_config(key, value):
     """Set a config value in admin_config table"""
@@ -336,15 +339,17 @@ def login_user(email, password):
         cursor.close()
         conn.close()
 
-def validate_session(session_token):
+def validate_session(session_token, conn=None):
     """Validate a session token and return user info"""
     if not session_token:
         logging.info("validate_session: No session token provided")
         return None
-    
-    conn = get_db_connection()
+
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # First check if session exists at all
         cursor.execute("""
@@ -392,7 +397,8 @@ def validate_session(session_token):
         return None
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 def logout_user(session_token):
     """Invalidate a session token"""
@@ -413,11 +419,13 @@ def logout_user(session_token):
         cursor.close()
         conn.close()
 
-def get_user_leagues(user_id):
+def get_user_leagues(user_id, conn=None):
     """Get all leagues a user manages"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
             SELECT l.id, l.name, l.display_name, ul.role, l.twilio_conversation_sid, l.slug,
@@ -462,11 +470,14 @@ def get_user_leagues(user_id):
         return []
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
-def get_shared_leagues(user_id):
+def get_shared_leagues(user_id, conn=None):
     """Get leagues the user is a player in (matched by phone number or Slack user ID) but does not manage"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -557,7 +568,8 @@ def get_shared_leagues(user_id):
         return []
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 def assign_league_to_user(user_id, league_id, role='owner'):
     """Assign a league to a user"""
@@ -635,11 +647,13 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def get_user_details(user_id):
+def get_user_details(user_id, conn=None):
     """Get full user details for profile page"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         try:
             cursor.execute("""
@@ -680,7 +694,8 @@ def get_user_details(user_id):
         return None
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 def change_password(user_id, current_password, new_password):
     """Change user's password after verifying current password"""
@@ -822,14 +837,16 @@ def logout_all_sessions(user_id, except_token=None):
         cursor.close()
         conn.close()
 
-def get_active_session_count(user_id):
+def get_active_session_count(user_id, conn=None):
     """Get count of active sessions for a user"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
-            SELECT COUNT(*) FROM user_sessions 
+            SELECT COUNT(*) FROM user_sessions
             WHERE user_id = %s AND is_valid = TRUE AND expires_at > CURRENT_TIMESTAMP
         """, (user_id,))
         return cursor.fetchone()[0]
@@ -838,7 +855,8 @@ def get_active_session_count(user_id):
         return 0
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 def delete_account(user_id, password):
     """Delete a user account after password verification"""
@@ -1199,23 +1217,26 @@ def google_oauth_callback(code):
         conn.close()
 
 
-def can_manage_league(user_id, league_id):
+def can_manage_league(user_id, league_id, conn=None):
     """Check if a user can manage a specific league"""
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
             SELECT role FROM user_leagues
             WHERE user_id = %s AND league_id = %s
         """, (user_id, league_id))
-        
+
         result = cursor.fetchone()
         return result is not None
-        
+
     except Exception as e:
         logging.error(f"Error checking league access: {e}")
         return False
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()

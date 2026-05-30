@@ -279,11 +279,13 @@ def create_customer_portal_session(user_id, email, return_url=None):
 # Subscription Queries
 # ---------------------------------------------------------------------------
 
-def get_user_subscriptions(user_id):
+def get_user_subscriptions(user_id, conn=None):
     """Get all subscriptions for a user with their assigned leagues."""
     from auth import get_db_connection
 
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -325,7 +327,8 @@ def get_user_subscriptions(user_id):
 
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 def get_league_subscription_status(league_id):
@@ -538,7 +541,7 @@ def get_player_limit_for_league(league_id, channel_type):
 # Consolidated billing context (manage page)
 # ---------------------------------------------------------------------------
 
-def get_league_billing_context(league_id, league, channel_type, payment_required=False):
+def get_league_billing_context(league_id, league, channel_type, payment_required=False, conn=None):
     """
     Single-query fetch of all billing info for the manage page.
     Replaces: get_league_linked_subscription + get_league_subscription_status
@@ -559,7 +562,9 @@ def get_league_billing_context(league_id, league, channel_type, payment_required
             'available_subscriptions': [],
         }
 
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -623,7 +628,8 @@ def get_league_billing_context(league_id, league, channel_type, payment_required
 
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -666,7 +672,7 @@ def get_league_linked_subscription(league_id):
         conn.close()
 
 
-def get_user_subscriptions_for_linking(user_id, channel_type):
+def get_user_subscriptions_for_linking(user_id, channel_type, conn=None):
     """
     Get active subscriptions with available slots for linking a league.
     channel_type: 'sms', 'slack', or 'discord' (discord maps to 'slack' plan_type).
@@ -676,7 +682,9 @@ def get_user_subscriptions_for_linking(user_id, channel_type):
 
     plan_type = 'slack' if channel_type in ('slack', 'discord') else 'sms'
 
-    conn = get_db_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
@@ -733,7 +741,8 @@ def get_user_subscriptions_for_linking(user_id, channel_type):
         return results
     finally:
         cursor.close()
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 def link_league_to_subscription(subscription_id, league_id, player_count):
