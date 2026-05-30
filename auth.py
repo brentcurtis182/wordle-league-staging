@@ -11,119 +11,29 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, redirect, url_for, session, make_response
 import psycopg2
-import psycopg2.pool
 from werkzeug.security import generate_password_hash, check_password_hash
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ---------------------------------------------------------------------------
-# Connection pool — reuses connections instead of opening a new one per call
-# ---------------------------------------------------------------------------
-_pool = None
-
-def _get_pool():
-    """Lazy-init the connection pool on first use."""
-    global _pool
-    if _pool is None:
-        # TCP keepalive options so stale connections are detected quickly
-        # (Railway's proxy can silently close idle connections)
-        keepalive_kwargs = dict(
-            keepalives=1,
-            keepalives_idle=30,     # start probing after 30s idle
-            keepalives_interval=5,  # probe every 5s
-            keepalives_count=3,     # give up after 3 failed probes
-        )
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url:
-            _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=2, maxconn=20,
-                dsn=database_url,
-                connect_timeout=10,
-                **keepalive_kwargs,
-            )
-        else:
-            _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=2, maxconn=20,
-                host=os.environ.get('PGHOST'),
-                database=os.environ.get('PGDATABASE'),
-                user=os.environ.get('PGUSER'),
-                password=os.environ.get('PGPASSWORD'),
-                port=os.environ.get('PGPORT', 5432),
-                connect_timeout=10,
-                **keepalive_kwargs,
-            )
-        logging.info('DB connection pool initialized (2-20 connections)')
-    return _pool
-
-class _PooledConnection:
-    """Wrapper that returns connection to pool on close() instead of destroying it."""
-    def __init__(self, conn, pool):
-        self._conn = conn
-        self._pool = pool
-    def close(self):
-        try:
-            self._conn.rollback()  # reset any uncommitted state
-            self._pool.putconn(self._conn)
-        except Exception:
-            try:
-                self._conn.close()
-            except Exception:
-                pass
-    def __getattr__(self, name):
-        return getattr(self._conn, name)
-    def __enter__(self):
-        return self
-    def __exit__(self, *args):
-        self.close()
-
 def get_db_connection():
-    """Get a PostgreSQL connection from the pool."""
-    try:
-        pool = _get_pool()
-        conn = pool.getconn()
-        # Health-check: detect stale/dead connections before returning
-        try:
-            conn.autocommit = False
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-            cursor.execute("SET statement_timeout = '20s'")
-            cursor.close()
-        except Exception:
-            # Connection is dead — discard it and open a fresh one
-            logging.warning('Stale pooled connection detected, replacing')
-            try:
-                pool.putconn(conn, close=True)
-            except Exception:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-            conn = pool.getconn()
-            conn.autocommit = False
-            cursor = conn.cursor()
-            cursor.execute("SET statement_timeout = '20s'")
-            cursor.close()
-        return _PooledConnection(conn, pool)
-    except Exception:
-        # Pool exhausted or stale — fall back to direct connection
-        logging.warning('DB pool unavailable, falling back to direct connection')
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url:
-            conn = psycopg2.connect(database_url, connect_timeout=10)
-        else:
-            conn = psycopg2.connect(
-                host=os.environ.get('PGHOST'),
-                database=os.environ.get('PGDATABASE'),
-                user=os.environ.get('PGUSER'),
-                password=os.environ.get('PGPASSWORD'),
-                port=os.environ.get('PGPORT', 5432),
-                connect_timeout=10,
-            )
-        cursor = conn.cursor()
-        cursor.execute("SET statement_timeout = '20s'")
-        cursor.close()
-        return conn
+    """Get a fresh PostgreSQL connection. Each request gets its own connection
+    so there are no stale-connection hangs from pooling."""
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        conn = psycopg2.connect(database_url, connect_timeout=10)
+    else:
+        conn = psycopg2.connect(
+            host=os.environ.get('PGHOST'),
+            database=os.environ.get('PGDATABASE'),
+            user=os.environ.get('PGUSER'),
+            password=os.environ.get('PGPASSWORD'),
+            port=os.environ.get('PGPORT', 5432),
+            connect_timeout=10,
+        )
+    cursor = conn.cursor()
+    cursor.execute("SET statement_timeout = '20s'")
+    cursor.close()
+    return conn
 
 def create_auth_tables():
     """Create users and user_leagues tables if they don't exist"""
