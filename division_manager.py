@@ -840,11 +840,15 @@ def check_division_season_transition(league_id, division):
                             week_scores[ws] = []
                         week_scores[ws].append(sc)
 
+                    # Count missed weeks AND calculate season total (mirrors relegation logic)
+                    missed = 0
                     season_total = 0
                     w = season_start
                     while w <= last_week:
                         scores_in_week = week_scores.get(w, [])
                         valid = sorted([s for s in scores_in_week if s < 7])
+                        if len(valid) < min_scores:
+                            missed += 1
                         season_total += sum(valid[:min_scores]) if valid else 0
                         w += 7
 
@@ -857,22 +861,24 @@ def check_division_season_transition(league_id, division):
                     """, (league_id, pname, season_start, last_week))
                     win_count = cursor.fetchone()[0]
 
-                    candidates.append((pname, season_total, win_count))
-                    logging.info(f"  Promotion candidate: {pname} - season_total={season_total}, wins={win_count}")
+                    candidates.append((pname, season_total, win_count, missed))
+                    logging.info(f"  Promotion candidate: {pname} - missed_weeks={missed}, season_total={season_total}, wins={win_count}")
 
-                # Sort: best (lowest) season total first, then most wins
-                candidates.sort(key=lambda x: (x[1], -x[2]))
+                # Sort: fewest missed weeks first, then best (lowest) season total, then most wins
+                # Players with missed weeks rank behind full-participation players
+                candidates.sort(key=lambda x: (x[3], x[1], -x[2]))
                 spots_remaining = promoted_count - len(promoted_names)
 
+                # candidates are tuples: (name, season_total, win_count, missed_weeks)
                 i = 0
                 while spots_remaining > 0 and i < len(candidates):
+                    current_missed = candidates[i][3]
                     current_total = candidates[i][1]
-                    current_wins = candidates[i][2]
 
-                    # Check for tie at this position
+                    # Check for tie at this position (same missed weeks AND same total)
                     tied = [candidates[i]]
                     j = i + 1
-                    while j < len(candidates) and candidates[j][1] == current_total:
+                    while j < len(candidates) and candidates[j][3] == current_missed and candidates[j][1] == current_total:
                         tied.append(candidates[j])
                         j += 1
 
@@ -910,7 +916,7 @@ def check_division_season_transition(league_id, division):
                                     others = [n for n in all_tied_names if n != wt[0]]
                                     randomized_names[wt[0]] = {'tied_with': others, 'tied_score': current_total}
                                     spots_remaining -= 1
-                                logging.info(f"Promotion random draw in league {league_id}: {[d[0] for d in drawn]} selected from tied {all_tied_names} (score={current_total}, wins={current_win_count})")
+                                logging.info(f"Promotion random draw in league {league_id}: {[d[0] for d in drawn]} selected from tied {all_tied_names} (missed={current_missed}, score={current_total}, wins={current_win_count})")
                                 break
                         break
 
