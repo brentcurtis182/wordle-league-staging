@@ -928,7 +928,7 @@ def check_division_season_transition(league_id, division):
         conn.commit()
 
         logging.info(f"Division {division} transitioned to season {new_season} in league {league_id}")
-        return season_start  # Return old season start so caller can scope immunity clearing
+        return next_start  # Return new season start so caller can clear immunity for anyone who joined before it
     
     except Exception as e:
         conn.rollback()
@@ -1171,13 +1171,13 @@ def _relegate_player(cursor, league_id, player_name, joined_week):
 
 def clear_immunity(league_id, division, season_start_week=None):
     """
-    Clear immunity for players in a division when their first full season ends.
-    Called when a division season transitions.
+    Clear immunity for players in a division when a season transitions.
 
-    If season_start_week is provided, only clears immunity for players whose
-    division_joined_week <= season_start_week (they were present at or before
-    the season started, so they've completed a full season). Players who joined
-    mid-season (e.g. just promoted) keep their immunity.
+    If season_start_week is provided (the NEW season's start week), clears
+    immunity for players whose division_joined_week < season_start_week.
+    This means anyone who joined before the new season loses immunity —
+    they've had their protected season. Players promoted/relegated into this
+    season get joined_week = season_start_week, so they keep immunity.
 
     If season_start_week is None (e.g. both divisions transitioned simultaneously),
     clears all immunity in the division unconditionally.
@@ -1191,7 +1191,7 @@ def clear_immunity(league_id, division, season_start_week=None):
                 UPDATE players
                 SET division_immunity = FALSE
                 WHERE league_id = %s AND division = %s AND division_immunity = TRUE
-                  AND division_joined_week <= %s
+                  AND division_joined_week < %s
             """, (league_id, division, season_start_week))
         else:
             cursor.execute("""

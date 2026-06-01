@@ -644,15 +644,16 @@ def run_full_update_for_league(league_id):
         if is_division_mode:
             from division_manager import check_division_season_transition, check_division1_relegation, clear_immunity
             # Check each division separately
-            # transitioned_divisions stores {div_num: old_season_start_week}
+            # transitioned_divisions stores {div_num: new_season_start_week}
             transitioned_divisions = {}
             for div_num in (1, 2):
-                old_season_start = check_division_season_transition(league_id, div_num)
-                if old_season_start:
-                    transitioned_divisions[div_num] = old_season_start
-                    # Clear immunity only for players who were present before the ended season started
-                    # (players promoted mid-season keep their immunity)
-                    clear_immunity(league_id, div_num, season_start_week=old_season_start)
+                new_season_start = check_division_season_transition(league_id, div_num)
+                if new_season_start:
+                    transitioned_divisions[div_num] = new_season_start
+                    # Clear immunity for anyone who joined before the new season starts
+                    # (they've had their protected season; newly promoted/relegated players
+                    # get joined_week = new_season_start, so they keep immunity)
+                    clear_immunity(league_id, div_num, season_start_week=new_season_start)
                     if div_num == 1:
                         # Division I season ended - relegate worst Season Total player
                         try:
