@@ -965,14 +965,27 @@ ACCURACY RULES:
                         qparts = [f"{n} ({g} games)" for n, _, g in can_qualify]
                         scenario = f"{' and '.join(qparts)} each need to post today to qualify — lowest total wins!"
 
+                    # Season stakes: a would-be weekly winner sitting on (WINS_FOR_SEASON_VICTORY - 1)
+                    # wins would clinch the season by posting today and taking the win.
+                    stakes_clinchers = [n for n, _, _ in can_qualify if n in potential_season_clinchers]
+                    season_clinch_text = ""
+                    if len(stakes_clinchers) == 1:
+                        season_clinch_text = f" SEASON STAKES: If {stakes_clinchers[0]} posts today and takes the win, they clinch Season {current_season} ({WINS_FOR_SEASON_VICTORY}th win)!"
+                    elif len(stakes_clinchers) >= 2:
+                        names = " or ".join(stakes_clinchers[:2])
+                        season_clinch_text = f" SEASON STAKES: {names} are each one win away — today's winner could clinch Season {current_season}!"
+
                     context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
 SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
 {season_wins_summary}
 
-WEEKLY RACE ANALYSIS: {scenario}"""
-                    prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
+WEEKLY RACE ANALYSIS: {scenario}{season_clinch_text}"""
+                    if season_clinch_text:
+                        prompt = f"It's Sunday morning Wordle race update! {context_block} THIS IS HUGE - MENTION THE SEASON STAKES! Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
+                    else:
+                        prompt = f"It's Sunday morning Wordle race update! {context_block} Make it exciting with emojis! Keep it under 280 characters. Lower scores are better in Wordle."
             elif len(eligible) == 1:
                 # Check if any ineligible player one short of qualifying could still qualify and beat the leader
                 winner = eligible[0]
@@ -990,7 +1003,18 @@ WEEKLY RACE ANALYSIS: {scenario}"""
                 if not potential_qualifiers:
                     # Truly locked - no one can qualify and beat them
                     logging.info(f"Only one eligible player in league {league_id}: {winner['name']} has it locked")
-                    prompt = f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at {winner['best_5_total']}! No one else has enough scores to compete. Congratulate the winner! Use emojis. Keep it under 200 characters."
+                    # Season clinch detection (locked-win path) — this is a decided win, so a
+                    # player sitting on (WINS_FOR_SEASON_VICTORY - 1) wins clinches the season with it.
+                    season_clinch_text = ""
+                    if winner['name'] in potential_season_clinchers:
+                        season_clinch_text = f" SEASON CLINCH: {winner['name']} clinches Season {current_season} with their {WINS_FOR_SEASON_VICTORY}th win!"
+                    logging.info(f"League {league_id} (locked) season clinch text: '{season_clinch_text}'")
+                    if season_clinch_text:
+                        prompt = (f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at "
+                                  f"{winner['best_5_total']}! No one else has enough scores to compete.{season_clinch_text} "
+                                  f"THIS IS HUGE - MENTION THE SEASON CLINCH! Congratulate the winner! Use emojis. Keep it under 240 characters.")
+                    else:
+                        prompt = f"It's Sunday morning Wordle race update! {winner['name']} has this week LOCKED at {winner['best_5_total']}! No one else has enough scores to compete. Congratulate the winner! Use emojis. Keep it under 200 characters."
                 else:
                     # Someone could still qualify and beat the leader - fall through to full analysis
                     logging.info(f"Only one eligible player but {[p['name'] for p in potential_qualifiers]} could still qualify and beat them")
