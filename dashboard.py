@@ -2838,8 +2838,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     <input type="hidden" id="leagueSeasonWins" value="{_current_season_wins}">
                 </div>
                 <div class="form-group" style="margin-top:4px;">
-                    <button type="button" class="btn btn-primary" style="width:100%;" onclick="showLeagueSettingsModal()">💾 Save Settings</button>
-                    <p style="color: {COLORS['text_muted']}; font-size: 0.8em; margin: 6px 0 0; text-align:center;">Saves all settings above. (There's also a Save at the bottom.)</p>
+                    <button type="button" class="btn btn-primary" style="width:220px; flex-shrink:0;" onclick="showLeagueSettingsModal()">Save Changes</button>
                 </div>
                 <div class="form-group">
                     <label>League Mascot</label>
