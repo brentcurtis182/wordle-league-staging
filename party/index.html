@@ -81,7 +81,49 @@
     }
 </style>
 </head>
-<body>
+<body style="background:#06060e;">
+<div id="wpl-loading-overlay" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:#06060e; z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
+    <div style="text-align:center;">
+        <div style="display:flex; gap:8px; justify-content:center; perspective:600px; margin-bottom:32px;">
+            <div class="lt"></div><div class="lt"></div><div class="lt"></div><div class="lt"></div><div class="lt"></div>
+        </div>
+        <div style="width:200px; height:4px; background:#1a1a2e; border-radius:2px; overflow:hidden; margin:0 auto;">
+            <div id="wpl-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg,#00E8DA,#FFA64D); border-radius:2px; transition:width 0.3s ease;"></div>
+        </div>
+        <p style="color:#818384; margin-top:16px; font-family:'Segoe UI',sans-serif; font-size:0.9em;">Loading...</p>
+    </div>
+</div>
+<style>
+.lt { width:36px; height:36px; border-radius:6px; background:#37374a; animation: ltFlip 2s ease-in-out infinite; transition: background-color 0.3s ease; }
+.lt.t-cyan { background:#00E8DA; } .lt.t-orange { background:#FFA64D; } .lt.t-dark { background:#37374a; }
+@keyframes ltFlip { 0%, 100% { transform: rotateX(0); } 50% { transform: rotateX(180deg); } }
+</style>
+<script>
+(function() {
+    var ov = document.getElementById('wpl-loading-overlay');
+    var bar = document.getElementById('wpl-progress-bar');
+    if (!ov) return;
+    var colors = ['t-cyan','t-orange','t-dark'];
+    var tiles = ov.querySelectorAll('.lt');
+    function pick() { return colors[Math.floor(Math.random()*colors.length)]; }
+    tiles.forEach(function(t, i) {
+        t.classList.add(pick());
+        t.style.animationDelay = (i * 0.2) + 's';
+        t.addEventListener('animationiteration', function() {
+            colors.forEach(function(c) { t.classList.remove(c); });
+            t.classList.add(pick());
+        });
+    });
+    var progress = 0;
+    window._wplInterval = setInterval(function() {
+        if (progress < 70) progress += Math.random() * 8 + 2;
+        else if (progress < 90) progress += Math.random() * 2 + 0.5;
+        else { clearInterval(window._wplInterval); return; }
+        bar.style.width = Math.min(progress, 90) + '%';
+    }, 100);
+})();
+</script>
 <canvas id="wpl-particles"></canvas>
 <div class="wpl-orb wpl-orb-1"></div>
 <div class="wpl-orb wpl-orb-2"></div>
@@ -109,61 +151,61 @@
 </div>
 </div>
 <div class="tab-content active" id="latest">
-<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1767 - April 21, 2026</h2>
+<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1816 - June 09, 2026</h2>
 <div class="score-card">
     <div class="player-info">
-        <div class="player-name">Dustin</div>
-        <div class="player-score"><span style="color: #00E8DA; background-color: rgba(0, 232, 218, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">3/6</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Jason</div>
-        <div class="player-score"><span style="color: #00E8DA; background-color: rgba(0, 232, 218, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">3/6</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Dani</div>
-        <div class="player-score"><span style="color: #00E8DA; background-color: rgba(0, 232, 218, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">3/6</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Meghan</div>
+        <div class="player-name">Brent</div>
         <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
     </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Rob</div>
-        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
         <div class="player-name">Patty</div>
         <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
     </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Rob</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Dustin</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
         <div class="player-name">Jess</div>
-        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
     </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
-</div><div class="score-card">
-    <div class="player-info">
-        <div class="player-name">Brent</div>
-        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">4/6</span></div>
-    </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
 </div><div class="score-card">
     <div class="player-info">
         <div class="player-name">Matt</div>
         <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
     </div>
-    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-light"></span><span class="wl-block wl-light"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-light"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Jason</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Dani</div>
+        <div class="player-score"><span style="color: #FFA64D; background-color: rgba(255, 166, 77, 0.15); padding: 2px 8px; border-radius: 3px; display: inline-block; font-weight: bold;">5/6</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-orange"></span></div><div class="emoji-row"><span class="wl-block wl-orange"></span><span class="wl-block wl-dark"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-dark"></span></div><div class="emoji-row"><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span><span class="wl-block wl-cyan"></span></div></div></div>
+</div><div class="score-card">
+    <div class="player-info">
+        <div class="player-name">Meghan</div>
+        <div class="player-score"><span>No Score</span></div>
+    </div>
+    <div class="emoji-container"><div class="emoji-pattern"></div></div>
 </div>
 </div>
 <div class="tab-content" id="weekly">
@@ -198,42 +240,56 @@
 </thead>
 <tbody>
 <tr>
-    <td class="sticky-column"><strong>Jason</strong></td>
-    <td class="score-col-weekly-1" style="font-weight: bold;">7</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">57</td>
-    <td>2</td>
-    <td>-</td>
-    <td>-</td>
-    <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr>
     <td class="sticky-column"><strong>Jess</strong></td>
-    <td class="score-col-weekly-1" style="font-weight: bold;">8</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">59</td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">9</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">28</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
-    <td class="sticky-column"><strong>Rob</strong></td>
-    <td class="score-col-weekly-1" style="font-weight: bold;">9</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">63</td>
+    <td class="sticky-column"><strong>Dustin</strong></td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">10</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">30</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong>Jason</strong></td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">10</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">31</td>
+    <td>2</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+    <td class="sticky-column"><strong style="color: #00E8DA;">Rob</strong></td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">10</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;"><span style="color: #00E8DA;">Immune</span></td>
+    <td>2</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -274,28 +330,28 @@
 </thead>
 <tbody>
 <tr>
-    <td class="sticky-column"><strong>Dustin</strong></td>
+    <td class="sticky-column"><strong>Brent</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">8</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">121</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">8</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
 </tr>
 <tr>
-    <td class="sticky-column"><strong>Brent</strong></td>
+    <td class="sticky-column"><strong>Matt</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">9</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">122</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">9</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
-<td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
+<td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td class="medium" style="color: #FFA64D; font-weight: bold;">5</td><td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -304,7 +360,7 @@
 <tr>
     <td class="sticky-column"><strong>Patty</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">9</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">126</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">9</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -316,9 +372,9 @@
 <td>-</td>
 </tr>
 <tr>
-    <td class="sticky-column"><strong>Matt</strong></td>
+    <td class="sticky-column"><strong>Dani</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">10</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">119</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">10</td>
     <td>2</td>
     <td>-</td>
     <td>-</td>
@@ -330,29 +386,16 @@
 <td>-</td>
 </tr>
 <tr>
-    <td class="sticky-column"><strong style="color: #FFA64D;">Dani</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">3</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;"><span style="color: #FFA64D;">Relegated</span></td>
-    <td>1</td>
-    <td>-</td>
-    <td>-</td>
-    <td>-</td>
-<td>-</td>
-<td class="good" style="color: #00E8DA; font-weight: bold;">3</td><td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr>
     <td class="sticky-column"><strong>Meghan</strong></td>
-    <td class="score-col-weekly-2" style="font-weight: bold;">4</td>
-    <td class="score-col-season-2" style="display:none; font-weight: bold;">119</td>
-    <td>1</td>
-    <td style="color: #ff5c5c; font-weight: bold;">1</td>
+    <td class="score-col-weekly-2" style="font-weight: bold;">-</td>
+    <td class="score-col-season-2" style="display:none; font-weight: bold;">-</td>
+    <td>0</td>
     <td>-</td>
     <td>-</td>
-<td class="failed" style="color: #787c7e; font-weight: bold;">X</td><td class="medium" style="color: #FFA64D; font-weight: bold;">4</td><td>-</td>
+    <td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -412,63 +455,34 @@ function toggleScoreView(divNum) {
 
 </div>
 <div class="tab-content" id="stats">
+<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">5 weekly wins</strong> is the Season Champion!</p>
 <div class="season-container" style="margin-bottom: 30px;">
-<h3 style="margin-bottom: 10px; color: #00E8DA;">Division I - Season 7</h3>
+<h3 style="margin-bottom: 10px; color: #00E8DA;">Division I - Season 9</h3>
 <table class="season-table">
 <thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>
 <tbody>
 <tr>
     <td><strong>Jess</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Apr 06 (16)<br>Apr 13 (16)</td>
-</tr>
-<tr>
-    <td><strong>Jason</strong></td>
     <td>1</td>
-    <td style="white-space: nowrap;">Mar 30 (16)</td>
+    <td style="white-space: nowrap;">Jun 01 (19)</td>
 </tr>
 </tbody>
 </table>
 </div>
 <div class="season-container" style="margin-bottom: 30px;">
-<h3 style="margin-bottom: 10px; color: #FFA64D;">Division II - Season 6</h3>
+<h3 style="margin-bottom: 10px; color: #FFA64D;">Division II - Season 8</h3>
 <table class="season-table">
 <thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>
 <tbody>
-<tr>
-    <td><strong>Dustin</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 09 (17)<br>Mar 23 (18)</td>
-</tr>
-<tr>
-    <td><strong>Matt</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 30 (18)<br>Apr 06 (15)</td>
-</tr>
-<tr>
-    <td><strong>Brent</strong></td>
-    <td>2</td>
-    <td style="white-space: nowrap;">Mar 30 (18)<br>Apr 13 (17)</td>
-</tr>
-<tr>
-    <td><strong>Patty</strong></td>
-    <td>1</td>
-    <td style="white-space: nowrap;">Mar 16 (15)</td>
-</tr>
-<tr>
-    <td><strong>Meghan</strong></td>
-    <td>1</td>
-    <td style="white-space: nowrap;">Mar 30 (18)</td>
-</tr>
 </tbody>
 </table>
 </div>
-<p style="color: #00E8DA; font-weight: bold; margin: 12px 0 0 0; font-size: 1em;">Season 6:</p>
-<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div1-season-modal-6').style.display='flex'">Division <span style="color:#00E8DA">I</span> Winner: Jason <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+<p style="color: #00E8DA; font-weight: bold; margin: 12px 0 0 0; font-size: 1em;">Season 8:</p>
+<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div1-season-modal-8').style.display='flex'">Division <span style="color:#00E8DA">I</span> Winner: Jess <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
 <p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px;">Division <span style="color:#FFA64D">II</span> Winner: <span style="font-style: italic; opacity: 0.6;">In Progress</span></p>
-<p style="color: #00E8DA; font-weight: bold; margin: 12px 0 0 0; font-size: 1em;">Season 5:</p>
-<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div1-season-modal-5').style.display='flex'">Division <span style="color:#00E8DA">I</span> Winner: Jason <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
-<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div2-season-modal-5').style.display='flex'">Division <span style="color:#FFA64D">II</span> Winner: Jess <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+<p style="color: #00E8DA; font-weight: bold; margin: 12px 0 0 0; font-size: 1em;">Season 7:</p>
+<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div1-season-modal-7').style.display='flex'">Division <span style="color:#00E8DA">I</span> Winner: Jason <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
+<p class="season-winner-message" style="color: #d7dadc; font-weight: bold; margin: 0; padding-left: 20px; cursor: pointer;" onclick="document.getElementById('div2-season-modal-7').style.display='flex'">Division <span style="color:#FFA64D">II</span> Winner: Rob <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
 <p style="color: #FFA64D; font-weight: bold; margin-top: 12px; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;" onclick="document.getElementById('div-season-full-list-modal').style.display='flex';if(typeof divFlShowPage==='function')divFlShowPage(1);">Season Winners (Full List) <span style="font-size: 0.8em; opacity: 0.7;">&#9656;</span></p>
 <div class="all-time-container">
 <h2 style="margin-top: 30px; margin-bottom: 10px;">All-Time Stats</h2>
@@ -477,93 +491,92 @@ function toggleScoreView(divNum) {
 <tbody>
 <tr class="highlight" style="background-color: rgba(0, 232, 218, 0.15);">
     <td><strong>Jason</strong></td>
-    <td>224</td>
-    <td>3.84</td>
+    <td>271</td>
+    <td>3.86</td>
 </tr>
 <tr>
     <td><strong>Dani</strong></td>
-    <td>133</td>
-    <td>4.01</td>
-</tr>
-<tr>
-    <td><strong>Matt</strong></td>
-    <td>250</td>
-    <td>4.11</td>
+    <td>174</td>
+    <td>4.06</td>
 </tr>
 <tr>
     <td><strong>Rob</strong></td>
-    <td>185</td>
-    <td>4.12</td>
+    <td>234</td>
+    <td>4.11</td>
 </tr>
 <tr>
-    <td><strong>Meghan</strong></td>
-    <td>183</td>
-    <td>4.20</td>
-</tr>
-<tr>
-    <td><strong>Patty</strong></td>
-    <td>136</td>
-    <td>4.21</td>
+    <td><strong>Matt</strong></td>
+    <td>298</td>
+    <td>4.14</td>
 </tr>
 <tr>
     <td><strong>Brent</strong></td>
-    <td>251</td>
+    <td>299</td>
     <td>4.22</td>
 </tr>
 <tr>
+    <td><strong>Meghan</strong></td>
+    <td>228</td>
+    <td>4.23</td>
+</tr>
+<tr>
     <td><strong>Jess</strong></td>
-    <td>249</td>
-    <td>4.32</td>
+    <td>298</td>
+    <td>4.26</td>
+</tr>
+<tr>
+    <td><strong>Patty</strong></td>
+    <td>185</td>
+    <td>4.28</td>
 </tr>
 <tr>
     <td><strong>Dustin</strong></td>
-    <td>185</td>
-    <td>4.35</td>
+    <td>234</td>
+    <td>4.36</td>
 </tr>
 </tbody>
 </table>
 </div>
-<div id="div1-season-modal-6" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+<div id="div1-season-modal-8" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
   <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">Division I - Season 6</h3>
-      <span onclick="document.getElementById('div1-season-modal-6').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
-    </div>
-    <table class="season-table" style="width:100%;">
-      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
-      <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
-<tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
-</tbody>
-    </table>
-  </div>
-</div>
-<div id="div1-season-modal-5" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">Division I - Season 5</h3>
-      <span onclick="document.getElementById('div1-season-modal-5').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
-    </div>
-    <table class="season-table" style="width:100%;">
-      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
-      <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
-<tr><td><strong>Brent</strong></td><td style="text-align:center;">1</td></tr>
-<tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
-<tr><td><strong>Rob</strong></td><td style="text-align:center;">1</td></tr>
-</tbody>
-    </table>
-  </div>
-</div>
-<div id="div2-season-modal-5" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h3 style="color:#00E8DA; margin:0;">Division II - Season 5</h3>
-      <span onclick="document.getElementById('div2-season-modal-5').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season 8 - Division I</h3>
+      <span onclick="document.getElementById('div1-season-modal-8').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jess</strong></td><td style="text-align:center;">3</td></tr>
-<tr><td><strong>Patty</strong></td><td style="text-align:center;">1</td></tr>
-<tr><td><strong>Meghan</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Jason</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Dustin</strong></td><td style="text-align:center;">1</td></tr>
+</tbody>
+    </table>
+  </div>
+</div>
+<div id="div1-season-modal-7" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season 7 - Division I</h3>
+      <span onclick="document.getElementById('div1-season-modal-7').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Jess</strong></td><td style="text-align:center;">2</td></tr>
+</tbody>
+    </table>
+  </div>
+</div>
+<div id="div2-season-modal-7" class="season-modal-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#1a1a1b; border:1px solid #333; border-radius:10px; padding:20px; max-width:320px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#00E8DA; margin:0; font-size:1.05em;">Season 7 - Division II</h3>
+      <span onclick="document.getElementById('div2-season-modal-7').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Rob</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">1</td></tr>
 <tr><td><strong>Matt</strong></td><td style="text-align:center;">1</td></tr>
 </tbody>
     </table>
@@ -577,14 +590,36 @@ function toggleScoreView(divNum) {
         <span onclick="var dvs=document.querySelectorAll('[id^=div-fl-]');for(var i=0;i<dvs.length;i++){if(dvs[i].id!=='div-fl-list-view')dvs[i].style.display='none'};document.getElementById('div-fl-list-view').style.display='block';document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
       </div>
       <div class="div-fl-season-item" data-page="1" style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season 8:</div>
+  <div style="display:flex; padding-left:32px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-8').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Jess <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>
+  <div style="display:flex; padding-left:32px; margin-top:2px;">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;"><span style="opacity:0.6; font-style:italic;">In Progress</span></span>
+  </div>
+</div>
+<div class="div-fl-season-item" data-page="1" style="padding:12px 0; border-bottom:1px solid #333;">
+  <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season 7:</div>
+  <div style="display:flex; padding-left:32px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-7').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+    <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Jason <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>
+  <div style="display:flex; padding-left:32px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d2-7').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
+    <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Rob <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
+  </div>
+</div>
+<div class="div-fl-season-item" data-page="1" style="padding:12px 0; border-bottom:1px solid #333;">
   <div style="color:#d7dadc; font-weight:600; margin-bottom:4px;">Season 6:</div>
   <div style="display:flex; padding-left:32px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d1-6').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
     <span style="color:#00E8DA; font-weight:600; min-width:58px; text-align:right;">Div I:</span>
     <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Jason <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>
-  <div style="display:flex; padding-left:32px; margin-top:2px;">
+  <div style="display:flex; padding-left:32px; margin-top:2px; cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('div-fl-d2-6').style.display='block'; document.getElementById('div-fl-list-view').style.display='none';">
     <span style="color:#FFA64D; font-weight:600; min-width:58px; text-align:right;">Div II:</span>
-    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;"><span style="opacity:0.6; font-style:italic;">In Progress</span></span>
+    <span style="color:#d7dadc; font-weight:bold; margin-left:12px;">Dustin <span style="font-size:0.8em; opacity:0.7; color:#00E8DA;">&#9656;</span></span>
   </div>
 </div>
 <div class="div-fl-season-item" data-page="1" style="padding:12px 0; border-bottom:1px solid #333;">
@@ -605,15 +640,74 @@ function toggleScoreView(divNum) {
 
       
     </div>
-    <div id="div-fl-d1-6" style="display:none; padding-top:4px;">
+    <div id="div-fl-d1-8" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="document.getElementById('div-fl-d1-8').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 8 - Division I</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Jess</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Jason</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Dustin</strong></td><td style="text-align:center;">1</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="div-fl-d1-7" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="document.getElementById('div-fl-d1-7').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 7 - Division I</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Jess</strong></td><td style="text-align:center;">2</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="div-fl-d2-7" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="document.getElementById('div-fl-d2-7').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 7 - Division II</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Rob</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">1</td></tr>
+<tr><td><strong>Matt</strong></td><td style="text-align:center;">1</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="div-fl-d1-6" style="display:none; padding-top:4px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <span onclick="document.getElementById('div-fl-d1-6').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 6, Division I</h3>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 6 - Division I</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
+</tbody>
+    </table>
+</div>
+<div id="div-fl-d2-6" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span onclick="document.getElementById('div-fl-d2-6').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
+      <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
+    </div>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 6 - Division II</h3>
+    <table class="season-table" style="width:100%;">
+      <thead><tr><th>Player</th><th>Wins</th></tr></thead>
+      <tbody><tr><td><strong>Dustin</strong></td><td style="text-align:center;">3</td></tr>
+<tr><td><strong>Matt</strong></td><td style="text-align:center;">2</td></tr>
+<tr><td><strong>Brent</strong></td><td style="text-align:center;">2</td></tr>
+<tr><td><strong>Meghan</strong></td><td style="text-align:center;">2</td></tr>
+<tr><td><strong>Patty</strong></td><td style="text-align:center;">1</td></tr>
 <tr><td><strong>Dani</strong></td><td style="text-align:center;">1</td></tr>
 </tbody>
     </table>
@@ -623,7 +717,7 @@ function toggleScoreView(divNum) {
       <span onclick="document.getElementById('div-fl-d1-5').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 5, Division I</h3>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 5 - Division I</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jason</strong></td><td style="text-align:center;">3</td></tr>
@@ -638,7 +732,7 @@ function toggleScoreView(divNum) {
       <span onclick="document.getElementById('div-fl-d2-5').style.display='none'; document.getElementById('div-fl-list-view').style.display='block';" style="color:#FFA64D; cursor:pointer; font-size:1.2rem; padding:6px 10px; background:#2a2a2c; border-radius:6px;">&#8592;</span>
       <span onclick="document.getElementById('div-season-full-list-modal').style.display='none'" style="color:#d7dadc; cursor:pointer; font-size:1.5rem; line-height:1; padding:4px 8px;">&times;</span>
     </div>
-    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center;">Season 5, Division II</h3>
+    <h3 style="color:#00E8DA; margin:0 0 14px 0; text-align:center; font-size:1.05em;">Season 5 - Division II</h3>
     <table class="season-table" style="width:100%;">
       <thead><tr><th>Player</th><th>Wins</th></tr></thead>
       <tbody><tr><td><strong>Jess</strong></td><td style="text-align:center;">3</td></tr>
@@ -724,31 +818,40 @@ function divFlChangePage(dir) { divFlShowPage(divFlCurrentPage + dir); }
 <h2 style="color:#FFA64D; margin-top:0; margin-bottom:24px; text-align:center;">Rules &amp; League Settings</h2>
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">📊 Minimum Weekly Scores</h3>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league is currently set to <strong style="color:#00E8DA;">5 scores</strong>. Only your best 5 scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your 2 highest (worst) scores are thrown out.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league is currently set to <strong style="color:#00E8DA;">5 scores</strong>. Only your best 5 scores each week count toward your weekly total (Monday&ndash;Sunday). If you play all 7 days, your 2 highest (worst) scores are thrown out. Once a player reaches the minimum 5 scores for the week, their row will be highlighted to indicate they are eligible for a weekly score.</p>
 <p style="margin:0 0 12px 0; color:#818384; font-size:0.85em; line-height:1.5;">You need at least 5 scores in a week to compete. The league manager can adjust this setting:</p>
 <div style="display:flex; gap:8px;"><div style="flex:1; padding:10px 6px; background:#2a2a2c; color:#818384; border:1px solid #444; border-radius:8px; font-weight:500; text-align:center;"><div style="font-size:1.3em; font-weight:700;">3</div><div style="font-size:0.75em; opacity:0.85;">Easy</div><div style="font-size:0.75em; opacity:0.85;">Mode</div></div><div style="flex:1; padding:10px 6px; background:#2a2a2c; color:#818384; border:1px solid #444; border-radius:8px; font-weight:500; text-align:center;"><div style="font-size:1.3em; font-weight:700;">4</div><div style="font-size:0.75em; opacity:0.85;">Casual</div><div style="font-size:0.75em; opacity:0.85;">&nbsp;</div></div><div style="flex:1; padding:10px 6px; background:#00E8DA; color:#1a1a1b; border:1px solid #00E8DA; border-radius:8px; font-weight:700; text-align:center;"><div style="font-size:1.3em; font-weight:700;">5</div><div style="font-size:0.75em; opacity:0.85;">Default</div><div style="font-size:0.75em; opacity:0.85;">&nbsp;</div></div><div style="flex:1; padding:10px 6px; background:#2a2a2c; color:#818384; border:1px solid #444; border-radius:8px; font-weight:500; text-align:center;"><div style="font-size:1.3em; font-weight:700;">6</div><div style="font-size:0.75em; opacity:0.85;">Hard</div><div style="font-size:0.75em; opacity:0.85;">Mode</div></div><div style="flex:1; padding:10px 6px; background:#2a2a2c; color:#818384; border:1px solid #444; border-radius:8px; font-weight:500; text-align:center;"><div style="font-size:1.3em; font-weight:700;">7</div><div style="font-size:0.75em; opacity:0.85;">Elite</div><div style="font-size:0.75em; opacity:0.85;">&nbsp;</div></div></div>
 </div>
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🏆 Season Wins</h3>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">The current season goal is <strong style="color:#00E8DA;">5 weekly wins</strong>. In <strong style="color:#00E8DA;">Division Mode</strong>, the first player to reach that number in their division clinches the season&mdash;then promotion and relegation kick in and a new season begins.</p>
+<p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">The league manager sets this target (anywhere from 2 to 6 wins). Standard leagues default to 4; Division Mode defaults to 3. Changing it affects only the current and future seasons&mdash;completed seasons are never altered.</p>
+</div>
+<div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
+<h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🕐 Window to Post</h3>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">Each day&#39;s Wordle score can be submitted between <strong style="color:#00E8DA;">12:00 AM and 11:59 PM Pacific Time</strong>. Only the current day&#39;s Wordle puzzle number is accepted&mdash;scores from previous days cannot be posted retroactively. The scoring week runs <strong style="color:#00E8DA;">Monday through Sunday</strong>.</p>
+</div>
+<div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">❌ Fails Don&#39;t Count</h3>
-<p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference.</p>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">If you fail a Wordle (X/6), it does not count as one of your used scores and won&#39;t affect your weekly total. Failed attempts will appear in the <strong style="color:#d7dadc;">Failed</strong> column of the weekly table for reference. Failed attempts do count as a <strong style="color:#d7dadc;">7</strong> in your All-Time stats.</p>
 </div>
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🤝 Ties Share the Win</h3>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If two or more players finish the week with the same total score, they all earn a weekly win. The same applies to the season&mdash;if multiple players reach <strong style="color:#00E8DA;">3 weekly wins</strong> at the same time, they share the Season Victory.</p>
-<p style="margin:0; color:#818384; font-size:0.85em;">First player to reach 3 weekly wins is crowned Season Champion!</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If two or more players finish the week with the same total score, they all earn a weekly win. The same applies to the season&mdash;if multiple players reach <strong style="color:#00E8DA;">5 weekly wins</strong> at the same time, they share the Season Victory.</p>
+<p style="margin:0; color:#818384; font-size:0.85em;">First player to reach 5 weekly wins is crowned Season Champion!</p>
 </div>
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">⚔️ Division Mode</h3>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">1</strong> player from Division II is promoted to Division I. The season winner moves up.</p>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Meanwhile, the bottom <strong style="color:#00E8DA;">1</strong> player from Division I is relegated to Division II, based on the highest season total (worst cumulative score).</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">1</strong> player from Division II is promoted to Division I, and the bottom <strong style="color:#00E8DA;">1</strong> player from Division I is relegated to Division II based on the highest season total (worst cumulative score).</p>
+<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.5;">Your league is currently set to promote <strong style="color:#FFA64D;">1</strong> and relegate <strong style="color:#00E8DA;">1</strong> each season. This is configurable by the league manager (1&ndash;3).</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If a player misses a week (fewer than 5 scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
-<p style="margin:0; color:#818384; font-size:0.85em;">The manager can adjust promotion and relegation counts (1&ndash;3) at any time. Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
+<p style="margin:0; color:#818384; font-size:0.85em;">Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
 </div>
 <div style="background:rgba(16,16,36,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 6px 32px rgba(0,0,0,0.45);">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🤖 AI Automated Messaging</h3>
@@ -768,24 +871,11 @@ function divFlChangePage(dir) { divFlShowPage(divFlCurrentPage + dir); }
 </div>
 <div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
   <div style="display:flex; align-items:flex-start; gap:12px;">
-    <span style="font-size:1.3em; flex-shrink:0;">💀</span>
-    <div style="flex:1; min-width:0;">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-        <strong style="color:#d7dadc;">Daily Worst Score</strong>
-        <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
-      </div>
-      <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Playfully roasts the player with the worst score each day.</p>
-    </div>
-  </div>
-  <div style="margin:8px 0 0 0; padding:10px 12px; background:#1a1a2e; border-left:3px solid #00E8DA; border-radius:0 6px 6px 0; font-size:0.8em; color:#a0a0b8; line-height:1.5; font-style:italic;">"😬 Mike... a 6/6? Buddy, the letters were RIGHT THERE. Even my autocorrect could've done better. Tomorrow's a new day though! 💀"</div>
-</div>
-<div style="padding:12px; background:#2a2a2c; border-radius:8px; margin-bottom:10px;">
-  <div style="display:flex; align-items:flex-start; gap:12px;">
     <span style="font-size:1.3em; flex-shrink:0;">😬</span>
     <div style="flex:1; min-width:0;">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
         <strong style="color:#d7dadc;">Failed Attempt</strong>
-        <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
+        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
       </div>
       <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Sends a message when a player fails a Wordle (X/6).</p>
     </div>
@@ -811,7 +901,7 @@ function divFlChangePage(dir) { divFlShowPage(divFlCurrentPage + dir); }
     <div style="flex:1; min-width:0;">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
         <strong style="color:#d7dadc;">Monday Recap</strong>
-        <span style="background:#2ECC71; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">ON</span>
+        <span style="background:#E74C3C; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.7em; font-weight:700;">OFF</span>
       </div>
       <p style="margin:0; color:#818384; font-size:0.85em; line-height:1.4;">Delivers a full weekly recap every Monday with winners and highlights.</p>
     </div>
@@ -920,5 +1010,15 @@ function divFlChangePage(dir) { divFlShowPage(divFlCurrentPage + dir); }
 </script>
 <script src="script.js"></script>
 <script src="tabs.js"></script>
+<script>
+(function() {
+    var ov = document.getElementById('wpl-loading-overlay');
+    var bar = document.getElementById('wpl-progress-bar');
+    if (!ov) return;
+    if (window._wplInterval) clearInterval(window._wplInterval);
+    bar.style.width = '100%';
+    setTimeout(function() { ov.style.display = 'none'; }, 300);
+})();
+</script>
 </body>
 </html>
