@@ -675,7 +675,8 @@ def get_complete_league_data(league_id):
         'weekly_winner': weekly_winner,
         'all_time_stats': all_time_stats,
         'season_data': season_data,
-        'season_wins_needed': get_league_season_wins(league_id, division_mode=is_division_mode, conn=conn),
+        # Own connection on purpose: conn is already closed by the time this dict is built.
+        'season_wins_needed': get_league_season_wins(league_id, division_mode=is_division_mode),
         'division_mode': is_division_mode,
         'division_confirmed_at': division_confirmed_at,
         'division_data': division_data,
