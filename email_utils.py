@@ -497,6 +497,11 @@ def get_newsletter_templates():
             'name': 'Shared Leagues — Players Can Now View Their Leagues',
             'subject': 'New Feature: Your Players Can Now See Their Leagues! 🤝',
             'body_html': _get_shared_leagues_newsletter_body()
+        },
+        'season_wins': {
+            'name': 'Season Wins — Custom Season Length',
+            'subject': 'New Feature: Set Your League\'s Season Length! 🏆',
+            'body_html': _get_season_wins_newsletter_body()
         }
     }
 
@@ -688,6 +693,60 @@ def _get_shared_leagues_newsletter_body():
         <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
     </div>
     
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
+        <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
+        <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. Spread the word and tell your friends to create a league — we'd love your feedback! Just reply to this email anytime.</p>
+    </td></tr></table>
+    """
+
+
+def _get_season_wins_newsletter_body():
+    """Pre-built Custom Season Wins feature announcement email body"""
+    dashboard_url = f"{APP_URL}/dashboard"
+
+    return f"""
+    <p style="color: #e0e0e0; line-height: 1.6;">Every season ends when a player racks up enough <strong style="color: #00E8DA;">weekly wins</strong> to be crowned champion. Until now that number was fixed — but no longer. League managers can now decide how long a season lasts with the new <strong style="color: #00E8DA;">Season Wins</strong> setting.</p>
+
+    <!-- How It Works -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin: 0 0 10px;">How It Works</p>
+        <p style="color: #bbb; margin: 0; line-height: 1.6;">Pick the number of weekly wins it takes to win your season — anywhere from <strong style="color: #e0e0e0;">2 to 6</strong>. Want fast, punchy seasons with frequent champions? Drop it low. Prefer a long grind that rewards consistency? Push it high. Your league, your call.</p>
+    </td></tr></table>
+
+    <!-- Defaults -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FFA64D;"><tr><td style="padding: 20px;">
+        <p style="color: #FFA64D; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">⚙️ The Defaults (unchanged)</p>
+        <p style="color: #bbb; margin: 0 0 12px; line-height: 1.6;">Don't touch a thing and nothing changes — every league keeps the target it's always had:</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding: 6px 0; color: #bbb; line-height: 1.6;">🟢 <strong style="color: #e0e0e0;">Standard League</strong> — 4 wins <span style="color:#777;">(adjustable 2–6)</span></td></tr>
+            <tr><td style="padding: 6px 0; color: #bbb; line-height: 1.6;">🔵 <strong style="color: #e0e0e0;">Division Mode</strong> — 3 wins per division <span style="color:#777;">(adjustable 2–6)</span></td></tr>
+        </table>
+    </td></tr></table>
+
+    <!-- Steps -->
+    <p style="color: #00E8DA; font-weight: bold; font-size: 1.1em; margin-top: 28px;">🕹️ How to Set It</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">1. Open your league's <strong style="color: #e0e0e0;">Dashboard</strong></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">2. Scroll to <strong style="color: #e0e0e0;">League Settings</strong></td></tr>
+        <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">3. Find <strong style="color: #00E8DA;">Season Wins</strong> (just below Minimum Weekly Scores), pick your number, and hit <strong style="color: #e0e0e0;">Save Changes</strong></td></tr>
+    </table>
+    <p style="color: #bbb; line-height: 1.6;">The public <strong style="color: #e0e0e0;">Season</strong> and <strong style="color: #e0e0e0;">Rules</strong> tabs update automatically, so every player sees the new goal.</p>
+
+    <!-- Good to Know -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00E8DA;"><tr><td style="padding: 20px;">
+        <p style="color: #00E8DA; font-weight: bold; font-size: 1.05em; margin: 0 0 12px;">📋 Good to Know</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">🔒 <strong style="color: #e0e0e0;">Past seasons are never touched.</strong> Changes apply to the current and future seasons only — your league history stays exactly as it was.</td></tr>
+            <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">➡️ <strong style="color: #e0e0e0;">It sticks.</strong> The setting carries forward season after season until you change it again.</td></tr>
+            <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">🛡️ <strong style="color: #e0e0e0;">Smart guardrail.</strong> You can't lower the target to a number a player has already reached this season — we'll stop you with a friendly heads-up.</td></tr>
+            <tr><td style="padding: 8px 0; color: #bbb; line-height: 1.6;">🔁 <strong style="color: #e0e0e0;">Division Mode:</strong> one setting applies to both divisions equally.</td></tr>
+        </table>
+    </td></tr></table>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{dashboard_url}" style="background: #00E8DA; color: #1a1a2e; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1em; display: inline-block;">Go to Dashboard</a>
+    </div>
+
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1a2e" style="background-color: #1a1a2e; border-radius: 8px; margin-top: 20px; border-left: 3px solid #FFA64D;"><tr><td style="padding: 16px;">
         <p style="color: #FFA64D; font-weight: bold; margin: 0 0 6px;">🧪 Beta Reminder</p>
         <p style="color: #999; font-size: 0.85em; margin: 0; line-height: 1.5;">WordPlayLeague is in beta and completely free while we continue building. Spread the word and tell your friends to create a league — we'd love your feedback! Just reply to this email anytime.</p>
