@@ -11,7 +11,7 @@ import logging
 import random
 from datetime import datetime
 import pytz
-from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date, get_league_min_scores
+from league_data_adapter import get_db_connection, calculate_wordle_number, get_week_start_date, get_league_min_scores, get_league_season_wins
 
 DIVISION_WINS_FOR_SEASON = 3  # Wins needed to win a division season (vs 4 for normal)
 
@@ -713,10 +713,14 @@ def check_division_season_transition(league_id, division):
         
         current_season = row[0]
         season_start = row[1]
-        
+
         if not season_start:
             return False
-        
+
+        # Per-league season target (manager override or default 3 for division mode).
+        # Applies to both divisions; we never split targets per division.
+        wins_needed = get_league_season_wins(league_id, division_mode=True, conn=conn)
+
         # Check if season already ended
         cursor.execute("""
             SELECT end_week FROM division_season_boundaries
@@ -725,7 +729,7 @@ def check_division_season_transition(league_id, division):
         bounds = cursor.fetchone()
         if bounds and bounds[0]:
             return False  # Already ended
-        
+
         # Count wins per player in current season
         cursor.execute("""
             SELECT player_name, COUNT(*) as win_count
@@ -734,7 +738,7 @@ def check_division_season_transition(league_id, division):
             GROUP BY player_name
             HAVING COUNT(*) >= %s
             ORDER BY COUNT(*) DESC
-        """, (league_id, division, season_start, DIVISION_WINS_FOR_SEASON))
+        """, (league_id, division, season_start, wins_needed))
         
         potential_winners = cursor.fetchall()
         

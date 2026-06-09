@@ -4986,6 +4986,18 @@ def dashboard_rename_league(league_id):
         except ValueError:
             return redirect(f'/dashboard/league/{league_id}?error=Invalid minimum weekly scores value')
 
+    season_wins_raw = request.form.get('season_wins', '').strip()
+    new_season_wins = None
+    if season_wins_raw:
+        try:
+            parsed_sw = int(season_wins_raw)
+            if 2 <= parsed_sw <= 6:
+                new_season_wins = parsed_sw
+            else:
+                return redirect(f'/dashboard/league/{league_id}?error=Season wins must be between 2 and 6')
+        except ValueError:
+            return redirect(f'/dashboard/league/{league_id}?error=Invalid season wins value')
+
     # header_emoji: empty string means "clear it"; missing field means "don't touch"
     header_emoji_field_present = 'header_emoji' in request.form
     header_emoji_raw = request.form.get('header_emoji', '').strip()
@@ -5023,6 +5035,20 @@ def dashboard_rename_league(league_id):
                     INSERT INTO league_min_scores_history (league_id, min_scores, effective_week)
                     VALUES (%s, %s, %s)
                 """, (league_id, new_min_scores, effective_wordle))
+        if new_season_wins is not None:
+            # Hard guard: never let the target drop to at/below a win total a player
+            # has already reached this season — that would end the season retroactively.
+            from league_data_adapter import get_max_current_season_wins
+            max_wins = get_max_current_season_wins(league_id, conn=conn)
+            if new_season_wins <= max_wins:
+                cursor.close()
+                conn.close()
+                msg = (f'Cannot set Season Wins to {new_season_wins}: a player already has '
+                       f'{max_wins} weekly win{"s" if max_wins != 1 else ""} this season. '
+                       f'Pick a higher number, or wait until the current season ends.')
+                return redirect(f'/dashboard/league/{league_id}?error={_safe_redirect_msg(msg)}')
+            set_clauses.append("season_wins = %s")
+            params.append(new_season_wins)
         if header_emoji_field_present:
             set_clauses.append("header_emoji = %s")
             params.append(new_header_emoji)

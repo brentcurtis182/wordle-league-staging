@@ -2481,6 +2481,32 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         )
     _min_scores_buttons = '<div id="minScoresButtons" style="display:flex; gap:8px; margin-top:8px; align-items:stretch;">' + ''.join(_ms_btn_parts) + '</div>'
 
+    # Pre-compute the "Season Wins" button row (range 2-6). Default depends on mode:
+    # 4 for a standard league, 3 for division mode. NULL season_wins => use the default.
+    _is_division = bool(league.get('division_mode'))
+    _season_wins_default = 3 if _is_division else 4
+    _current_season_wins = int(league.get('season_wins') or _season_wins_default)
+    _sw_btn_parts = []
+    for _n in range(2, 7):
+        _sw_is_default = (_n == _season_wins_default)
+        _sw_active = (_n == _current_season_wins)
+        _sw_bg = COLORS['accent'] if _sw_active else COLORS['bg_card']
+        _sw_fg = '#000' if _sw_active else COLORS['text']
+        _sw_border = COLORS['accent'] if _sw_active else COLORS['border']
+        _sw_weight = '700' if _sw_active else '500'
+        _sw_sublabel = 'Default' if _sw_is_default else 'Wins'
+        _sw_btn_parts.append(
+            f'<button type="button" data-season-wins="{_n}" onclick="selectSeasonWins({_n})" '
+            f'style="flex:1; padding:10px 6px; background:{_sw_bg}; color:{_sw_fg}; '
+            f'border:1px solid {_sw_border}; border-radius:8px; cursor:pointer; '
+            f'font-weight:{_sw_weight}; font-size:0.85em; transition:all 0.15s; '
+            f'display:flex; flex-direction:column; align-items:center; justify-content:flex-start;">'
+            f'<div style="font-size:1.3em; font-weight:700;">{_n}</div>'
+            f'<div style="font-size:0.75em; opacity:0.85;">{_sw_sublabel}</div>'
+            f'</button>'
+        )
+    _season_wins_buttons = '<div id="seasonWinsButtons" style="display:flex; gap:8px; margin-top:8px; align-items:stretch;">' + ''.join(_sw_btn_parts) + '</div>'
+
     # Build removed-players banner (outside f-string to avoid backslash issues)
     _removed_banner = ''
     if removed_players:
@@ -2802,6 +2828,14 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     </p>
                     {_min_scores_buttons}
                     <input type="hidden" id="leagueMinWeeklyScores" value="{_current_min_scores}">
+                </div>
+                <div class="form-group">
+                    <label>Season Wins</label>
+                    <p style="color: {COLORS['text_muted']}; font-size: 0.85em; margin: 4px 0 8px 0;">
+                        How many weekly wins a player needs to win the season. Default is {_season_wins_default} for {'division' if _is_division else 'standard'} leagues. Changing this applies to the current and future seasons only&mdash;completed seasons are never altered. You can&#39;t set it to at or below a win total a player has already reached this season.
+                    </p>
+                    {_season_wins_buttons}
+                    <input type="hidden" id="leagueSeasonWins" value="{_current_season_wins}">
                 </div>
                 <div class="form-group">
                     <label>League Mascot</label>
@@ -3589,6 +3623,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
         <form id="renameLeagueForm" method="POST" action="/dashboard/league/{league['id']}/rename" style="display:none;">
             <input type="hidden" name="display_name" id="renameDisplayName">
             <input type="hidden" name="min_weekly_scores" id="renameMinWeeklyScores">
+            <input type="hidden" name="season_wins" id="renameSeasonWins">
             <input type="hidden" name="header_emoji" id="renameHeaderEmoji">
         </form>
         <form id="aiSettingsForm" method="POST" action="/dashboard/league/{league['id']}/ai-settings" style="display:none;">
@@ -3739,6 +3774,8 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
             const _ORIG_MIN_SCORES = {_current_min_scores};
             const _ORIG_HEADER_EMOJI = {safe_js(_current_header_emoji)};
             const _MIN_SCORES_LABELS = {{ 3: 'Easy Mode', 4: 'Casual', 5: 'Default', 6: 'Hard Mode', 7: 'Elite' }};
+            const _ORIG_SEASON_WINS = {_current_season_wins};
+            const _SEASON_WINS_DEFAULT = {_season_wins_default};
 
             async function generateMascot() {{
                 const btn = document.getElementById('mascotGenBtn');
@@ -3813,6 +3850,25 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 }});
             }}
 
+            function selectSeasonWins(n) {{
+                document.getElementById('leagueSeasonWins').value = n;
+                const btns = document.querySelectorAll('#seasonWinsButtons button[data-season-wins]');
+                btns.forEach(function(btn) {{
+                    const val = parseInt(btn.getAttribute('data-season-wins'), 10);
+                    if (val === n) {{
+                        btn.style.background = '{COLORS['accent']}';
+                        btn.style.color = '#000';
+                        btn.style.borderColor = '{COLORS['accent']}';
+                        btn.style.fontWeight = '700';
+                    }} else {{
+                        btn.style.background = '{COLORS['bg_card']}';
+                        btn.style.color = '{COLORS['text']}';
+                        btn.style.borderColor = '{COLORS['border']}';
+                        btn.style.fontWeight = '500';
+                    }}
+                }});
+            }}
+
             function showLeagueSettingsModal() {{
                 const newName = document.getElementById('leagueDisplayName').value.trim();
                 if (!newName) {{
@@ -3820,6 +3876,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     return;
                 }}
                 const newMinScores = parseInt(document.getElementById('leagueMinWeeklyScores').value, 10);
+                const newSeasonWins = parseInt(document.getElementById('leagueSeasonWins').value, 10);
 
                 const changes = [];
                 if (newName !== _ORIG_LEAGUE_NAME) {{
@@ -3830,6 +3887,11 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     const newLbl = _MIN_SCORES_LABELS[newMinScores] || '';
                     changes.push('<div>• Minimum weekly scores: <strong>' + _ORIG_MIN_SCORES + ' (' + oldLbl + ')</strong> → <strong>' + newMinScores + ' (' + newLbl + ')</strong></div>');
                     changes.push('<div style="margin-top:8px; color:{COLORS['accent_orange']};">⚠️ This will immediately re-aggregate the current week under the new threshold. Past weekly winners stay frozen.</div>');
+                }}
+                if (newSeasonWins !== _ORIG_SEASON_WINS) {{
+                    const oldSw = _ORIG_SEASON_WINS + (_ORIG_SEASON_WINS === _SEASON_WINS_DEFAULT ? ' (Default)' : '');
+                    const newSw = newSeasonWins + (newSeasonWins === _SEASON_WINS_DEFAULT ? ' (Default)' : '');
+                    changes.push('<div>• Season wins: <strong>' + oldSw + '</strong> → <strong>' + newSw + ' wins</strong></div>');
                 }}
 
                 const newHeaderEmoji = document.getElementById('leagueHeaderEmoji').value;
@@ -3863,6 +3925,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                 const newMinScores = document.getElementById('leagueMinWeeklyScores').value;
                 document.getElementById('renameDisplayName').value = newName;
                 document.getElementById('renameMinWeeklyScores').value = newMinScores;
+                document.getElementById('renameSeasonWins').value = document.getElementById('leagueSeasonWins').value;
                 document.getElementById('renameHeaderEmoji').value = document.getElementById('leagueHeaderEmoji').value;
 
                 closeRenameModal();
@@ -5189,7 +5252,8 @@ def get_league_info(league_id, conn=None):
                    COALESCE(min_weekly_scores, 5),
                    header_emoji,
                    COALESCE(public_listed, TRUE),
-                   max_players
+                   max_players,
+                   season_wins
             FROM leagues
             WHERE id = %s
         """, (league_id,))
@@ -5227,6 +5291,7 @@ def get_league_info(league_id, conn=None):
                 'header_emoji': row[27] if row[27] is not None else None,
                 'public_listed': row[28] if row[28] is not None else True,
                 'max_players': row[29],
+                'season_wins': int(row[30]) if row[30] is not None else None,
                 'channel_name': None
             }
             

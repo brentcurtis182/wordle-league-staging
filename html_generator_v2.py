@@ -443,7 +443,8 @@ def generate_season_stats_html(league_data):
     season_winners = season_data.get('season_winners', [])
     past_season_breakdowns = season_data.get('past_season_breakdowns', {})
     
-    html = '<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">4 weekly wins</strong> is the Season Champion!</p>\n'
+    _sw_needed = league_data.get('season_wins_needed', 4)
+    html = f'<p style="margin-top: 0; margin-bottom: 15px; font-style: italic;">First player(s) to <strong style="color: #00E8DA;">{_sw_needed} weekly wins</strong> is the Season Champion!</p>\n'
     html += '<div class="season-container" style="margin-bottom: 30px;">\n'
     html += f'<h3 style="margin-bottom: 10px; color: #00E8DA;">Season {current_season}</h3>\n'
     html += '<table class="season-table">\n'
@@ -1374,7 +1375,7 @@ def generate_rules_html(league_data):
     """Generate the Rules & League Settings tab content."""
     min_scores = league_data.get('min_weekly_scores', 5)
     division_active = league_data.get('division_mode') and league_data.get('division_confirmed_at') is not None
-    wins_needed = 3 if division_active else 4
+    wins_needed = league_data.get('season_wins_needed') or (3 if division_active else 4)
     promoted_count = league_data.get('promoted_count', 1)
     relegated_count = league_data.get('relegated_count', 1)
     ai = league_data.get('ai_settings', {})
@@ -1419,13 +1420,13 @@ def generate_rules_html(league_data):
 
     # 2. Season Wins
     if division_active:
-        season_wins_detail = f'''Seasons in <strong style="color:#00E8DA;">Division Mode</strong> require <strong style="color:#00E8DA;">3 weekly wins</strong> for a faster-paced race with promotion and relegation on the line. Standard (non-division) leagues require <strong style="color:#00E8DA;">4 weekly wins</strong> to claim the season.'''
+        season_wins_detail = f'''The current season goal is <strong style="color:#00E8DA;">{wins_needed} weekly wins</strong>. In <strong style="color:#00E8DA;">Division Mode</strong>, the first player to reach that number in their division clinches the season&mdash;then promotion and relegation kick in and a new season begins.'''
     else:
-        season_wins_detail = f'''The current season goal is <strong style="color:#00E8DA;">4 weekly wins</strong>. The first player to reach that number is crowned the Season Champion. Leagues running in <strong style="color:#00E8DA;">Division Mode</strong> use a shorter target of <strong style="color:#00E8DA;">3 wins</strong> per division for a faster-paced season.'''
+        season_wins_detail = f'''The current season goal is <strong style="color:#00E8DA;">{wins_needed} weekly wins</strong>. The first player to reach that number is crowned the Season Champion, and a new season begins.'''
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🏆 Season Wins</h3>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">{season_wins_detail}</p>
-<p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">Configurable season win targets are coming in a future update&mdash;stay tuned!</p>
+<p style="margin:0; color:#818384; font-size:0.85em; line-height:1.5;">The league manager sets this target (anywhere from 2 to 6 wins). Standard leagues default to 4; Division Mode defaults to 3. Changing it affects only the current and future seasons&mdash;completed seasons are never altered.</p>
 </div>
 '''
 

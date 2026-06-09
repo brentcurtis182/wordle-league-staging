@@ -56,6 +56,128 @@ def get_league_min_scores(league_id, conn=None):
     return 5
 
 
+def get_league_season_wins(league_id, division_mode=None, conn=None):
+    """Return the per-league weekly wins needed to win a season.
+
+    Resolution order:
+      1. leagues.season_wins if set and within 2-6 (manager override).
+      2. Mode default: 3 for division mode, 4 for a standard league.
+
+    NULL season_wins => use the mode default, so existing leagues are unchanged.
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if division_mode is None:
+            cursor.execute(
+                "SELECT season_wins, COALESCE(division_mode, FALSE) FROM leagues WHERE id = %s",
+                (league_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            season_wins = row[0] if row else None
+            division_mode = bool(row[1]) if row else False
+        else:
+            cursor.execute("SELECT season_wins FROM leagues WHERE id = %s", (league_id,))
+            row = cursor.fetchone()
+            cursor.close()
+            season_wins = row[0] if row else None
+
+        if season_wins is not None:
+            n = int(season_wins)
+            if 2 <= n <= 6:
+                return n
+    except Exception as e:
+        logging.warning(f"get_league_season_wins fallback for league {league_id}: {e}")
+    finally:
+        if own_conn:
+            conn.close()
+    return 3 if division_mode else 4
+
+
+def get_max_current_season_wins(league_id, division_mode=None, conn=None):
+    """Highest weekly-win count any player holds in the *current* season(s).
+
+    Used to validate a Season Wins change: a manager must not lower the target
+    to at or below a value a player has already reached, which would end the
+    season retroactively. In division mode, checks BOTH divisions' current
+    seasons and returns the overall max.
+
+    Returns 0 if there are no recorded wins in the current season(s).
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if division_mode is None:
+            cursor.execute(
+                "SELECT COALESCE(division_mode, FALSE) FROM leagues WHERE id = %s",
+                (league_id,),
+            )
+            r = cursor.fetchone()
+            division_mode = bool(r[0]) if r else False
+
+        max_wins = 0
+        if division_mode:
+            for div in (1, 2):
+                cursor.execute(
+                    "SELECT season_start_week FROM division_seasons WHERE league_id = %s AND division = %s",
+                    (league_id, div),
+                )
+                row = cursor.fetchone()
+                if not row or not row[0]:
+                    continue
+                season_start = row[0]
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM weekly_winners
+                    WHERE league_id = %s AND division = %s AND week_wordle_number >= %s
+                    GROUP BY player_name ORDER BY c DESC LIMIT 1
+                    """,
+                    (league_id, div, season_start),
+                )
+                top = cursor.fetchone()
+                if top and top[0] and int(top[0]) > max_wins:
+                    max_wins = int(top[0])
+        else:
+            # Current-season start: the seasons table is the source of truth (matches
+            # get_current_season and the transition logic). league_seasons can be stale.
+            cursor.execute(
+                "SELECT start_week FROM seasons WHERE league_id = %s ORDER BY season_number DESC LIMIT 1",
+                (league_id,),
+            )
+            row = cursor.fetchone()
+            if not row or row[0] is None:
+                cursor.execute(
+                    "SELECT season_start_week FROM league_seasons WHERE league_id = %s",
+                    (league_id,),
+                )
+                row = cursor.fetchone()
+            season_start = row[0] if row and row[0] else 0
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS c FROM weekly_winners
+                WHERE league_id = %s AND week_wordle_number >= %s
+                GROUP BY player_name ORDER BY c DESC LIMIT 1
+                """,
+                (league_id, season_start),
+            )
+            top = cursor.fetchone()
+            if top and top[0]:
+                max_wins = int(top[0])
+        cursor.close()
+        return max_wins
+    except Exception as e:
+        logging.warning(f"get_max_current_season_wins fallback for league {league_id}: {e}")
+        return 0
+    finally:
+        if own_conn:
+            conn.close()
+
+
 def get_min_scores_for_week(league_id, week_wordle, conn=None, _cache={}):
     """Return the min_scores threshold that was in effect for a given week.
 
@@ -553,6 +675,7 @@ def get_complete_league_data(league_id):
         'weekly_winner': weekly_winner,
         'all_time_stats': all_time_stats,
         'season_data': season_data,
+        'season_wins_needed': get_league_season_wins(league_id, division_mode=is_division_mode, conn=conn),
         'division_mode': is_division_mode,
         'division_confirmed_at': division_confirmed_at,
         'division_data': division_data,
@@ -978,7 +1101,9 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
             'players': div_players,
             'season_totals': season_totals,
             'missed_weeks': missed_weeks,
-            'wins_needed': DIVISION_WINS
+            # Current-season target is the effective per-league value; DIVISION_WINS
+            # above stays fixed at 3 for reconstructing PAST seasons (no retroactive change).
+            'wins_needed': get_league_season_wins(league_id, division_mode=True, conn=conn)
         }
     
     cursor.close()

@@ -429,9 +429,12 @@ def check_and_handle_season_transition(league_id):
     
     This should ONLY be called by run_full_update_for_league() on Mondays.
     """
-    WINS_FOR_SEASON_VICTORY = 4
-    
-    logging.info(f"Checking for season transition in league {league_id}")
+    # Per-league season target (manager override or default 4 for standard leagues).
+    # Only ever called for non-division leagues, so division_mode=False.
+    from league_data_adapter import get_league_season_wins
+    WINS_FOR_SEASON_VICTORY = get_league_season_wins(league_id, division_mode=False)
+
+    logging.info(f"Checking for season transition in league {league_id} (target {WINS_FOR_SEASON_VICTORY} wins)")
     
     conn = get_db_connection()
     cursor = conn.cursor()

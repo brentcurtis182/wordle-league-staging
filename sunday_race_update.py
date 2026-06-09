@@ -437,7 +437,8 @@ def _calc_season_totals(cursor, league_id, division, season_start, min_scores, t
 
 def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_info, min_scores,
                                      div1_weekly_wins=None, div2_weekly_wins=None,
-                                     div1_standings=None, div2_standings=None):
+                                     div1_standings=None, div2_standings=None,
+                                     wins_for_season=DIVISION_WINS_FOR_SEASON):
     """Check relegation (Div I) / promotion (Div II) outlook when a season could end this week.
     Uses weekly_wins (already incremented with pending win) to identify likely clinchers.
     Season totals are calculated from raw scores (best-N per week), matching the public page.
@@ -464,7 +465,7 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
         # Only relevant if someone could clinch Div I this week
         div1_clinchers = set()
         if div1_weekly_wins:
-            div1_clinchers = {name for name, wins in div1_weekly_wins.items() if wins >= DIVISION_WINS_FOR_SEASON}
+            div1_clinchers = {name for name, wins in div1_weekly_wins.items() if wins >= wins_for_season}
 
         if div1_start and div1_clinchers:
             # Get existing season winners + likely clinchers = exempt from relegation
@@ -512,7 +513,7 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
         div2_start = div2_season_info.get('season_start_week')
         div2_clinchers = set()
         if div2_weekly_wins:
-            div2_clinchers = {name for name, wins in div2_weekly_wins.items() if wins >= DIVISION_WINS_FOR_SEASON}
+            div2_clinchers = {name for name, wins in div2_weekly_wins.items() if wins >= wins_for_season}
 
         if div2_start and div2_clinchers:
             promoted_so_far = list(div2_clinchers)
@@ -556,7 +557,7 @@ def check_relegation_promotion_ties(league_id, div1_season_info, div2_season_inf
     return ' '.join(warnings)
 
 
-def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current_season, min_scores=5):
+def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current_season, min_scores=5, wins_for_season=DIVISION_WINS_FOR_SEASON):
     """Build scenario analysis text for a single division.
     Returns scenario text string for the AI prompt."""
     div_label = "Division I" if div_num == 1 else "Division II"
@@ -618,7 +619,7 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
 
     # Compute clinch candidates BEFORE incrementing pending win.
     # potential_clinchers = "1 win away entering this week" — they clinch IF they win this week.
-    potential_clinchers = [name for name, wins in div_weekly_wins.items() if wins == DIVISION_WINS_FOR_SEASON - 1]
+    potential_clinchers = [name for name, wins in div_weekly_wins.items() if wins == wins_for_season - 1]
 
     # Build scenario
     scenarios = []
@@ -782,7 +783,10 @@ def send_sunday_race_update(league_id, force_season_image=False):
         # ============================================================
         if is_division_mode:
             from division_manager import get_division_weekly_wins, get_division_season_info
-            
+            from league_data_adapter import get_league_season_wins
+            # Per-league season target (manager override or default 3 for division mode)
+            div_wins_needed = get_league_season_wins(league_id, division_mode=True)
+
             # Split standings by division
             div1_standings = sorted(
                 [s for s in standings if s.get('division') == 1],
@@ -802,8 +806,8 @@ def send_sunday_race_update(league_id, force_season_image=False):
             div2_season_info = get_division_season_info(league_id, 2)
             
             # Build per-division scenario text
-            div1_scenario = build_division_scenario(div1_standings, 1, div1_weekly_wins, div1_season_info['current_season'], min_scores=min_scores)
-            div2_scenario = build_division_scenario(div2_standings, 2, div2_weekly_wins, div2_season_info['current_season'], min_scores=min_scores)
+            div1_scenario = build_division_scenario(div1_standings, 1, div1_weekly_wins, div1_season_info['current_season'], min_scores=min_scores, wins_for_season=div_wins_needed)
+            div2_scenario = build_division_scenario(div2_standings, 2, div2_weekly_wins, div2_season_info['current_season'], min_scores=min_scores, wins_for_season=div_wins_needed)
             
             scenario_text = f"{div1_scenario}\n\n{div2_scenario}"
 
@@ -811,7 +815,8 @@ def send_sunday_race_update(league_id, force_season_image=False):
             tie_warnings = check_relegation_promotion_ties(
                 league_id, div1_season_info, div2_season_info, min_scores,
                 div1_weekly_wins=div1_weekly_wins, div2_weekly_wins=div2_weekly_wins,
-                div1_standings=div1_standings, div2_standings=div2_standings
+                div1_standings=div1_standings, div2_standings=div2_standings,
+                wins_for_season=div_wins_needed
             )
             if tie_warnings:
                 scenario_text += f"\n\n{tie_warnings}"
@@ -845,13 +850,13 @@ def send_sunday_race_update(league_id, force_season_image=False):
             div1_block = f"""DIVISION I STANDINGS (lower is better, best {min_scores} of 7):
 {build_div_standings_summary(div1_standings)}
 
-DIVISION I SEASON {div1_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
+DIVISION I SEASON {div1_season_info['current_season']} WINS (need {div_wins_needed} to win):
 {build_div_wins_summary(div1_weekly_wins)}"""
 
             div2_block = f"""DIVISION II STANDINGS (lower is better, best {min_scores} of 7):
 {build_div_standings_summary(div2_standings)}
 
-DIVISION II SEASON {div2_season_info['current_season']} WINS (need {DIVISION_WINS_FOR_SEASON} to win):
+DIVISION II SEASON {div2_season_info['current_season']} WINS (need {div_wins_needed} to win):
 {build_div_wins_summary(div2_weekly_wins)}"""
 
             div_context = f"""{div1_block}
@@ -914,6 +919,11 @@ ACCURACY RULES:
         # STANDARD MODE: single league analysis (existing logic)
         # ============================================================
         else:
+            # Per-league season target (manager override or default 4). Local var
+            # shadows the module constant for all season clinch/stakes text below.
+            from league_data_adapter import get_league_season_wins
+            WINS_FOR_SEASON_VICTORY = get_league_season_wins(league_id, division_mode=False)
+
             # Find eligible players (min_scores+ games) and their leader
             eligible = [s for s in standings if s['eligible']]
 
