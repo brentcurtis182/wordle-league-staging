@@ -816,28 +816,25 @@ def get_season_data(league_id, conn=None):
                     ORDER BY ww.week_wordle_number, ww.player_name
                 """, (league_id, bounds[0], bounds[1]))
                 
-                # Replay week by week, stop after the week where someone hits 4 wins
+                # Count all weekly wins within the season's bounds. The query is already
+                # bounded to [start_week, end_week] (end_week = the clinch week), so this
+                # yields the correct total at whatever threshold the season was won at
+                # (custom Season Wins can be 2-6, not just 4).
                 all_rows = cursor.fetchall()
                 breakdown = {}
-                winning_week = None
                 for pname, wnum, wscore in all_rows:
-                    # Stop if we've passed the winning week
-                    if winning_week is not None and wnum > winning_week:
-                        break
                     if pname not in breakdown:
                         breakdown[pname] = {'wins': 0, 'weeks': [], 'scores': []}
                     breakdown[pname]['wins'] += 1
                     breakdown[pname]['weeks'].append(wnum)
                     breakdown[pname]['scores'].append(wscore)
-                    if breakdown[pname]['wins'] >= 4 and winning_week is None:
-                        winning_week = wnum
-                
+
                 if breakdown:
                     # Validate: the top player in breakdown should match the recorded season winner
                     # If not, the weekly_winners data for this season is incomplete/misaligned — skip it
                     recorded_winners_for_sn = [w['name'] for w in season_winners if w['season'] == sn]
                     top_player = max(breakdown.items(), key=lambda x: x[1]['wins'])[0]
-                    if top_player in recorded_winners_for_sn and max(d['wins'] for d in breakdown.values()) >= 4:
+                    if top_player in recorded_winners_for_sn and max(d['wins'] for d in breakdown.values()) >= 2:
                         past_season_breakdowns[sn] = breakdown
     
     cursor.close()
@@ -982,23 +979,20 @@ def get_division_season_data(league_id, weekly_stats=None, conn=None, min_scores
                         ORDER BY ww.week_wordle_number, ww.player_name
                     """, (league_id, div_num, sb[0], sb[1]))
                     
+                    # Count all wins within the season bounds (query is bounded to
+                    # [start_week, end_week]); correct for any custom threshold (2-6).
                     breakdown = {}
-                    winning_week = None
                     for pname, wnum, wscore in cursor.fetchall():
-                        if winning_week is not None and wnum > winning_week:
-                            break
                         if pname not in breakdown:
                             breakdown[pname] = {'wins': 0, 'weeks': [], 'scores': []}
                         breakdown[pname]['wins'] += 1
                         breakdown[pname]['weeks'].append(wnum)
                         breakdown[pname]['scores'].append(wscore)
-                        if breakdown[pname]['wins'] >= DIVISION_WINS and winning_week is None:
-                            winning_week = wnum
-                    
+
                     if breakdown:
                         recorded = [w['name'] for w in season_winners if w['season'] == sn]
                         top = max(breakdown.items(), key=lambda x: x[1]['wins'])[0]
-                        if top in recorded and max(d['wins'] for d in breakdown.values()) >= DIVISION_WINS:
+                        if top in recorded and max(d['wins'] for d in breakdown.values()) >= 2:
                             past_season_breakdowns[sn] = breakdown
         
         # Get players in this division with immunity info

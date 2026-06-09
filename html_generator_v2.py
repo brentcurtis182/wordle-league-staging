@@ -295,10 +295,13 @@ def _build_breakdown_rows(breakdown):
         last_win = data['weeks'][-1] if data['weeks'] else 9999
         return (-data['wins'], last_win)
     
+    # Highlight the champion row(s) = the top win count this season, so it works for
+    # any custom Season Wins threshold (2-6), not just the old hardcoded 4.
+    top_wins = max((d['wins'] for d in breakdown.values()), default=0)
     rows = ''
     for player_name, data in sorted(breakdown.items(), key=sort_key):
         wins = data['wins']
-        row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"' if wins >= 4 else ''
+        row_style = ' style="background-color: rgba(0, 232, 218, 0.15);"' if wins == top_wins and top_wins > 0 else ''
         rows += f'<tr{row_style}><td><strong>{player_name}</strong></td><td style="text-align:center;">{wins}</td></tr>\n'
     return rows
 
