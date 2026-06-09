@@ -2837,7 +2837,7 @@ def render_league_management(user, league, players, player_ai_settings=None, mes
                     {_season_wins_buttons}
                     <input type="hidden" id="leagueSeasonWins" value="{_current_season_wins}">
                 </div>
-                <div class="form-group" style="margin-top:4px;">
+                <div class="form-group" style="margin-top:4px; display:flex; justify-content:center;">
                     <button type="button" class="btn btn-primary" style="width:220px; flex-shrink:0;" onclick="showLeagueSettingsModal()">Save Changes</button>
                 </div>
                 <div class="form-group">
