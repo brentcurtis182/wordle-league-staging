@@ -1471,12 +1471,21 @@ def generate_rules_html(league_data):
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league runs in Division Mode with two divisions. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II {"are" if promoted_count > 1 else "is"} promoted to Division I, and the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I {"are" if relegated_count > 1 else "is"} relegated to Division II based on the highest season total (worst cumulative score).</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">{promoted_count}</strong> player{"s" if promoted_count > 1 else ""} from Division II move up to Division I, and the bottom <strong style="color:#00E8DA;">{relegated_count}</strong> player{"s" if relegated_count > 1 else ""} from Division I drop to Division II.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Two spots are decided automatically: the <strong style="color:#d7dadc;">Division II champion is always promoted</strong>, and the <strong style="color:#d7dadc;">Division I champion is always safe</strong> from relegation&mdash;no matter what. Every other spot is decided by the rankings below.</p>
 <p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.5;">Your league is currently set to promote <strong style="color:#FFA64D;">{promoted_count}</strong> and relegate <strong style="color:#00E8DA;">{relegated_count}</strong> each season. This is configurable by the league manager (1&ndash;3).</p>
 
-<h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Immunity &amp; Missed Weeks</h4>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">If a player misses a week (fewer than {min_scores} scores submitted), they move to the front of the relegation line regardless of their season total. Missing a full week would give them an unfairly low total, so they are prioritized for relegation ahead of active players.</p>
+<h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">How Players Are Ranked</h4>
+<p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.6;">To decide who moves up or down, players are compared in this exact order:</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 10px 0;">
+    <tr><td style="padding:5px 0; color:#d7dadc; line-height:1.6;"><strong style="color:#00E8DA;">1. Week participation.</strong> Missing a week (fewer than {min_scores} valid scores) counts against you most. A missed week would leave an unfairly low total, so players who miss are sorted <em>ahead</em> of everyone for relegation and <em>behind</em> everyone for promotion. Showing up every week matters most.</td></tr>
+    <tr><td style="padding:5px 0; color:#d7dadc; line-height:1.6;"><strong style="color:#00E8DA;">2. Season Total.</strong> Among players with equal participation, the lower (better) cumulative score wins out&mdash;best totals are first in line for promotion, worst totals are first to be relegated.</td></tr>
+    <tr><td style="padding:5px 0; color:#d7dadc; line-height:1.6;"><strong style="color:#00E8DA;">3. Weekly wins.</strong> Still tied? Total weekly wins this season is the final tiebreaker&mdash;more wins is better.</td></tr>
+</table>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">🎲 <strong style="color:#FFA64D;">Dead even?</strong> If two or more players are still perfectly tied for the last promotion or relegation spot after all three steps, a <strong style="color:#FFA64D;">random draw</strong> decides who moves. The Sunday update will warn the league when a random draw is on the line.</p>
+
+<h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Immunity</h4>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Newly promoted players receive <strong style="color:#d7dadc;">immunity</strong> for the remainder of the Division I season they join&mdash;they cannot be relegated until the following season. Relegated players receive a badge indicating they are a new arrival in Division II.</p>
 <p style="margin:0; color:#818384; font-size:0.85em;">Use the Weekly Score / Season Total toggle on the weekly table to check where players stand.</p>
 </div>
 '''
