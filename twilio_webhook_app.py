@@ -3598,9 +3598,9 @@ body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:r
 def embed_most_perfect():
     """Embeddable 'Top 5 — Most Perfect Games' metric (1/6 and 2/6 scores).
 
-    A count metric, so a player's perfect games are SUMMED across every league
-    they play in (deduped by phone, fallback Slack/Discord id), shown as one
-    row labeled with their main league. Ties broken by fewest games (efficiency).
+    Deduped by phone (fallback Slack/Discord id): one human counts once, using
+    their single record with the MOST games played (their main/oldest league) —
+    NOT summed across leagues. Ties broken by fewest games (efficiency).
     """
     import re as _re
     try:
@@ -3627,13 +3627,8 @@ def embed_most_perfect():
                 key = 'dc:' + disc
             else:
                 key = 'id:%d' % pid
-            h = humans.setdefault(key, {'name': name, 'league': league, 'perfect': 0, 'games': 0, '_maxg': 0})
-            h['perfect'] += int(perfect or 0)
-            h['games'] += games
-            if games > h['_maxg']:
-                h['_maxg'] = games
-                h['name'] = name
-                h['league'] = league
+            if key not in humans or games > humans[key]['games']:
+                humans[key] = {'name': name, 'league': league, 'games': games, 'perfect': int(perfect or 0)}
         cursor.close()
         conn.close()
 
