@@ -3594,6 +3594,121 @@ body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:r
         return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load stats.</p>", 500
 
 
+@app.route('/embed/most-perfect')
+def embed_most_perfect():
+    """Embeddable 'Top 5 — Most Perfect Games' metric (1/6 and 2/6 scores).
+
+    A count metric, so a player's perfect games are SUMMED across every league
+    they play in (deduped by phone, fallback Slack/Discord id), shown as one
+    row labeled with their main league. Ties broken by fewest games (efficiency).
+    """
+    import re as _re
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.name, p.phone_number, p.slack_user_id, p.discord_user_id,
+                   l.display_name, COUNT(s.*) AS games,
+                   SUM(CASE WHEN s.score IN (1, 2) THEN 1 ELSE 0 END) AS perfect
+            FROM players p
+            JOIN scores s ON s.player_id = p.id
+            JOIN leagues l ON l.id = p.league_id
+            WHERE COALESCE(p.active, TRUE) = TRUE
+            GROUP BY p.id, p.name, p.phone_number, p.slack_user_id, p.discord_user_id, l.display_name
+        """)
+        humans = {}
+        for pid, name, phone, slack, disc, league, games, perfect in cursor.fetchall():
+            digits = _re.sub(r'\D', '', phone or '')
+            if len(digits) >= 10:
+                key = 'ph:' + digits[-10:]
+            elif slack:
+                key = 'sl:' + slack
+            elif disc:
+                key = 'dc:' + disc
+            else:
+                key = 'id:%d' % pid
+            h = humans.setdefault(key, {'name': name, 'league': league, 'perfect': 0, 'games': 0, '_maxg': 0})
+            h['perfect'] += int(perfect or 0)
+            h['games'] += games
+            if games > h['_maxg']:
+                h['_maxg'] = games
+                h['name'] = name
+                h['league'] = league
+        cursor.close()
+        conn.close()
+
+        ranked = sorted([h for h in humans.values() if h['perfect'] > 0],
+                        key=lambda x: (-x['perfect'], x['games']))[:5]
+
+        medals = ['🥇', '🥈', '🥉']
+        if ranked:
+            rows_html = ''
+            for i, r in enumerate(ranked):
+                rank = medals[i] if i < 3 else f'<span style="color:#8a8aa5;font-weight:700;">{i + 1}</span>'
+                name_safe = (r['name'] or '').replace('<', '&lt;').replace('>', '&gt;')
+                league_safe = (r['league'] or '').replace('<', '&lt;').replace('>', '&gt;')
+                rows_html += f'''<tr>
+<td style="padding:12px 8px;text-align:center;font-size:1.2em;width:44px;">{rank}</td>
+<td style="padding:12px 8px;">
+  <div style="font-weight:700;color:#e0e0e0;">{name_safe}</div>
+  <div style="font-size:0.78em;color:#8a8aa5;">{league_safe}</div>
+</td>
+<td style="padding:12px 8px;text-align:right;color:#a0a0b8;white-space:nowrap;">{r['games']:,}</td>
+<td style="padding:12px 8px;text-align:right;font-weight:800;color:#FFA64D;white-space:nowrap;">{r['perfect']:,}</td>
+</tr>'''
+            table_html = f'''<table style="width:100%;border-collapse:collapse;">
+<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.12);">
+<th style="padding:8px;text-align:center;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">#</th>
+<th style="padding:8px;text-align:left;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Player</th>
+<th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Games</th>
+<th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Perfect</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>'''
+        else:
+            table_html = '<p style="text-align:center;color:#8a8aa5;padding:24px 0;">No perfect games yet — go get a 1/6!</p>'
+
+        star_css, star_prefix, star_suffix = _embed_starry_background()
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Most Perfect Games — Word Play League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:radial-gradient(ellipse 60% 40% at 10% -10%,rgba(56,189,248,0.05),transparent 70%),radial-gradient(ellipse 60% 40% at 90% 110%,rgba(168,85,247,0.05),transparent 70%);background-attachment:fixed;color:#d7dadc;padding:16px;min-height:100vh;}}
+.metric-wrap{{max-width:440px;margin:0 auto;position:relative;z-index:1;}}
+.metric-card{{background:rgba(16,16,36,0.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 32px rgba(0,0,0,0.45);}}
+.metric-title{{font-size:1.25em;font-weight:800;color:#e0e0e0;text-align:center;margin-bottom:2px;}}
+.metric-sub{{font-size:0.78em;color:#8a8aa5;text-align:center;margin-bottom:16px;}}
+.metric-brand{{text-align:center;margin-top:14px;}}
+.wpl-brand{{display:inline-block;font-weight:800;font-size:0.85rem;letter-spacing:0.02em;background:linear-gradient(135deg,#00E8DA 0%,#FFA64D 25%,#00E8DA 50%,#FFA64D 75%,#00E8DA 100%);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:wpl-shimmer 4s linear infinite;}}
+@keyframes wpl-shimmer{{0%{{background-position:0% center;}}100%{{background-position:300% center;}}}}
+{star_css}
+</style>
+</head>
+<body>
+{star_prefix}
+<div class="metric-wrap">
+  <div class="metric-card">
+    <div class="metric-title">✨ Most Perfect Games</div>
+    <div class="metric-sub">Top 5 across all leagues · 1/6 and 2/6 count</div>
+    {table_html}
+    <div class="metric-brand"><span class="wpl-brand">WordPlayLeague</span></div>
+  </div>
+</div>
+{star_suffix}
+</body>
+</html>'''
+        return html
+    except Exception as e:
+        logging.error(f"Error rendering embed most-perfect page: {e}", exc_info=True)
+        return "<p style='color:#f44336;text-align:center;padding:40px;'>Unable to load stats.</p>", 500
+
+
 @app.route('/embed/leagues')
 @app.route('/leagues-directory')
 def embed_leagues_directory():
