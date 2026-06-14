@@ -3382,6 +3382,39 @@ def _embed_starry_background():
     return css, body_prefix, body_suffix
 
 
+def _embed_pager_html():
+    """Self-contained client-side pager for the Top-10 metric widgets.
+
+    Shows 5 rows at a time and flips between page 1 (ranks 1–5) and page 2
+    (ranks 6–10) with no iframe reload. Returns its own scoped <style>/<script>
+    so it only ships on the metric pages that actually include it. The table it
+    sits under must expose tbody#wpl-pg1 (shown) and tbody#wpl-pg2 (hidden).
+    """
+    return '''<style>
+.wpl-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px;}
+.wpl-pager button{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#d7dadc;width:34px;height:34px;border-radius:9px;font-size:1.15em;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s;display:flex;align-items:center;justify-content:center;}
+.wpl-pager button:hover:not(:disabled){background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.28);}
+.wpl-pager button:disabled{opacity:0.3;cursor:default;}
+.wpl-pager .wpl-pg-label{font-size:0.8em;color:#8a8aa5;min-width:46px;text-align:center;font-weight:600;}
+</style>
+<div class="wpl-pager">
+<button id="wpl-prev" onclick="wplGoPage(1)" disabled aria-label="Show ranks 1 to 5">&lsaquo;</button>
+<span class="wpl-pg-label" id="wpl-pg-label">1&ndash;5</span>
+<button id="wpl-next" onclick="wplGoPage(2)" aria-label="Show ranks 6 to 10">&rsaquo;</button>
+</div>
+<script>
+function wplGoPage(n){
+  var p2=document.getElementById('wpl-pg2');
+  if(!p2)return;
+  document.getElementById('wpl-pg1').style.display=n===1?'':'none';
+  p2.style.display=n===2?'':'none';
+  document.getElementById('wpl-prev').disabled=n===1;
+  document.getElementById('wpl-next').disabled=n===2;
+  document.getElementById('wpl-pg-label').textContent=n===1?'1\\u20135':'6\\u201310';
+}
+</script>'''
+
+
 @app.route('/embed/rules')
 def embed_rules_page():
     """Embeddable general rules reference page."""
@@ -3485,9 +3518,10 @@ def embed_best_average():
     """Embeddable 'Top 5 — Best Average' metric.
 
     Best (lowest) all-time average across the whole network, minimum 100 games.
-    Deduplicated so the same human counts once even if they play in multiple
-    leagues: players are grouped by phone number (falling back to Slack/Discord
-    user id), keeping the record with the MOST games played.
+    SMS leagues only: a phone number is the only reliable cross-league human
+    identifier (Slack/Discord names aren't unique and phone isn't required), so
+    players without one are excluded. Deduplicated so the same human counts once
+    even if they play in multiple leagues, keeping the record with the MOST games.
     """
     import re as _re
     MIN_GAMES = 100
@@ -3508,31 +3542,27 @@ def embed_best_average():
         cursor.close()
         conn.close()
 
-        # Dedupe one human across leagues -> keep their highest-games record
+        # SMS-only: a valid phone number is the only reliable cross-league human
+        # key, so players without one (Slack/Discord) are excluded. Dedupe one
+        # human across leagues -> keep their highest-games record.
         best = {}
         for pid, name, phone, slack, disc, league, games, avg_score in rows:
             digits = _re.sub(r'\D', '', phone or '')
-            if len(digits) >= 10:
-                key = 'ph:' + digits[-10:]
-            elif slack:
-                key = 'sl:' + slack
-            elif disc:
-                key = 'dc:' + disc
-            else:
-                key = 'id:%d' % pid
+            if len(digits) < 10:
+                continue
+            key = 'ph:' + digits[-10:]
             if key not in best or games > best[key]['games']:
                 best[key] = {'name': name, 'league': league, 'games': games, 'avg': float(avg_score)}
 
-        ranked = sorted(best.values(), key=lambda x: x['avg'])[:5]
+        ranked = sorted(best.values(), key=lambda x: x['avg'])[:10]
 
         medals = ['🥇', '🥈', '🥉']
-        if ranked:
-            rows_html = ''
-            for i, r in enumerate(ranked):
-                rank = medals[i] if i < 3 else f'<span style="color:#8a8aa5;font-weight:700;">{i + 1}</span>'
-                name_safe = (r['name'] or '').replace('<', '&lt;').replace('>', '&gt;')
-                league_safe = (r['league'] or '').replace('<', '&lt;').replace('>', '&gt;')
-                rows_html += f'''<tr>
+
+        def _row(i, r):
+            rank = medals[i] if i < 3 else f'<span style="color:#8a8aa5;font-weight:700;">{i + 1}</span>'
+            name_safe = (r['name'] or '').replace('<', '&lt;').replace('>', '&gt;')
+            league_safe = (r['league'] or '').replace('<', '&lt;').replace('>', '&gt;')
+            return f'''<tr>
 <td style="padding:12px 8px;text-align:center;font-size:1.2em;width:44px;">{rank}</td>
 <td style="padding:12px 8px;">
   <div style="font-weight:700;color:#e0e0e0;">{name_safe}</div>
@@ -3541,6 +3571,12 @@ def embed_best_average():
 <td style="padding:12px 8px;text-align:right;color:#a0a0b8;white-space:nowrap;">{r['games']:,}</td>
 <td style="padding:12px 8px;text-align:right;font-weight:800;color:#00E8DA;white-space:nowrap;">{r['avg']:.2f}</td>
 </tr>'''
+
+        if ranked:
+            rows_1 = ''.join(_row(i, r) for i, r in enumerate(ranked[:5]))
+            rows_2 = ''.join(_row(i + 5, r) for i, r in enumerate(ranked[5:]))
+            page2_tbody = f'<tbody id="wpl-pg2" style="display:none;">{rows_2}</tbody>' if rows_2 else ''
+            pager_html = _embed_pager_html() if rows_2 else ''
             table_html = f'''<table style="width:100%;border-collapse:collapse;">
 <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.12);">
 <th style="padding:8px;text-align:center;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">#</th>
@@ -3548,8 +3584,9 @@ def embed_best_average():
 <th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Games</th>
 <th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Avg</th>
 </tr></thead>
-<tbody>{rows_html}</tbody>
-</table>'''
+<tbody id="wpl-pg1">{rows_1}</tbody>
+{page2_tbody}
+</table>{pager_html}'''
         else:
             table_html = '<p style="text-align:center;color:#8a8aa5;padding:24px 0;">Not enough games played yet — check back soon!</p>'
 
@@ -3580,7 +3617,7 @@ body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:r
 <div class="metric-wrap">
   <div class="metric-card">
     <div class="metric-title">🏆 Best Average</div>
-    <div class="metric-sub">Top 5 across all leagues · min {MIN_GAMES} games · lower is better</div>
+    <div class="metric-sub">Top 5 · SMS leagues only · min {MIN_GAMES} games · lower is better</div>
     {table_html}
     <div class="metric-brand"><span class="wpl-brand">WordPlayLeague</span></div>
   </div>
@@ -3598,9 +3635,11 @@ body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:r
 def embed_most_perfect():
     """Embeddable 'Top 5 — Most Perfect Games' metric (1/6 and 2/6 scores).
 
-    Deduped by phone (fallback Slack/Discord id): one human counts once, using
-    their single record with the MOST games played (their main/oldest league) —
-    NOT summed across leagues. Ties broken by fewest games (efficiency).
+    SMS leagues only: a phone number is the only reliable cross-league human
+    identifier (Slack/Discord names aren't unique and phone isn't required), so
+    players without one are excluded. Deduped by phone: one human counts once,
+    using their single record with the MOST games played (their main/oldest
+    league) — NOT summed across leagues. Ties broken by fewest games (efficiency).
     """
     import re as _re
     try:
@@ -3616,33 +3655,29 @@ def embed_most_perfect():
             WHERE COALESCE(p.active, TRUE) = TRUE
             GROUP BY p.id, p.name, p.phone_number, p.slack_user_id, p.discord_user_id, l.display_name
         """)
+        # SMS-only: a valid phone number is the only reliable cross-league human
+        # key, so players without one (Slack/Discord) are excluded.
         humans = {}
         for pid, name, phone, slack, disc, league, games, perfect in cursor.fetchall():
             digits = _re.sub(r'\D', '', phone or '')
-            if len(digits) >= 10:
-                key = 'ph:' + digits[-10:]
-            elif slack:
-                key = 'sl:' + slack
-            elif disc:
-                key = 'dc:' + disc
-            else:
-                key = 'id:%d' % pid
+            if len(digits) < 10:
+                continue
+            key = 'ph:' + digits[-10:]
             if key not in humans or games > humans[key]['games']:
                 humans[key] = {'name': name, 'league': league, 'games': games, 'perfect': int(perfect or 0)}
         cursor.close()
         conn.close()
 
         ranked = sorted([h for h in humans.values() if h['perfect'] > 0],
-                        key=lambda x: (-x['perfect'], x['games']))[:5]
+                        key=lambda x: (-x['perfect'], x['games']))[:10]
 
         medals = ['🥇', '🥈', '🥉']
-        if ranked:
-            rows_html = ''
-            for i, r in enumerate(ranked):
-                rank = medals[i] if i < 3 else f'<span style="color:#8a8aa5;font-weight:700;">{i + 1}</span>'
-                name_safe = (r['name'] or '').replace('<', '&lt;').replace('>', '&gt;')
-                league_safe = (r['league'] or '').replace('<', '&lt;').replace('>', '&gt;')
-                rows_html += f'''<tr>
+
+        def _row(i, r):
+            rank = medals[i] if i < 3 else f'<span style="color:#8a8aa5;font-weight:700;">{i + 1}</span>'
+            name_safe = (r['name'] or '').replace('<', '&lt;').replace('>', '&gt;')
+            league_safe = (r['league'] or '').replace('<', '&lt;').replace('>', '&gt;')
+            return f'''<tr>
 <td style="padding:12px 8px;text-align:center;font-size:1.2em;width:44px;">{rank}</td>
 <td style="padding:12px 8px;">
   <div style="font-weight:700;color:#e0e0e0;">{name_safe}</div>
@@ -3651,6 +3686,12 @@ def embed_most_perfect():
 <td style="padding:12px 8px;text-align:right;color:#a0a0b8;white-space:nowrap;">{r['games']:,}</td>
 <td style="padding:12px 8px;text-align:right;font-weight:800;color:#FFA64D;white-space:nowrap;">{r['perfect']:,}</td>
 </tr>'''
+
+        if ranked:
+            rows_1 = ''.join(_row(i, r) for i, r in enumerate(ranked[:5]))
+            rows_2 = ''.join(_row(i + 5, r) for i, r in enumerate(ranked[5:]))
+            page2_tbody = f'<tbody id="wpl-pg2" style="display:none;">{rows_2}</tbody>' if rows_2 else ''
+            pager_html = _embed_pager_html() if rows_2 else ''
             table_html = f'''<table style="width:100%;border-collapse:collapse;">
 <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.12);">
 <th style="padding:8px;text-align:center;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">#</th>
@@ -3658,8 +3699,9 @@ def embed_most_perfect():
 <th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Games</th>
 <th style="padding:8px;text-align:right;font-size:0.72em;color:#8a8aa5;text-transform:uppercase;letter-spacing:0.05em;">Perfect</th>
 </tr></thead>
-<tbody>{rows_html}</tbody>
-</table>'''
+<tbody id="wpl-pg1">{rows_1}</tbody>
+{page2_tbody}
+</table>{pager_html}'''
         else:
             table_html = '<p style="text-align:center;color:#8a8aa5;padding:24px 0;">No perfect games yet — go get a 1/6!</p>'
 
@@ -3690,7 +3732,7 @@ body{{font-family:'Inter',sans-serif;background-color:#06060e;background-image:r
 <div class="metric-wrap">
   <div class="metric-card">
     <div class="metric-title">✨ Most Perfect Games</div>
-    <div class="metric-sub">Top 5 across all leagues · 1/6 and 2/6 count</div>
+    <div class="metric-sub">Top 5 · SMS leagues only · 1/6 and 2/6 count</div>
     {table_html}
     <div class="metric-brand"><span class="wpl-brand">WordPlayLeague</span></div>
   </div>
