@@ -1620,12 +1620,23 @@ def webhook():
 
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
 
-        # CRITICAL: Reject messages that don't start with "Wordle" (after stripping whitespace)
-        # Legitimate submissions from NYT app always start with "Wordle"
-        # Anything before "Wordle" is a reaction/comment
+        # Reject tapback / reaction echoes ONLY (e.g. iMessage 'Loved "Wordle 1,826
+        # 5/6 ..."' or Android 'Reacted 🎉 to "..."'). These quote someone else's
+        # score and would otherwise be recorded against the REACTOR's number.
+        #
+        # We intentionally do NOT require the message to start with "Wordle":
+        # legit shares sometimes carry decorative text/emojis before the score
+        # (e.g. NYT's "Happy 5th Birthday Wordle 🎂\nWordle 1,826 5/6"). Anything
+        # that isn't a reaction falls through to extract_wordle_score, which
+        # validates the actual score line (recent Wordle # + grid) and ignores
+        # surrounding text — so plain chatter still gets dropped below.
         stripped_message = message_body.strip()
-        if not stripped_message.startswith('Wordle'):
-            logging.info(f"Ignoring message that doesn't start with 'Wordle': {message_body[:50]}")
+        reaction_re = re.compile(
+            r'^(?:Loved|Liked|Disliked|Laughed at|Emphasized|Questioned|Reacted\b[^"“”\'‘’]*?)\s*["“”\'‘’]',
+            re.IGNORECASE,
+        )
+        if reaction_re.match(stripped_message):
+            logging.info(f"Ignoring tapback/reaction message: {message_body[:50]}")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
         # Extract Wordle score
