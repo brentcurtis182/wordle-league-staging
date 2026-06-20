@@ -3322,6 +3322,13 @@ def serve_static(filename):
     """Serve static files like images"""
     return send_from_directory('.', filename)
 
+@app.route('/app-icons/<path:filename>')
+def serve_app_icon(filename):
+    """Serve home-screen / favicon app icons from the app_icons/ folder.
+    (Uses its own path because /static is shadowed by Flask's built-in static
+    handler, which points at a non-existent ./static dir.)"""
+    return send_from_directory('app_icons', filename)
+
 def _check_league_name(name):
     """Check league name for profanity/slurs. Returns error string or None if clean."""
     # Normalize: lowercase, strip extra spaces, remove common substitutions
@@ -7418,10 +7425,10 @@ def recent_messages(league_id):
         <head>
             <title>Recent Messages - {league_name}</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-            <link rel="apple-touch-icon" href="/static/app_icons/recent_messages/apple-touch-icon.png"/>
-            <link rel="icon" type="image/png" sizes="32x32" href="/static/app_icons/recent_messages/favicon-32.png"/>
-            <link rel="icon" type="image/png" sizes="192x192" href="/static/app_icons/recent_messages/icon-192.png"/>
-            <link rel="icon" type="image/png" sizes="512x512" href="/static/app_icons/recent_messages/icon-512.png"/>
+            <link rel="apple-touch-icon" href="/app-icons/recent_messages/apple-touch-icon.png"/>
+            <link rel="icon" type="image/png" sizes="32x32" href="/app-icons/recent_messages/favicon-32.png"/>
+            <link rel="icon" type="image/png" sizes="192x192" href="/app-icons/recent_messages/icon-192.png"/>
+            <link rel="icon" type="image/png" sizes="512x512" href="/app-icons/recent_messages/icon-512.png"/>
             <style>
                 body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #1a1a1b; color: #d7dadc; }}
                 h1 {{ color: #00E8DA; }}
