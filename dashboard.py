@@ -1728,12 +1728,19 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
     else:
         all_sections = sms_section + slack_section + discord_section
     
+    # Staging gets the STAGING-banner icon; prod gets the normal one.
+    icon_dir = 'staging' if (os.environ.get('FLASK_ENV') == 'staging'
+                             or 'staging' in (os.environ.get('GITHUB_REPO_NAME') or '')) else 'prod'
     return f"""
     <!DOCTYPE html>
     <html>
     <head>
         <title>Dashboard - WordPlayLeague.com</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="apple-touch-icon" href="/static/app_icons/{icon_dir}/apple-touch-icon.png"/>
+        <link rel="icon" type="image/png" sizes="32x32" href="/static/app_icons/{icon_dir}/favicon-32.png"/>
+        <link rel="icon" type="image/png" sizes="192x192" href="/static/app_icons/{icon_dir}/icon-192.png"/>
+        <link rel="icon" type="image/png" sizes="512x512" href="/static/app_icons/{icon_dir}/icon-512.png"/>
         <style>
             {get_base_styles()}
             .platform-section {{
