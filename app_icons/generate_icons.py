@@ -5,7 +5,7 @@ SRC = "app_icons/leagues_page_icon.png"
 SIZES = {"apple-touch-icon.png": 180, "icon-192.png": 192, "icon-512.png": 512, "favicon-32.png": 32}
 
 os.makedirs("app_icons/prod", exist_ok=True)
-os.makedirs("app_icons/staging", exist_ok=True)
+os.makedirs("app_icons/staging_env", exist_ok=True)  # 'staging' dir name is .gitignored
 
 master = Image.open(SRC).convert("RGB")
 W, H = master.size  # 1024 x 1024
@@ -32,7 +32,7 @@ tw, th = tb[2] - tb[0], tb[3] - tb[1]
 d.text(((W - tw) / 2 - tb[0], y0 + (band_h - th) / 2 - tb[1]), text, font=fnt,
        fill=(255, 255, 255), stroke_width=max(2, int(band_h*0.03)), stroke_fill=(120, 40, 0))
 
-for variant, base in (("prod", master), ("staging", staging_master)):
+for variant, base in (("prod", master), ("staging_env", staging_master)):
     for fname, size in SIZES.items():
         img = base.resize((size, size), Image.LANCZOS)
         img.save(f"app_icons/{variant}/{fname}")

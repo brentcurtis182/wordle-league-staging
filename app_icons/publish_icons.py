@@ -9,6 +9,7 @@ import sys, os, base64, requests
 
 variant = sys.argv[1] if len(sys.argv) > 1 else "staging"
 REPO = {"prod": "wordle-league", "staging": "wordle-league-staging"}[variant]
+FOLDER = {"prod": "prod", "staging": "staging_env"}[variant]  # 'staging' dir is .gitignored
 BRANCH = "gh-pages"
 FILES = ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon-32.png"]
 
@@ -26,7 +27,7 @@ H = {"Authorization": f"token {TOKEN}", "Accept": "application/vnd.github.v3+jso
 
 print(f"Publishing {variant} icons -> {USER}/{REPO}@{BRANCH} (root)")
 for fname in FILES:
-    local = f"app_icons/{variant}/{fname}"
+    local = f"app_icons/{FOLDER}/{fname}"
     with open(local, "rb") as fh:
         content_b64 = base64.b64encode(fh.read()).decode()
     api = f"https://api.github.com/repos/{USER}/{REPO}/contents/{fname}"

@@ -1729,8 +1729,8 @@ def render_dashboard(user, leagues, shared_leagues=None, message=None, error=Non
         all_sections = sms_section + slack_section + discord_section
     
     # Staging gets the STAGING-banner icon; prod gets the normal one.
-    icon_dir = 'staging' if (os.environ.get('FLASK_ENV') == 'staging'
-                             or 'staging' in (os.environ.get('GITHUB_REPO_NAME') or '')) else 'prod'
+    icon_dir = 'staging_env' if (os.environ.get('FLASK_ENV') == 'staging'
+                                 or 'staging' in (os.environ.get('GITHUB_REPO_NAME') or '')) else 'prod'
     return f"""
     <!DOCTYPE html>
     <html>
