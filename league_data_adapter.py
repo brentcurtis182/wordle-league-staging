@@ -226,35 +226,56 @@ def clear_min_scores_cache(league_id=None):
     else:
         cache.clear()
 
+def pacific_now():
+    """Current time in real Pacific time (DST-aware: PST in winter, PDT in summer).
+
+    The canonical clock for the league's day boundary. Replaces the old
+    hardcoded UTC-8 offset, which made the day roll over at 1am (not midnight)
+    during PDT. Rolls at true local midnight year-round.
+    """
+    import pytz
+    return datetime.now(pytz.timezone('America/Los_Angeles'))
+
 def calculate_wordle_number(target_date=None):
-    """Calculate the Wordle number based on the date (from export_leaderboard.py)"""
-    # First Wordle (Wordle 0) was on June 19, 2021
+    """Calculate the Wordle number for a date (Wordle 0 = June 19, 2021)."""
     first_wordle_date = datetime(2021, 6, 19).date()
-    
     if target_date is None:
-        # Use Pacific Time for "today"
-        from datetime import timezone
-        pacific_tz = timezone(timedelta(hours=-8))
-        now_pacific = datetime.now(pacific_tz)
-        target_date = now_pacific.date()
-    
-    # Calculate days since first Wordle
-    days_since_first = (target_date - first_wordle_date).days
-    
-    return days_since_first
+        # "Today" in real Pacific time — rolls at true local midnight (DST-aware)
+        target_date = pacific_now().date()
+    return (target_date - first_wordle_date).days
+
+def acceptable_wordle_numbers(now_pacific=None, buffer_hours=3):
+    """Set of Wordle numbers currently valid for submission.
+
+    Always includes today's Pacific number. During the last `buffer_hours` of
+    the Pacific day it ALSO accepts tomorrow's number (early posts from zones
+    ahead of Pacific — e.g. an East Coast player at their local midnight, which
+    is 9pm Pacific). During the first `buffer_hours` it ALSO accepts yesterday's
+    number (late posts + zones behind Pacific, e.g. Hawaii). At most two
+    adjacent numbers are valid at once.
+
+    Pure function of `now_pacific` (a Pacific-localized datetime) — pass a fixed
+    value to unit-test the window without touching the real clock.
+    """
+    if now_pacific is None:
+        now_pacific = pacific_now()
+    n = calculate_wordle_number(now_pacific.date())
+    accepted = {n}
+    if now_pacific.hour < buffer_hours:
+        accepted.add(n - 1)            # backward grace (late / behind-Pacific zones)
+    if now_pacific.hour >= 24 - buffer_hours:
+        accepted.add(n + 1)            # forward grace (ahead-of-Pacific zones)
+    return accepted
 
 def get_week_start_date(target_date=None):
     """Get the Monday of the current week (from export_leaderboard.py logic)"""
     if target_date is None:
-        from datetime import timezone
-        pacific_tz = timezone(timedelta(hours=-8))
-        now_pacific = datetime.now(pacific_tz)
-        target_date = now_pacific.date()
-    
+        target_date = pacific_now().date()
+
     # Find Monday of this week
     days_since_monday = target_date.weekday()  # Monday=0, Sunday=6
     monday = target_date - timedelta(days=days_since_monday)
-    
+
     return monday
 
 def get_current_week_wordles():

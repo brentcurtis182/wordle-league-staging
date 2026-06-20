@@ -1436,7 +1436,7 @@ def generate_rules_html(league_data):
     # 3. Window to Post
     html += f'''<div style="{card_style}">
 <h3 style="color:#00E8DA; margin:0 0 10px 0; font-size:1.1em;">🕐 Window to Post</h3>
-<p style="margin:0; color:#d7dadc; line-height:1.6;">Each day&#39;s Wordle score can be submitted between <strong style="color:#00E8DA;">12:00 AM and 11:59 PM Pacific Time</strong>. Only the current day&#39;s Wordle puzzle number is accepted&mdash;scores from previous days cannot be posted retroactively. The scoring week runs <strong style="color:#00E8DA;">Monday through Sunday</strong>.</p>
+<p style="margin:0; color:#d7dadc; line-height:1.6;">Each day&#39;s Wordle runs <strong style="color:#00E8DA;">midnight to midnight Pacific Time</strong>, and the scoring week runs <strong style="color:#00E8DA;">Monday through Sunday</strong>. To be fair to players in other time zones, there&#39;s a <strong style="color:#00E8DA;">3-hour grace window</strong> on each side of midnight: in the last 3 hours of the day you can post <em>tomorrow&#39;s</em> puzzle early (handy if you&#39;re on the East Coast and already have the next one), and in the first 3 hours you can still post <em>yesterday&#39;s</em>. Every score always counts toward its own puzzle&#39;s day&mdash;so a score posted in the grace window lands on the right day and will show up in the weekly table even if it isn&#39;t on the &ldquo;Latest&rdquo; tab yet.</p>
 </div>
 '''
 

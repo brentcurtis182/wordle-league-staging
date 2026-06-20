@@ -433,21 +433,13 @@ def get_player_from_phone(phone_number, league_id):
     return None
 
 def get_todays_wordle_number():
-    """Calculate today's Wordle number based on reference date in Pacific Time"""
-    from datetime import timezone, timedelta
-    
-    # Wordle #1503 = July 31, 2025
-    ref_date = date(2025, 7, 31)
-    ref_wordle = 1503
-    
-    # Get current time in Pacific Time (UTC-8 or UTC-7 depending on DST)
-    # For simplicity, use UTC-8 (PST)
-    pacific_tz = timezone(timedelta(hours=-8))
-    now_pacific = datetime.now(pacific_tz)
-    today_pacific = now_pacific.date()
-    
-    days_since_ref = (today_pacific - ref_date).days
-    return ref_wordle + days_since_ref
+    """Today's Wordle number in real Pacific time (DST-aware).
+
+    Delegates to league_data_adapter.calculate_wordle_number so the day
+    boundary has a single source of truth (rolls at true local midnight).
+    """
+    from league_data_adapter import calculate_wordle_number
+    return calculate_wordle_number()
 
 def extract_wordle_score(message_body):
     """
@@ -470,23 +462,17 @@ def extract_wordle_score(message_body):
         logging.warning(f"Could not convert Wordle number: {wordle_num_str}")
         return None, None, None
     
-    # CRITICAL: Validate Wordle number is today or yesterday only
-    from datetime import date, timedelta
-    ref_date = date(2021, 6, 19)
-    ref_wordle = 0
-    today = date.today()
-    days_since_ref = (today - ref_date).days
-    today_wordle = ref_wordle + days_since_ref
-    yesterday_wordle = today_wordle - 1
-    
-    if wordle_num == today_wordle:
-        logging.info(f"✓ VALIDATED: Wordle #{wordle_num} is today's")
-    elif wordle_num == yesterday_wordle:
-        logging.info(f"✓ VALIDATED: Wordle #{wordle_num} is yesterday's (late submission)")
+    # Validate the Wordle number is within the currently-accepted submission
+    # window: today's Pacific number, plus a ±3h boundary grace for other
+    # timezones (see league_data_adapter.acceptable_wordle_numbers). DST-aware.
+    from league_data_adapter import acceptable_wordle_numbers
+    accepted = acceptable_wordle_numbers()
+    if wordle_num in accepted:
+        logging.info(f"✓ VALIDATED: Wordle #{wordle_num} in accepted window {sorted(accepted)}")
     else:
-        logging.warning(f"✗ REJECTED: Wordle #{wordle_num} is neither today's ({today_wordle}) nor yesterday's ({yesterday_wordle})")
+        logging.warning(f"✗ REJECTED: Wordle #{wordle_num} not in accepted window {sorted(accepted)}")
         return None, None, None
-    
+
     # Extract score
     score_str = match.group(2)
     if score_str.upper() == 'X':
@@ -1105,12 +1091,13 @@ def process_wordle_score(league_id, player_id, player_name, wordle_number, score
             logging.error("Failed to get database connection")
             return "error"
         
-        # Get today's Wordle number for validation
-        todays_wordle = get_todays_wordle_number()
-        
-        # Only accept today's Wordle
-        if wordle_number != todays_wordle:
-            logging.warning(f"Rejecting Wordle #{wordle_number} - only today's #{todays_wordle} allowed")
+        # Accept any Wordle number in the current submission window — today's
+        # Pacific number plus a ±3h boundary grace for other timezones
+        # (see league_data_adapter.acceptable_wordle_numbers).
+        from league_data_adapter import acceptable_wordle_numbers
+        accepted = acceptable_wordle_numbers()
+        if wordle_number not in accepted:
+            logging.warning(f"Rejecting Wordle #{wordle_number} - not in accepted window {sorted(accepted)}")
             conn.close()
             return "old_score"
         
@@ -1143,16 +1130,22 @@ def process_wordle_score(league_id, player_id, player_name, wordle_number, score
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (player_id, wordle_number, score, wordle_date, emoji_pattern, now))
         
-        # Also insert into latest_scores table for daily tracking
-        cursor.execute("""
-            INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (player_id) 
-            DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score, 
-                          emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp, 
-                          league_id = EXCLUDED.league_id
-        """, (player_id, league_id, wordle_number, score, emoji_pattern, now))
-        
+        # Update the daily snapshot ONLY for the current Pacific Wordle #. A
+        # boundary-buffer post (yesterday's, or an early tomorrow's) is saved to
+        # `scores` above but must not surface in the live "today" view — the
+        # display derives the today tab from scores at the current #, so an early
+        # post auto-appears on its own once the day rolls over.
+        from league_data_adapter import calculate_wordle_number
+        if wordle_number == calculate_wordle_number():
+            cursor.execute("""
+                INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (player_id)
+                DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score,
+                              emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp,
+                              league_id = EXCLUDED.league_id
+            """, (player_id, league_id, wordle_number, score, emoji_pattern, now))
+
         conn.commit()
         logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_number} via {channel_type}")
 
@@ -1213,14 +1206,15 @@ def process_wordle_score(league_id, player_id, player_name, wordle_number, score
 def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, conn):
     """Save score to PostgreSQL database (legacy function for SMS)"""
     try:
-        # Get today's Wordle number for validation
-        todays_wordle = get_todays_wordle_number()
-        
-        # Only accept today's Wordle
-        if wordle_num != todays_wordle:
-            logging.warning(f"Rejecting Wordle #{wordle_num} - only today's #{todays_wordle} allowed")
+        # Accept any Wordle number in the current submission window — today's
+        # Pacific number plus a ±3h boundary grace for other timezones
+        # (see league_data_adapter.acceptable_wordle_numbers).
+        from league_data_adapter import acceptable_wordle_numbers
+        accepted = acceptable_wordle_numbers()
+        if wordle_num not in accepted:
+            logging.warning(f"Rejecting Wordle #{wordle_num} - not in accepted window {sorted(accepted)}")
             return "old_score"
-        
+
         # Get player ID
         player_id = get_player_id(player_name, league_id, conn)
         if not player_id:
@@ -1258,14 +1252,20 @@ def save_score_to_db(player_name, wordle_num, score, emoji_pattern, league_id, c
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (player_id, wordle_num, score, wordle_date, emoji_pattern, now))
             
-            # Also insert into latest_scores table for daily tracking
-            cursor.execute("""
-                INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (player_id) 
-                DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp, league_id = EXCLUDED.league_id
-            """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
-            
+            # Update the daily snapshot ONLY for the current Pacific Wordle #. A
+            # boundary-buffer post (yesterday's, or an early tomorrow's) is saved
+            # to `scores` above but must not surface in the live "today" view —
+            # the display derives the today tab from scores at the current #, so
+            # an early post auto-appears on its own once the day rolls over.
+            from league_data_adapter import calculate_wordle_number
+            if wordle_num == calculate_wordle_number():
+                cursor.execute("""
+                    INSERT INTO latest_scores (player_id, league_id, wordle_number, score, emoji_pattern, timestamp)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (player_id)
+                    DO UPDATE SET wordle_number = EXCLUDED.wordle_number, score = EXCLUDED.score, emoji_pattern = EXCLUDED.emoji_pattern, timestamp = EXCLUDED.timestamp, league_id = EXCLUDED.league_id
+                """, (player_id, league_id, wordle_num, score, emoji_pattern, now))
+
             conn.commit()
             logging.info(f"Inserted new score for {player_name}, Wordle #{wordle_num}")
             
