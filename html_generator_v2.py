@@ -1582,6 +1582,10 @@ def generate_full_html(league_data, league_name="League 6 Beta"):
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
 <title>{league_name} - Wordle League</title>
+<link rel="apple-touch-icon" href="../apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="../icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="../icon-512.png"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
