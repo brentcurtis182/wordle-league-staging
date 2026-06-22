@@ -158,6 +158,11 @@ def set_security_headers(response):
         response.headers['Content-Security-Policy'] = (
             "frame-ancestors 'self' https://wordplayleague.com https://www.wordplayleague.com https://*.wix.com https://*.wixsite.com;"
         )
+        # These widgets show live, frequently-changing data — never let the
+        # browser/Wix/CDN serve a stale copy (caused a player to look "missing").
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
     else:
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['Content-Security-Policy'] = (
