@@ -721,6 +721,44 @@ def build_division_scenario(div_standings, div_num, div_weekly_wins, div_current
     return scenario_text
 
 
+def _apply_race_guard(race_message, scenario_text, openai_client, sunday_system_msg, prompt, league_id, max_tokens):
+    """Fact-check the AI message against the deterministic scenario text.
+
+    If the message inflates a win count or invents season/promotion/relegation
+    stakes, re-roll once with a stricter prompt; if it still fails, fall back to a
+    clean deterministic template. Fails OPEN — any error returns the original
+    message so the guard can never block a Sunday update from sending.
+    """
+    try:
+        from race_message_guard import find_violations, build_fallback_message
+        violations = find_violations(race_message, scenario_text)
+        if not violations:
+            return race_message
+        logging.warning(f"[guard] League {league_id} message failed fact-check {violations}; re-rolling.")
+        strict_system = sunday_system_msg + (
+            "\n\nABSOLUTE OVERRIDE: State ONLY the facts given. Do NOT state any win "
+            "count higher than the exact ordinal written in RACE ANALYSIS. Do NOT mention "
+            "clinch, promotion, relegation, or winning the season unless those exact words "
+            "appear in RACE ANALYSIS."
+        )
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": strict_system},
+                      {"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.2,
+        )
+        retry = resp.choices[0].message.content.strip()
+        if not find_violations(retry, scenario_text):
+            logging.info(f"[guard] League {league_id} re-roll passed fact-check.")
+            return retry
+        logging.warning(f"[guard] League {league_id} re-roll still failed; using deterministic template.")
+        return build_fallback_message(scenario_text)
+    except Exception as e:
+        logging.error(f"[guard] League {league_id} guard error, sending original message: {e}")
+        return race_message
+
+
 def send_sunday_race_update(league_id, force_season_image=False):
     """Send the Sunday race update message with precise scenario analysis
     
@@ -914,6 +952,7 @@ ACCURACY RULES:
             
             race_message = response.choices[0].message.content.strip()
             logging.info(f"Generated division Sunday race update for league {league_id}: {race_message}")
+            race_message = _apply_race_guard(race_message, scenario_text, openai_client, sunday_system_msg, prompt, league_id, 400)
         
         # ============================================================
         # STANDARD MODE: single league analysis (existing logic)
@@ -923,6 +962,10 @@ ACCURACY RULES:
             # shadows the module constant for all season clinch/stakes text below.
             from league_data_adapter import get_league_season_wins
             WINS_FOR_SEASON_VICTORY = get_league_season_wins(league_id, division_mode=False)
+
+            # Authoritative scenario text for the fact-check guard. Stays None for
+            # the simple "no eligible players" branches (nothing to validate).
+            scenario_text = None
 
             # Find eligible players (min_scores+ games) and their leader
             eligible = [s for s in standings if s['eligible']]
@@ -1083,8 +1126,8 @@ WEEKLY RACE ANALYSIS: {scenario}{season_clinch_text}"""
 
                     if len(leaders) > 1:
                         leader_list = " and ".join(leader_names)
-                        win_notes = " and ".join(f"{n}'s {_ordinal(post_week_wins[n])}" for n in leader_names)
-                        scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win! This makes it {win_notes} win this season.")
+                        win_notes = " and ".join(f"{n}'s {_ordinal(post_week_wins[n])} win" for n in leader_names)
+                        scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win! This makes it {win_notes} this season.")
                     else:
                         scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! This is their {_ordinal(post_week_wins[leader_names[0]])} win this season.")
                 
@@ -1215,6 +1258,7 @@ ACCURACY RULES:
             
             race_message = response.choices[0].message.content.strip()
             logging.info(f"Generated Sunday race update for league {league_id}: {race_message}")
+            race_message = _apply_race_guard(race_message, scenario_text, openai_client, sunday_system_msg, prompt, league_id, 200)
         
         # Get Chat Service SID for MCS uploads (only needed for SMS)
         chat_service_sid = None
