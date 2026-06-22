@@ -892,12 +892,12 @@ ACCURACY RULES:
 1. Convey the EXACT scenario given - don't change numbers, names, or math. Use ONLY the data provided. ONLY discuss players who appear in the RACE ANALYSIS — do not invent commentary about players not mentioned there.
 2. A score of 1 is nearly impossible (use the exact dramatic phrase provided), 2 is amazing/difficult, 3 is solid, 4-6 are more achievable.
 3. Don't say someone can "take the lead" unless the math supports it.
-4. Only mention SEASON STAKES or SEASON CLINCH if those EXACT phrases appear in the RACE ANALYSIS. If not present for a division, do NOT mention clinching or season implications for that division.
-5. NEVER claim someone "clinched the season" unless RACE ANALYSIS explicitly says "SEASON CLINCH".
-6. When mentioning season wins, use ONLY the numbers from "SEASON WINS" section. Do NOT infer or inflate.
+4. Only mention SEASON STAKES, SEASON CLINCH, PROMOTION, or RELEGATION if those EXACT words appear in the RACE ANALYSIS for that division. If they are NOT present for a division, do NOT mention clinching, promotion, relegation, or any season implication for that division — even if a player just won a week. A single weekly win does NOT by itself imply a promotion or a season clinch; never infer it from win counts.
+5. NEVER claim someone "clinched the season" or earned "promotion" unless RACE ANALYSIS explicitly says "SEASON CLINCH" or "Promotion".
+6. When stating a player's win count or "their Nth win", use ONLY the exact number/ordinal written in the RACE ANALYSIS or SEASON WINS data. Do NOT infer or inflate.
 7. Use emojis for excitement!
 8. Division I first, then Division II. Line break between them.
-9. Division seasons require 3 wins. Div II season win = PROMOTION to Div I. Extra players can also be promoted based on best Season Total. Div I season end = worst Season Total player(s) RELEGATED to Div II. Missed weeks put a player first in line for relegation.
+9. Promotion/relegation mechanics exist in this league, but only ever reference them when rule 4 permits (the exact words appear in RACE ANALYSIS). Do not explain or apply the mechanics on your own.
 10. If "Relegation:" or "Promotion:" text appears in RACE ANALYSIS, mention it! These are the STAKES. Convey who's in line and why.
 11. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
 12. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
@@ -988,7 +988,7 @@ ACCURACY RULES:
                     context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
-SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
+SEASON {current_season} WIN TOTALS ENTERING TODAY (counts BEFORE this week's result; need {WINS_FOR_SEASON_VICTORY} to take the season):
 {season_wins_summary}
 
 WEEKLY RACE ANALYSIS: {scenario}{season_clinch_text}"""
@@ -1068,25 +1068,25 @@ WEEKLY RACE ANALYSIS: {scenario}{season_clinch_text}"""
                 race_is_decided = len(players_who_can_catch_up) == 0
                 
                 if all_players_posted or race_is_decided:
-                    # Race is over — the leader(s) will get this week's win
-                    # Update season wins display to include the pending win so AI reports accurate counts
-                    # NOTE: do NOT recompute potential_season_clinchers from this updated count —
-                    # potential_season_clinchers is the pre-week snapshot ("1 away entering"), and the
-                    # clinch logic below relies on that meaning.
-                    for winner_name in leader_names:
-                        weekly_wins[winner_name] = weekly_wins.get(winner_name, 0) + 1
-                    # Rebuild season wins summary with updated counts
-                    season_wins_lines = []
-                    if weekly_wins:
-                        for name, wins in sorted(weekly_wins.items(), key=lambda x: x[1], reverse=True):
-                            season_wins_lines.append(f"  {name}: {wins} win{'s' if wins != 1 else ''}")
-                    season_wins_summary = "\n".join(season_wins_lines) if season_wins_lines else "  No wins yet this season"
-                    
+                    # Race is over — the leader(s) will get this week's win.
+                    # Deliberately KEEP season_wins_summary as the PRE-week ("entering
+                    # today") snapshot built above, and instead state each winner's
+                    # POST-week total as an explicit ordinal in the scenario text. This
+                    # gives the AI ONE authoritative count to copy ("This is their 2nd
+                    # win") and stops it from double-counting this week's pending win
+                    # on top of the summary numbers (the PAL bug, 2026-06-21).
+                    # NOTE: potential_season_clinchers stays the pre-week snapshot
+                    # ("1 away entering"); the clinch logic below relies on that.
+                    def _ordinal(n):
+                        return {1: '1st', 2: '2nd', 3: '3rd'}.get(n, f'{n}th')
+                    post_week_wins = {n: weekly_wins.get(n, 0) + 1 for n in leader_names}
+
                     if len(leaders) > 1:
                         leader_list = " and ".join(leader_names)
-                        scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win!")
+                        win_notes = " and ".join(f"{n}'s {_ordinal(post_week_wins[n])}" for n in leader_names)
+                        scenarios.append(f"RACE OVER! {leader_list} are tied at {leader_total} and will share the weekly win! This makes it {win_notes} win this season.")
                     else:
-                        scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! Congratulations!")
+                        scenarios.append(f"RACE OVER! {leader_names[0]} wins the week with {leader_total}! This is their {_ordinal(post_week_wins[leader_names[0]])} win this season.")
                 
                 elif len(leaders) > 1 and all_eligible_posted and not not_posted_today:
                     leader_list = " and ".join(leader_names)
@@ -1165,11 +1165,13 @@ WEEKLY RACE ANALYSIS: {scenario}{season_clinch_text}"""
                 logging.info(f"League {league_id} season clinch text: '{season_clinch_text}'")
                 logging.info(f"League {league_id} scenario text: '{scenario_text}'")
                 
-                # Always include season wins so the AI can mention win counts for context
+                # Season-win totals are shown ENTERING today (before this week's result).
+                # The authoritative post-week count for any winner is stated inside
+                # WEEKLY RACE ANALYSIS ("This is their Nth win") — see prompt rule 6.
                 context_block = f"""CURRENT WEEKLY STANDINGS (lower is better, best {min_scores} of 7 scores):
 {standings_summary}
 
-SEASON {current_season} WINS (need {WINS_FOR_SEASON_VICTORY} to win the season):
+SEASON {current_season} WIN TOTALS ENTERING TODAY (counts BEFORE this week's result; need {WINS_FOR_SEASON_VICTORY} to take the season):
 {season_wins_summary}
 
 WEEKLY RACE ANALYSIS: {scenario_text}"""
@@ -1195,10 +1197,11 @@ ACCURACY RULES:
 3. Don't say someone can "take the lead" unless the math supports it.
 4. If the prompt contains "SEASON STAKES" or "SEASON CLINCH", mention it prominently!
 5. NEVER claim someone "clinched the season" unless the prompt explicitly says "SEASON CLINCH".
-6. When mentioning season wins, use ONLY numbers from "SEASON WINS" section. Do NOT infer or inflate.
+6. WIN COUNTS: The "SEASON WIN TOTALS ENTERING TODAY" section shows counts BEFORE this week. To state a winner's updated count or "their Nth win", use ONLY the exact ordinal written in WEEKLY RACE ANALYSIS (e.g. "This is their 2nd win"). Do NOT add this week's win to the entering-today numbers yourself, and do NOT state an ordinal that RACE ANALYSIS did not give.
 7. Use emojis for excitement!
 8. FORBIDDEN PHRASES (unless explicitly in RACE ANALYSIS): "locked", "out of contention", "eliminated", "in the hunt", "hail mary" (only if score of 1 needed).
-9. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie."""
+9. If two players are tied and one hasn't posted and "could improve", the race is NOT over — say they could break the tie.
+10. NEVER mention season clinch, promotion, or relegation unless the literal words "SEASON STAKES", "SEASON CLINCH", "Promotion", or "Relegation" appear in the provided text. Winning a week does NOT by itself imply clinching a season or promotion — do not infer it from win counts."""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
