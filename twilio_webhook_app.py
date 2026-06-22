@@ -3555,6 +3555,7 @@ def embed_best_average():
             WHERE COALESCE(p.active, TRUE) = TRUE
             GROUP BY p.id, p.name, p.phone_number, p.slack_user_id, p.discord_user_id, l.display_name
             HAVING COUNT(s.*) >= %s
+            ORDER BY p.phone_number, COUNT(s.*) DESC
         """, (MIN_GAMES,))
         rows = cursor.fetchall()
         cursor.close()
@@ -3562,17 +3563,23 @@ def embed_best_average():
 
         # SMS-only: a valid phone number is the only reliable cross-league human
         # key, so players without one (Slack/Discord) are excluded. Dedupe one
-        # human across leagues -> keep their highest-games record.
+        # human across leagues -> keep their highest-games record. The pick is fully
+        # DETERMINISTIC (most games, then better/lower average, then league name) so
+        # the same person never flickers between leagues across page loads.
+        def _rep_key(r):
+            return (r['games'], -r['avg'], r['league'] or '')
         best = {}
         for pid, name, phone, slack, disc, league, games, avg_score in rows:
             digits = _re.sub(r'\D', '', phone or '')
             if len(digits) < 10:
                 continue
             key = 'ph:' + digits[-10:]
-            if key not in best or games > best[key]['games']:
-                best[key] = {'name': name, 'league': league, 'games': games, 'avg': float(avg_score)}
+            cand = {'name': name, 'league': league, 'games': games, 'avg': float(avg_score)}
+            if key not in best or _rep_key(cand) > _rep_key(best[key]):
+                best[key] = cand
 
-        ranked = sorted(best.values(), key=lambda x: x['avg'])[:10]
+        # Deterministic ordering: lower average first, then more games, then name.
+        ranked = sorted(best.values(), key=lambda x: (x['avg'], -x['games'], x['name'] or ''))[:10]
 
         medals = ['🥇', '🥈', '🥉']
 
@@ -3672,22 +3679,30 @@ def embed_most_perfect():
             JOIN leagues l ON l.id = p.league_id
             WHERE COALESCE(p.active, TRUE) = TRUE
             GROUP BY p.id, p.name, p.phone_number, p.slack_user_id, p.discord_user_id, l.display_name
+            ORDER BY p.phone_number, COUNT(s.*) DESC
         """)
         # SMS-only: a valid phone number is the only reliable cross-league human
-        # key, so players without one (Slack/Discord) are excluded.
+        # key, so players without one (Slack/Discord) are excluded. Representative
+        # record pick is DETERMINISTIC (most games, then more perfect, then league
+        # name) so a person never flickers between leagues across page loads.
+        def _rep_key(r):
+            return (r['games'], r['perfect'], r['league'] or '')
         humans = {}
         for pid, name, phone, slack, disc, league, games, perfect in cursor.fetchall():
             digits = _re.sub(r'\D', '', phone or '')
             if len(digits) < 10:
                 continue
             key = 'ph:' + digits[-10:]
-            if key not in humans or games > humans[key]['games']:
-                humans[key] = {'name': name, 'league': league, 'games': games, 'perfect': int(perfect or 0)}
+            cand = {'name': name, 'league': league, 'games': games, 'perfect': int(perfect or 0)}
+            if key not in humans or _rep_key(cand) > _rep_key(humans[key]):
+                humans[key] = cand
         cursor.close()
         conn.close()
 
+        # Deterministic ordering: most perfect first, then fewest games (efficiency),
+        # then name — so equal rows never swap position between loads.
         ranked = sorted([h for h in humans.values() if h['perfect'] > 0],
-                        key=lambda x: (-x['perfect'], x['games']))[:10]
+                        key=lambda x: (-x['perfect'], x['games'], x['name'] or ''))[:10]
 
         medals = ['🥇', '🥈', '🥉']
 
