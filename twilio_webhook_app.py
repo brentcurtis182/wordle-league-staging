@@ -1518,20 +1518,25 @@ def webhook():
                             total_active = cursor.fetchone()[0]
                             is_new_league = len(waiting_names) == total_active
 
+                            _sms_disclaimer = (
+                                f"Msg frequency varies. Msg & data rates may apply. Reply HELP for help, "
+                                f"STOP or OPT OUT to opt out. Terms: https://www.wordplayleague.com/sms-terms "
+                                f"Privacy: https://www.wordplayleague.com/privacy-policy"
+                            )
                             if is_new_league:
                                 body = (
                                     f"🎉 Success! This group is now connected to {league_name}.\n\n"
                                     f"Welcome, {names_text}! To get started, each player please type OPT IN "
-                                    f"to have your Wordle scores auto-collected and posted to the league page. "
-                                    f"You can type OPT OUT at any time to stop.\n\n"
+                                    f"to have your Wordle scores auto-collected and posted to the league page.\n\n"
+                                    f"{_sms_disclaimer}\n\n"
                                     f"📊 View your league standings: {league_url}"
                                 )
                             else:
                                 body = (
                                     f"🎉 Success! This group is now connected to {league_name}.\n\n"
                                     f"Welcome, {names_text}! Please type OPT IN "
-                                    f"to have your Wordle scores auto-collected and posted to the league page. "
-                                    f"You can type OPT OUT at any time to stop.\n\n"
+                                    f"to have your Wordle scores auto-collected and posted to the league page.\n\n"
+                                    f"{_sms_disclaimer}\n\n"
                                     f"📊 View your league standings: {league_url}"
                                 )
                             cursor.execute("UPDATE leagues SET opt_in_welcome_sent = TRUE WHERE id = %s", (league_id,))
@@ -1608,7 +1613,9 @@ def webhook():
                                 league_url = f"{APP_BASE_URL}/leagues/{opt_league_slug}"
                                 send_league_message(
                                     opt_league_id,
-                                    f"You're opted in, {player_name_opt}! Your scores will be recorded and posted here: {league_url}",
+                                    f"Welcome to WordPlay League! You're opted in, {player_name_opt} — your Wordle scores will be tracked and posted here: {league_url}\n\n"
+                                    f"Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out. "
+                                    f"Terms: https://www.wordplayleague.com/sms-terms Privacy: https://www.wordplayleague.com/privacy-policy",
                                     db_connection=conn_opt
                                 )
                             else:
