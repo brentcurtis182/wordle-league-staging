@@ -1391,6 +1391,20 @@ def webhook():
         if ' to "Wordle' in message_body or 'to " Wordle' in message_body:
             logging.info(f"Ignoring quoted Wordle score (reaction to someone else's score)")
             return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
+
+        # Universal reaction guard: a genuine score submission never wraps "Wordle"
+        # in a quotation mark. iMessage/Android tapbacks quote the original score
+        # (e.g. '😮 to " Wordle 1,839 3/6"', 'Reacted 🤪 to "Wordle..."'). Some forms
+        # slip past the checks above — a leading space/zero-width char before the
+        # emoji defeats the '^emoji' regex, and curly quotes (“ ”) defeat the
+        # straight-quote string match. Any quote char (straight or curly, double or
+        # single) immediately before "Wordle" means this is a reaction to someone
+        # else's score, not a new submission. This is what let a reaction get
+        # recorded against the reactor and LOCK out their real score (League 7,
+        # #1839: Jeremy's 😮 on Troy's 3/6).
+        if re.search(r'["“”\'‘’`]\s*Wordle', message_body, re.IGNORECASE):
+            logging.info(f"Ignoring quoted-Wordle reaction message: {message_body[:60]}")
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200
         
         # Check for verification code phrase (two words like "pizza grass")
         # This is used to link a new group chat to a league
