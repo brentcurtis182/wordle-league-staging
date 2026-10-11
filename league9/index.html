@@ -4,10 +4,20 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
 <title>Staging Test League 2 - Wordle League</title>
-<link rel="apple-touch-icon" href="../apple-touch-icon.png"/>
-<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png"/>
-<link rel="icon" type="image/png" sizes="192x192" href="../icon-192.png"/>
-<link rel="icon" type="image/png" sizes="512x512" href="../icon-512.png"/>
+<meta name="description" content="Live Wordle standings for Staging Test League 2 - 6 players chasing weekly wins and the season title. Scores update automatically."/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="WordPlayLeague"/>
+<meta property="og:title" content="Staging Test League 2 - Wordle League Standings"/>
+<meta property="og:description" content="Live Wordle standings for Staging Test League 2 - 6 players chasing weekly wins and the season title. Scores update automatically."/>
+<meta property="og:image" content="https://app.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Staging Test League 2 - Wordle League Standings"/>
+<meta name="twitter:description" content="Live Wordle standings for Staging Test League 2 - 6 players chasing weekly wins and the season title. Scores update automatically."/>
+<meta name="twitter:image" content="https://app.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
+<link rel="apple-touch-icon" href="/app-icons/staging_env/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/app-icons/staging_env/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/app-icons/staging_env/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="/app-icons/staging_env/icon-512.png"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -155,7 +165,7 @@
 </div>
 </div>
 <div class="tab-content active" id="latest">
-<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1841 - July 04, 2026</h2>
+<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1939 - October 10, 2026</h2>
 <div class="score-card">
     <div class="player-info">
         <div class="player-name">Bob</div>
@@ -204,6 +214,7 @@
     <option value="season">Season Total</option>
   </select>
 </div>
+<p class="season-note-1" style="display:none; margin:0 0 8px 0; font-size:0.82em; color:#818384; font-style:italic;">Ranked by weeks missed first, then Season Total, then weekly wins &mdash; the same order used for promotion and relegation. A missed week leaves an unfairly low total, so it outweighs the score.</p>
 <div class="table-container" style="overflow-x: auto;">
 <table id="div-table-1">
 <thead>
@@ -225,14 +236,14 @@
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr data-wins="0">
     <td class="sticky-column"><strong>Bob</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">-</td>
     <td class="score-col-season-1" style="display:none; font-weight: bold;">-</td>
     <td>0</td>
     <td>-</td>
     <td>-</td>
-    <td>-</td>
+    <td class="wks-missed-1">-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -241,30 +252,30 @@
 <td>-</td>
 <td>-</td>
 </tr>
-<tr>
-    <td class="sticky-column"><strong>Han</strong></td>
-    <td class="score-col-weekly-1" style="font-weight: bold;">-</td>
-    <td class="score-col-season-1" style="display:none; font-weight: bold;">-</td>
-    <td>0</td>
-    <td>-</td>
-    <td>-</td>
-    <td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr>
+<tr data-wins="0">
     <td class="sticky-column"><strong>Jim</strong></td>
     <td class="score-col-weekly-1" style="font-weight: bold;">-</td>
     <td class="score-col-season-1" style="display:none; font-weight: bold;">-</td>
     <td>0</td>
     <td>-</td>
     <td>-</td>
+    <td class="wks-missed-1">-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr data-wins="0">
+    <td class="sticky-column"><strong>Mav</strong></td>
+    <td class="score-col-weekly-1" style="font-weight: bold;">-</td>
+    <td class="score-col-season-1" style="display:none; font-weight: bold;">-</td>
+    <td>0</td>
     <td>-</td>
+    <td>-</td>
+    <td class="wks-missed-1">-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -286,6 +297,7 @@
     <option value="season">Season Total</option>
   </select>
 </div>
+<p class="season-note-2" style="display:none; margin:0 0 8px 0; font-size:0.82em; color:#818384; font-style:italic;">Ranked by weeks missed first, then Season Total, then weekly wins &mdash; the same order used for promotion and relegation. A missed week leaves an unfairly low total, so it outweighs the score.</p>
 <div class="table-container" style="overflow-x: auto;">
 <table id="div-table-2">
 <thead>
@@ -307,14 +319,14 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-    <td class="sticky-column"><strong>Mav</strong></td>
+<tr data-wins="0">
+    <td class="sticky-column"><strong>Han</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">-</td>
     <td class="score-col-season-2" style="display:none; font-weight: bold;">-</td>
     <td>0</td>
     <td>-</td>
     <td>-</td>
-    <td>-</td>
+    <td class="wks-missed-2">-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -323,14 +335,14 @@
 <td>-</td>
 <td>-</td>
 </tr>
-<tr>
+<tr data-wins="0">
     <td class="sticky-column"><strong>Rick</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">-</td>
     <td class="score-col-season-2" style="display:none; font-weight: bold;">-</td>
     <td>0</td>
     <td>-</td>
     <td>-</td>
-    <td>-</td>
+    <td class="wks-missed-2">-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -339,14 +351,14 @@
 <td>-</td>
 <td>-</td>
 </tr>
-<tr>
+<tr data-wins="0">
     <td class="sticky-column"><strong>Rob</strong></td>
     <td class="score-col-weekly-2" style="font-weight: bold;">-</td>
     <td class="score-col-season-2" style="display:none; font-weight: bold;">-</td>
     <td>0</td>
     <td>-</td>
     <td>-</td>
-    <td>-</td>
+    <td class="wks-missed-2">-</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
@@ -371,34 +383,54 @@ function toggleScoreView(divNum) {
     var tbody = table.querySelector('tbody');
     var rows = Array.from(tbody.querySelectorAll('tr'));
     
+    var seasonNotes = document.querySelectorAll('.season-note-' + divNum);
+
     if (mode === 'season') {
         weeklyCols.forEach(function(el) { el.style.display = 'none'; });
         seasonCols.forEach(function(el) { el.style.display = ''; });
+        seasonNotes.forEach(function(el) { el.style.display = ''; });
         // Save original order if not saved
         if (!originalOrder[divNum]) {
             originalOrder[divNum] = rows.map(function(r) { return r; });
         }
-        // Sort by season total: numeric ascending (lower=better), Immune/Relegated and - go to bottom
+        // Order by actual standing: MISSED WEEKS first, then season total.
+        // Sorting on total alone is actively misleading — a missed week
+        // contributes fewer scores, so skipping games LOWERS your total and
+        // floats you to the top. That is exactly why relegation ranks missed
+        // weeks above total, and why Dave (63, 1 missed week) appeared to be
+        // leading Belly Up Div I while being the one in the drop zone.
         var statusLabels = ['Immune', 'Relegated'];
+        function readRow(r) {
+            var sCell = r.querySelector('.score-col-season-' + divNum);
+            var mCell = r.querySelector('.wks-missed-' + divNum);
+            var sVal = sCell ? sCell.textContent.trim() : '-';
+            var mVal = mCell ? mCell.textContent.trim() : '-';
+            var isStatus = statusLabels.indexOf(sVal) >= 0;
+            var blank = isStatus || sVal === '-' || sVal === '0';
+            return {
+                isStatus: isStatus,
+                blank: blank,
+                total: blank ? 99999 : parseInt(sVal, 10),
+                missed: (mVal === '-' || mVal === '') ? 0 : (parseInt(mVal, 10) || 0),
+                wins: parseInt(r.getAttribute('data-wins') || '0', 10) || 0
+            };
+        }
         rows.sort(function(a, b) {
-            var aCell = a.querySelector('.score-col-season-' + divNum);
-            var bCell = b.querySelector('.score-col-season-' + divNum);
-            var aVal = aCell ? aCell.textContent.trim() : '-';
-            var bVal = bCell ? bCell.textContent.trim() : '-';
-            var aIsStatus = statusLabels.indexOf(aVal) >= 0;
-            var bIsStatus = statusLabels.indexOf(bVal) >= 0;
-            var aNum = (aIsStatus || aVal === '-' || aVal === '0') ? 99999 : parseInt(aVal);
-            var bNum = (bIsStatus || bVal === '-' || bVal === '0') ? 99999 : parseInt(bVal);
-            if (aIsStatus && !bIsStatus) return 1;
-            if (bIsStatus && !aIsStatus) return -1;
-            if (aVal === '-' && bVal !== '-') return 1;
-            if (bVal === '-' && aVal !== '-') return -1;
-            return aNum - bNum;
+            var x = readRow(a), y = readRow(b);
+            // Immune/Relegated and players with no season score sink to the bottom.
+            if (x.isStatus !== y.isStatus) return x.isStatus ? 1 : -1;
+            if (x.blank !== y.blank) return x.blank ? 1 : -1;
+            // Mirrors division_manager.promotion_sort_key exactly:
+            // fewest missed weeks, then best total, then MOST weekly wins.
+            if (x.missed !== y.missed) return x.missed - y.missed;
+            if (x.total !== y.total) return x.total - y.total;
+            return y.wins - x.wins;
         });
         rows.forEach(function(r) { tbody.appendChild(r); });
     } else {
         weeklyCols.forEach(function(el) { el.style.display = ''; });
         seasonCols.forEach(function(el) { el.style.display = 'none'; });
+        seasonNotes.forEach(function(el) { el.style.display = 'none'; });
         // Restore original order
         if (originalOrder[divNum]) {
             originalOrder[divNum].forEach(function(r) { tbody.appendChild(r); });
@@ -415,6 +447,7 @@ function toggleScoreView(divNum) {
 <table class="season-table">
 <thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>
 <tbody>
+<tr><td colspan="3" style="text-align: center; padding: 22px 12px; width: auto; white-space: normal;"><div style="color: #00E8DA; font-weight: 700; font-size: 1.05em;">New Season &mdash; Season 1</div><div style="color: #818384; font-size: 0.85em; margin-top: 5px; white-space: normal;">Weekly winners appear here each Monday</div></td></tr>
 </tbody>
 </table>
 </div>
@@ -423,6 +456,7 @@ function toggleScoreView(divNum) {
 <table class="season-table">
 <thead><tr><th>Player</th><th>Weekly Wins</th><th>Wordle Week (Score)</th></tr></thead>
 <tbody>
+<tr><td colspan="3" style="text-align: center; padding: 22px 12px; width: auto; white-space: normal;"><div style="color: #FFA64D; font-weight: 700; font-size: 1.05em;">New Season &mdash; Season 1</div><div style="color: #818384; font-size: 0.85em; margin-top: 5px; white-space: normal;">Weekly winners appear here each Monday</div></td></tr>
 </tbody>
 </table>
 </div>
@@ -432,32 +466,32 @@ function toggleScoreView(divNum) {
 <thead><tr><th>Player</th><th>Games</th><th>Avg</th></tr></thead>
 <tbody>
 <tr>
-    <td><strong>Bob</strong></td>
+    <td class="name-cell"><strong>Bob</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
 <tr>
-    <td><strong>Han</strong></td>
+    <td class="name-cell"><strong>Han</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
 <tr>
-    <td><strong>Jim</strong></td>
+    <td class="name-cell"><strong>Jim</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
 <tr>
-    <td><strong>Mav</strong></td>
+    <td class="name-cell"><strong>Mav</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
 <tr>
-    <td><strong>Rick</strong></td>
+    <td class="name-cell"><strong>Rick</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
 <tr>
-    <td><strong>Rob</strong></td>
+    <td class="name-cell"><strong>Rob</strong></td>
     <td>-</td>
     <td>-</td>
 </tr>
@@ -582,6 +616,18 @@ function toggleScoreView(divNum) {
 </div>
 </div>
 </div>
+<style>
+.wpl-cta{margin:22px auto 6px;padding:22px 20px;max-width:460px;border:1px solid rgba(0,232,218,0.35);border-radius:14px;background:rgba(0,232,218,0.06);text-align:center;}
+.wpl-cta .wpl-cta-line{margin:0 0 16px;font-size:15px;font-weight:600;color:#e8e8f0;line-height:1.4;}
+.wpl-footer a.wpl-cta-btn{display:inline-block;margin:4px 0;padding:12px 26px;border-radius:10px;background:linear-gradient(145deg,#00E8DA,#00c4b8);color:#06060e;font-weight:800;font-size:14px;line-height:1.2;text-decoration:none;}
+.wpl-footer a.wpl-cta-btn:hover{opacity:.88;color:#06060e;}
+.wpl-cta .wpl-cta-sub{margin:16px 0 0;font-size:12px;color:#9a9ab0;line-height:1.5;}
+/* Scoped past `.wpl-footer p` in styles.css, which sets margin:0 and would
+   otherwise kill the auto-centering and the smaller size. */
+.wpl-footer p.wpl-legal{margin:34px auto 0;max-width:460px;font-size:10px;line-height:1.65;color:#6a6a80;text-align:center;}
+.wpl-legal a{color:#8a8aa0;text-decoration:underline;text-underline-offset:2px;}
+.wpl-legal a:hover{color:#b8b8c8;}
+</style>
 <footer class="wpl-footer">
 <div class="container">
 <div class="footer-tiles">
@@ -592,6 +638,12 @@ function toggleScoreView(divNum) {
 <div class="footer-tile"></div>
 </div>
 <p>Staging Test League 2 · <a href="https://www.wordplayleague.com">WordPlayLeague</a></p>
+<div class="wpl-cta">
+<p class="wpl-cta-line">Want this for your own group?</p>
+<a class="wpl-cta-btn" href="https://staging.wordplayleague.com/auth/register">Start your own league &rarr;</a>
+<p class="wpl-cta-sub">Works in your group text, Slack or Discord. Free trial on Slack &amp; Discord.</p>
+</div>
+<p class="wpl-legal">WordPlayLeague is not affiliated with or endorsed by Slack, Discord, The New York Times, or any puzzle publisher. Wordle is a trademark of The New York Times Company.<br><a href="https://www.wordplayleague.com/terms-of-service">Terms</a> · <a href="https://www.wordplayleague.com/privacy-policy">Privacy</a> · <a href="https://www.wordplayleague.com/sms-terms">SMS Terms</a></p>
 </div>
 </footer>
 <script>
