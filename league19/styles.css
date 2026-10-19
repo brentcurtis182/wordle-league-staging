@@ -26,12 +26,20 @@ body {
     white-space: nowrap;
 }
 /* Player names are capped visually rather than truncated in the data, so the
-   full name stays in the page (and in the tooltip) while the column keeps its
-   width. Without a max-width the nowrap above just pushes the table wider. */
+   full name stays in the page while the layout keeps its shape. Without a
+   max-width the nowrap here just pushes the table wider. */
 .sticky-column,
-.name-cell,
-.player-name {
+.name-cell {
     max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* The Latest card takes no fixed cap: its parent is a flex item that can now
+   shrink, so 100% means "whatever is left after the emoji grid" and the name
+   ellipses exactly when it has to, at any screen width. */
+.player-name {
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -65,13 +73,12 @@ body {
     .player-name {
         font-size: 1.25rem;
     }
-    /* Tighter cap on phones, where the columns have far less room to give. */
+    /* Tighter caps on phones, where the columns have far less room to give.
+       .player-name needs no phone-specific value — it is already bounded by the
+       space left over in the card, which shrinks with the screen. */
     .sticky-column,
     .name-cell {
         max-width: 130px;
-    }
-    .player-name {
-        max-width: 100%;
     }
     .score-display {
         font-size: 1.5rem;
@@ -194,6 +201,15 @@ header {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    /* A flex item defaults to min-width:auto, meaning it refuses to shrink below
+       its own content. With a long nowrap name that makes this column win the
+       width fight and push the emoji grid off the side. min-width:0 lets it
+       shrink so the name can ellipsis instead. */
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.emoji-container {
+    flex: 0 0 auto;
 }
 .player-name {
     font-weight: bold;
