@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
 <title>Alchemer Wordle Starz - Wordle League</title>
 <meta name="description" content="Live Wordle standings for Alchemer Wordle Starz - 17 players chasing weekly wins and the season title. Scores update automatically."/>
-<link rel="canonical" href="https://app.wordplayleague.com/leagues/alchemer-wordle-starz"/>
-<meta property="og:url" content="https://app.wordplayleague.com/leagues/alchemer-wordle-starz"/>
+<link rel="canonical" href="https://staging.wordplayleague.com/leagues/alchemer-wordle-starz"/>
+<meta property="og:url" content="https://staging.wordplayleague.com/leagues/alchemer-wordle-starz"/>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -30,13 +30,13 @@
           "@type": "ListItem",
           "position": 3,
           "name": "Alchemer Wordle Starz",
-          "item": "https://app.wordplayleague.com/leagues/alchemer-wordle-starz"
+          "item": "https://staging.wordplayleague.com/leagues/alchemer-wordle-starz"
         }
       ]
     },
     {
       "@type": "WebPage",
-      "url": "https://app.wordplayleague.com/leagues/alchemer-wordle-starz",
+      "url": "https://staging.wordplayleague.com/leagues/alchemer-wordle-starz",
       "name": "Alchemer Wordle Starz - Wordle League Standings",
       "description": "Live Wordle standings for Alchemer Wordle Starz - 17 players chasing weekly wins and the season title. Scores update automatically.",
       "isPartOf": {
@@ -52,15 +52,15 @@
 <meta property="og:site_name" content="WordPlayLeague"/>
 <meta property="og:title" content="Alchemer Wordle Starz - Wordle League Standings"/>
 <meta property="og:description" content="Live Wordle standings for Alchemer Wordle Starz - 17 players chasing weekly wins and the season title. Scores update automatically."/>
-<meta property="og:image" content="https://app.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
+<meta property="og:image" content="https://staging.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Alchemer Wordle Starz - Wordle League Standings"/>
 <meta name="twitter:description" content="Live Wordle standings for Alchemer Wordle Starz - 17 players chasing weekly wins and the season title. Scores update automatically."/>
-<meta name="twitter:image" content="https://app.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
-<link rel="apple-touch-icon" href="https://app.wordplayleague.com/app-icons/staging_env/apple-touch-icon.png"/>
-<link rel="icon" type="image/png" sizes="32x32" href="https://app.wordplayleague.com/app-icons/staging_env/favicon-32.png"/>
-<link rel="icon" type="image/png" sizes="192x192" href="https://app.wordplayleague.com/app-icons/staging_env/icon-192.png"/>
-<link rel="icon" type="image/png" sizes="512x512" href="https://app.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
+<meta name="twitter:image" content="https://staging.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
+<link rel="apple-touch-icon" href="https://staging.wordplayleague.com/app-icons/staging_env/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="https://staging.wordplayleague.com/app-icons/staging_env/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="https://staging.wordplayleague.com/app-icons/staging_env/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="https://staging.wordplayleague.com/app-icons/staging_env/icon-512.png"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -116,6 +116,17 @@
         background: linear-gradient(135deg, #ffffff 0%, #e8e8e8 50%, #d8d8d8 100%);
         box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -2px 3px rgba(0,0,0,0.1);
         border-color: #c8c8c8;
+    }
+    /* High-contrast mode squares (orange = correct, blue = present) */
+    .wl-hc-orange {
+        background: linear-gradient(135deg, #f8925f 0%, #f5793a 50%, #d9652b 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(245,121,58,0.3);
+        border-color: #d9652b;
+    }
+    .wl-hc-blue {
+        background: linear-gradient(135deg, #a3d0fb 0%, #85c0f9 50%, #6aa6e0 100%);
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -2px 3px rgba(0,0,0,0.1), 0 0 3px rgba(133,192,249,0.3);
+        border-color: #6aa6e0;
     }
     
     .emoji-container {
@@ -186,7 +197,7 @@
 <div class="wpl-orb wpl-orb-2"></div>
 <div class="wpl-orb wpl-orb-3"></div>
 <div class="wpl-top-bar">
-    <a class="wpl-dashboard-btn" href="https://app.wordplayleague.com/dashboard">Dashboard →</a>
+    <a class="wpl-dashboard-btn" href="https://staging.wordplayleague.com/dashboard">Dashboard →</a>
 </div>
 <header>
 <div class="container" style="text-align: center;">
@@ -208,7 +219,7 @@
 </div>
 </div>
 <div class="tab-content active" id="latest">
-<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1950 - October 21, 2026</h2>
+<h2 style="margin-top: 5px; margin-bottom: 10px; font-size: 16px; color: #00E8DA; text-align: center;">Wordle #1952 - October 23, 2026</h2>
 <div class="score-card">
     <div class="player-info">
         <div class="player-name">AJ</div>
@@ -421,7 +432,7 @@
 </tbody>
 </table>
 </div>
-<p style="margin: 6px 0 0; font-size: 0.8em; color: #00E8DA; font-style: italic;">&#x2B07; Relegated Players: 2</p>
+<p style="margin: 6px 0 0; font-size: 0.8em; color: #00E8DA; font-style: italic;">&#x2B07; Relegated Players: 3</p>
 </div>
 <div style="margin-bottom: 30px;">
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -546,7 +557,7 @@
 </table>
 </div>
 <p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B06; Promoted Players: 2</p>
-<p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B07; Relegated Players: 2</p>
+<p style="margin: 6px 0 0; font-size: 0.8em; color: #FFA64D; font-style: italic;">&#x2B07; Relegated Players: 1</p>
 </div>
 <div style="margin-bottom: 30px;">
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -905,9 +916,9 @@ function toggleScoreView(divNum) {
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">This league runs in Division Mode with <strong style="color:#d7dadc;">3 divisions</strong>. The league manager assigns players to divisions and can rearrange them until the first weekly winner is recorded on Monday. After that, divisions are locked for the season.</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">Promotion &amp; Relegation</h4>
-<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top <strong style="color:#FFA64D;">2</strong> players in a division move up to the division above, and the bottom <strong style="color:#00E8DA;">2</strong> players drop to the one below. Moves are always one division at a time&mdash;nobody skips a tier. With three divisions, Division II is the only place you can go either way in the same season.</p>
+<p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">At the end of each season, the top players in a division move up to the division above, and the bottom players drop to the one below. How many depends on the division. Moves are always one division at a time&mdash;nobody skips a tier. With three divisions, Division II is the only place you can go either way in the same season.</p>
 <p style="margin:0 0 10px 0; color:#d7dadc; line-height:1.6;">Two spots are decided automatically: a <strong style="color:#d7dadc;">division champion is always promoted</strong> (except in Division I, which has nowhere higher to go), and a <strong style="color:#d7dadc;">champion is always safe</strong> from relegation&mdash;no matter what. Every other spot is decided by the rankings below.</p>
-<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.5;">Your league is currently set to promote <strong style="color:#FFA64D;">2</strong> and relegate <strong style="color:#00E8DA;">2</strong> each season. This is configurable by the league manager (1&ndash;3).</p>
+<p style="margin:0 0 10px 0; color:#818384; font-size:0.85em; line-height:1.5;">Your league is currently set to: Division I: relegate <strong style="color:#00E8DA;">3</strong> &middot; Division II: promote <strong style="color:#FFA64D;">2</strong> and relegate <strong style="color:#00E8DA;">1</strong> &middot; Division III: promote <strong style="color:#FFA64D;">2</strong>. Each division&rsquo;s season ends on its own schedule, so these moves happen at different times. Configurable by the league manager (1&ndash;3 each). A season&rsquo;s moves never leave a division with fewer than 3 players.</p>
 
 <h4 style="color:#FFA64D; margin:14px 0 8px 0; font-size:0.95em;">How Players Are Ranked</h4>
 <p style="margin:0 0 8px 0; color:#d7dadc; line-height:1.6;">To decide who moves up or down, players are compared in this exact order:</p>
@@ -1019,10 +1030,10 @@ function toggleScoreView(divNum) {
 <p>Alchemer Wordle Starz · <a href="https://wordplayleague.com">WordPlayLeague</a></p>
 <div class="wpl-cta">
 <p class="wpl-cta-line">Want this for your own group?</p>
-<a class="wpl-cta-btn" href="https://app.wordplayleague.com/auth/register">Start your own league &rarr;</a>
+<a class="wpl-cta-btn" href="https://staging.wordplayleague.com/auth/register">Start your own league &rarr;</a>
 <p class="wpl-cta-sub">Works in your group text, Slack or Discord. Free trial on Slack &amp; Discord.</p>
 </div>
-<p class="wpl-review">Already playing? <a href="https://app.wordplayleague.com/review/alchemer-wordle-starz">Leave a quick review &rarr;</a></p>
+<p class="wpl-review">Already playing? <a href="https://staging.wordplayleague.com/review/alchemer-wordle-starz">Leave a quick review &rarr;</a></p>
 <p class="wpl-legal">WordPlayLeague is not affiliated with or endorsed by Slack, Discord, The New York Times, or any puzzle publisher. Wordle is a trademark of The New York Times Company.<br><a href="https://wordplayleague.com/terms-of-service">Terms</a> · <a href="https://wordplayleague.com/privacy-policy">Privacy</a> · <a href="https://wordplayleague.com/sms-terms">SMS Terms</a></p>
 </div>
 </footer>
